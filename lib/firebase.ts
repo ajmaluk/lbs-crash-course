@@ -6,13 +6,14 @@ import { getFirestore } from "firebase/firestore"
 
 // Direct Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBZPv9euAUORcnJK7kcc_AgTUXVoohBMwI",
-  authDomain: "crashcourse-b8195.firebaseapp.com",
-  projectId: "crashcourse-b8195",
-  storageBucket: "crashcourse-b8195.firebasestorage.app",
-  messagingSenderId: "372218401942",
-  appId: "1:372218401942:web:107c01cd4e995a24015eb7",
-}
+  apiKey: "AIzaSyB7muwexdbWxPC07Uwm8K2BEoQbLLonNfY",
+  authDomain: "lbs-crash-course.firebaseapp.com",
+  projectId: "lbs-crash-course",
+  storageBucket: "lbs-crash-course.firebasestorage.app",
+  messagingSenderId: "511680413464",
+  appId: "1:511680413464:web:af65abd4d14f9205f6686d",
+  measurementId: "G-R64ZVRRC97"
+};
 // const firebaseConfig = {
 //   apiKey: "AIzaSyB2_s1UeRcbLtVbZ2GJnb7xKiAFDjq_2z4",
 //   authDomain: "quizappcetmca26.firebaseapp.com",
