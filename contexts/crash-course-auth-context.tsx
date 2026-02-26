@@ -110,6 +110,50 @@ export function CrashCourseAuthProvider({ children }: { children: React.ReactNod
   const signInWithEmail = async (email: string, password: string) => {
     try {
       setError(null)
+
+      // Test Admin Credential handling
+      if (email === "admin" && password === "123") {
+        const mockUser = {
+          uid: "test-admin-uid",
+          email: "admin@test.com",
+          displayName: "Test Admin",
+          photoURL: null,
+          emailVerified: true,
+          phoneNumber: null,
+          isAnonymous: false,
+          metadata: {},
+          providerData: [],
+          refreshToken: "",
+          tenantId: null,
+          delete: async () => {},
+          getIdToken: async () => "",
+          getIdTokenResult: async () => ({} as any),
+          reload: async () => {},
+          toJSON: () => ({}),
+        } as unknown as User
+
+        const mockProfile: UserProfile = {
+          uid: "test-admin-uid",
+          email: "admin@test.com",
+          displayName: "Test Admin",
+          photoURL: null,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          courseProgress: {
+            cs: { completed: false, lastWatched: "", progress: 0, completedVideos: [] },
+            math: { completed: false, lastWatched: "", progress: 0, completedVideos: [] },
+            qa: { completed: false, lastWatched: "", progress: 0, completedVideos: [] },
+            english: { completed: false, lastWatched: "", progress: 0, completedVideos: [] },
+            gk: { completed: false, lastWatched: "", progress: 0, completedVideos: [] },
+          },
+        }
+
+        setUser(mockUser)
+        setUserProfile(mockProfile)
+        router.push("/crash-course/dashboard")
+        return
+      }
+
       await signInWithEmailAndPassword(auth, email, password)
       router.push("/crash-course/dashboard")
     } catch (err: any) {
