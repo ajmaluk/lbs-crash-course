@@ -45,6 +45,14 @@
             ".read": "auth != null",
             ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
         },
+        "syllabus": {
+            ".read": "auth != null",
+            ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+            "$itemId": {
+                ".read": "auth != null",
+                ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+            }
+        },
         "quizzes": {
             ".read": "auth != null",
             ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"

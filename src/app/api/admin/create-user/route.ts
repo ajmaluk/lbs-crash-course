@@ -51,9 +51,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ uid: data.localId });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const err = error as Error;
         return NextResponse.json(
-            { message: `Failed to create user: ${error.message}` },
+            { message: `Failed to create user: ${err.message}` },
             { status: 500 }
         );
     }

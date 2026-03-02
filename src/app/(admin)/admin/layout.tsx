@@ -34,6 +34,7 @@ const navItems = [
     { href: "/admin/recorded-classes", label: "Recorded Classes", icon: MonitorPlay },
     { href: "/admin/quizzes", label: "Quizzes", icon: BookOpen },
     { href: "/admin/mock-tests", label: "Mock Tests", icon: FileText },
+    { href: "/admin/syllabus", label: "Syllabus", icon: FileText },
     { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];

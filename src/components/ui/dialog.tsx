@@ -8,9 +8,10 @@ interface DialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     children: React.ReactNode;
+    className?: string;
 }
 
-function Dialog({ open, onOpenChange, children }: DialogProps) {
+function Dialog({ open, onOpenChange, children, className }: DialogProps) {
     // Lock body scroll when dialog is open
     React.useEffect(() => {
         if (open) {
@@ -45,10 +46,10 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
             />
             {/* Content */}
             <div className="fixed inset-0 flex items-center justify-center p-4">
-                <div className="animate-scale-in relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl">
+                <div className={cn("animate-scale-in relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl", className)}>
                     <button
                         onClick={() => onOpenChange(false)}
-                        className="absolute right-4 top-4 rounded-full p-1.5 hover:bg-[var(--muted)] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        className="absolute right-4 top-4 z-10 rounded-full p-1.5 hover:bg-[var(--muted)] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--ring)] bg-[var(--card)]/50 backdrop-blur-sm"
                         aria-label="Close dialog"
                     >
                         <X className="h-4 w-4 text-[var(--muted-foreground)]" />

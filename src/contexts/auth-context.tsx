@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
+    const suppressSessionCheckRef = useRef(false);
 
     // Generate unique session ID fallback
     const generateSessionId = () => {
@@ -52,12 +53,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get OneSignal ID
     const getOneSignalId = async () => {
         try {
-            const w = window as any;
+            interface OneSignalLike {
+                User?: { PushSubscription?: { id?: Promise<string> } };
+            }
+            const w = window as unknown as { OneSignal?: OneSignalLike };
             if (typeof window !== 'undefined' && w.OneSignal) {
                 const OneSignal = w.OneSignal;
                 // Defer until OneSignal is loaded if needed, though OneSignal.User should be available if initialized
-                if (OneSignal.User && OneSignal.User.PushSubscription) {
-                    const id = await OneSignal.User.PushSubscription.id;
+                if (OneSignal?.User?.PushSubscription?.id) {
+                    const id = await OneSignal.User.PushSubscription.id!;
                     return id;
                 }
             }
@@ -95,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const userRef = ref(db, `users/${user.uid}`);
         const unsubscribe = onValue(userRef, (snapshot) => {
+            if (suppressSessionCheckRef.current) return;
             const data = snapshot.val();
             if (!data) return;
 
@@ -123,25 +128,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user]);
 
     const login = useCallback(async (email: string, password: string) => {
+        suppressSessionCheckRef.current = true;
+        try {
+            const result = await signInWithEmailAndPassword(auth, email, password);
 
-        const result = await signInWithEmailAndPassword(auth, email, password);
+            // Try getting OneSignal Player ID, fallback to generated ID
+            const oneSignalId = await getOneSignalId();
+            const sessionId = oneSignalId || generateSessionId();
+            sessionStorage.setItem("sessionId", sessionId);
 
-        // Try getting OneSignal Player ID, fallback to generated ID
-        const oneSignalId = await getOneSignalId();
-        const sessionId = oneSignalId || generateSessionId();
-        sessionStorage.setItem("sessionId", sessionId);
+            // Update session in DB
+            await update(ref(db, `users/${result.user.uid}`), {
+                activeSessionId: sessionId,
+            });
 
-        // Update session in DB
-        await update(ref(db, `users/${result.user.uid}`), {
-            activeSessionId: sessionId,
-        });
-
-        // Fetch user data
-        const userRef = ref(db, `users/${result.user.uid}`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-            const data = snapshot.val() as UserData;
-            setUserData({ ...data, uid: result.user.uid });
+            // Fetch user data
+            const userRef = ref(db, `users/${result.user.uid}`);
+            const snapshot = await get(userRef);
+            if (snapshot.exists()) {
+                const data = snapshot.val() as UserData;
+                setUserData({ ...data, uid: result.user.uid });
+            }
+        } finally {
+            // Re-enable checks after DB is updated and initial sync completes
+            suppressSessionCheckRef.current = false;
         }
     }, []);
 

@@ -47,7 +47,7 @@ function LoginForm() {
 
         setLoading(true);
         try {
-            let loginIdentifier = email.trim();
+            const loginIdentifier = email.trim();
             let actualEmail = loginIdentifier;
 
             // If the input doesn't look like an email, assume it's a Login ID (e.g., LBS-XXXX)

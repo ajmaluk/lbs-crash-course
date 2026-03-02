@@ -32,14 +32,15 @@ import { uploadImageToCloudinary } from "@/lib/cloudinary";
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
 const packageOptions = [
-    { value: "recorded_only", label: "Recorded Only" },
-    { value: "live_only", label: "Live Only" },
-    { value: "both", label: "Live + Recorded (Both)" },
+    { value: "recorded_only", label: "Recorded Only - ₹299" },
+    { value: "live_only", label: "Live Only - ₹299" },
+    { value: "both", label: "Live + Recorded (Both) - ₹499" },
 ];
 
 function RegisterForm() {
     const searchParams = useSearchParams();
     const initialPackage = searchParams.get("package") || "";
+    const PACKAGE_PRICES: Record<string, number> = { recorded_only: 299, live_only: 299, both: 499 };
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -216,6 +217,13 @@ function RegisterForm() {
                                         <li>Upload the screenshot in the form</li>
                                         <li>Submit the registration form</li>
                                     </ol>
+                                    <div className="mt-3 rounded-xl border border-[var(--border)] p-3 bg-white/50 dark:bg-white/5">
+                                        <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-[var(--muted-foreground)]">Selected Package</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium">{packageOptions.find(o => o.value === formData.selectedPackage)?.label || "—"}</span>
+                                            <span className="text-base font-bold">{formData.selectedPackage ? `₹${PACKAGE_PRICES[formData.selectedPackage]}` : ""}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -307,6 +315,11 @@ function RegisterForm() {
                                                 placeholder="Choose a package"
                                                 required
                                             />
+                                            {formData.selectedPackage ? (
+                                                <p className="text-sm text-[var(--muted-foreground)]">
+                                                    Price: <span className="font-semibold text-[var(--foreground)]">₹{PACKAGE_PRICES[formData.selectedPackage]}</span>
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
 

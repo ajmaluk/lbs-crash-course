@@ -49,7 +49,15 @@ export default function AdminRecordedClassesPage() {
         if (!form.title || !form.subject || !form.youtubeUrl) { toast.error("Title, subject, and YouTube URL required"); return; }
         setSaving(true);
         try {
-            const data = { ...form, createdBy: userData?.uid || "", ...(editing ? {} : { createdAt: Date.now() }) };
+            const extractYouTubeId = (url: string) => {
+                if (!url) return "";
+                const v = url.split("v=")[1]?.split("&")[0];
+                if (v) return v;
+                const parts = url.split("/");
+                return parts[parts.length - 1] || url;
+            };
+            const idOnly = extractYouTubeId(form.youtubeUrl.trim());
+            const data = { ...form, youtubeUrl: idOnly, createdBy: userData?.uid || "", ...(editing ? {} : { createdAt: Date.now() }) };
             if (editing) { await update(ref(db, `recordedClasses/${editing.id}`), data); toast.success("Updated"); }
             else { await set(push(ref(db, "recordedClasses")), data); toast.success("Created"); }
             setShowForm(false);
@@ -72,7 +80,7 @@ export default function AdminRecordedClassesPage() {
             </div>
 
             {classes.length === 0 ? (
-                <Card className="border-dashed"><CardContent className="py-12 text-center text-[var(--muted-foreground)]"><MonitorPlay className="h-12 w-12 mx-auto mb-4 opacity-20" /><p className="text-lg font-medium">No recorded classes yet</p><p className="text-sm">Click "Add Class" to upload your first lecture.</p></CardContent></Card>
+                <Card className="border-dashed"><CardContent className="py-12 text-center text-[var(--muted-foreground)]"><MonitorPlay className="h-12 w-12 mx-auto mb-4 opacity-20" /><p className="text-lg font-medium">No recorded classes yet</p><p className="text-sm">Click &quot;Add Class&quot; to upload your first lecture.</p></CardContent></Card>
             ) : (
                 <div className="grid gap-3">
                     {classes.map((cls) => (

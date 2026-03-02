@@ -12,13 +12,14 @@ const DropdownMenu = ({ children, open, onOpenChange }: { children: React.ReactN
         <div className="relative inline-block text-left">
             {React.Children.map(children, child => {
                 if (React.isValidElement(child) && child.type === DropdownMenuTrigger) {
-                    return React.cloneElement(child as React.ReactElement<any>, { onClick: () => setOpen(!isOpen) });
+                    const el = child as React.ReactElement<{ onClick?: () => void }>;
+                    return React.cloneElement(el, { onClick: () => setOpen(!isOpen) });
                 }
                 if (isOpen && React.isValidElement(child) && child.type === DropdownMenuContent) {
                     return (
                         <>
                             <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-                            {React.cloneElement(child as React.ReactElement<any>, { onClose: () => setOpen(false) })}
+                            {React.cloneElement(child as React.ReactElement<{ onClose?: () => void }>, { onClose: () => setOpen(false) })}
                         </>
                     );
                 }
@@ -30,7 +31,7 @@ const DropdownMenu = ({ children, open, onOpenChange }: { children: React.ReactN
 
 const DropdownMenuTrigger = ({ children, onClick, asChild }: { children: React.ReactNode, onClick?: () => void, asChild?: boolean }) => {
     if (asChild && React.isValidElement(children)) {
-        return React.cloneElement(children as React.ReactElement<any>, { onClick });
+        return React.cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick });
     }
     return <button onClick={onClick}>{children}</button>;
 };

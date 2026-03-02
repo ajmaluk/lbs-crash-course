@@ -22,6 +22,14 @@ const statusOptions = [
     { value: "completed", label: "Completed" },
 ];
 
+const SUBJECTS = [
+    "Computer Science",
+    "Mathematics & Statistics",
+    "Quantitative Aptitude & Logical Ability",
+    "English",
+    "General Knowledge"
+];
+
 export default function AdminLiveClassesPage() {
     const { userData } = useAuth();
     const [classes, setClasses] = useState<LiveClass[]>([]);
@@ -74,13 +82,21 @@ export default function AdminLiveClassesPage() {
         }
         setSaving(true);
         try {
+            const extractYouTubeId = (url: string) => {
+                if (!url) return "";
+                const v = url.split("v=")[1]?.split("&")[0];
+                if (v) return v;
+                const parts = url.split("/");
+                return parts[parts.length - 1] || url;
+            };
+            const recordingId = form.recordingUrl ? extractYouTubeId(form.recordingUrl.trim()) : "";
             const data = {
                 title: form.title,
                 subject: form.subject,
                 scheduledAt: new Date(form.scheduledAt).getTime(),
                 meetLink: form.meetLink,
                 status: form.status,
-                recordingUrl: form.recordingUrl,
+                recordingUrl: recordingId,
                 createdBy: userData?.uid || "",
                 ...(editing ? {} : { createdAt: Date.now() }),
             };
@@ -168,12 +184,20 @@ export default function AdminLiveClassesPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                     <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Class title" /></div>
-                    <div className="space-y-2"><Label>Subject *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="e.g. Mathematics" /></div>
+                    <div className="space-y-2">
+                        <Label>Subject *</Label>
+                        <Select
+                            value={form.subject}
+                            onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                            options={SUBJECTS.map(s => ({ value: s, label: s }))}
+                            placeholder="Select subject category"
+                        />
+                    </div>
                     <div className="space-y-2"><Label>Date & Time *</Label><Input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Google Meet Link</Label><Input value={form.meetLink} onChange={(e) => setForm({ ...form, meetLink: e.target.value })} placeholder="https://meet.google.com/..." /></div>
                     <div className="space-y-2"><Label>Status</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as LiveClassStatus })} options={statusOptions} /></div>
                     {form.status === "completed" && (
-                        <div className="space-y-2"><Label>Recording URL</Label><Input value={form.recordingUrl} onChange={(e) => setForm({ ...form, recordingUrl: e.target.value })} placeholder="YouTube recording URL" /></div>
+                        <div className="space-y-2"><Label>Recording URL</Label><Input value={form.recordingUrl} onChange={(e) => setForm({ ...form, recordingUrl: e.target.value })} placeholder="YouTube recording URL (will store only ID)" /></div>
                     )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>

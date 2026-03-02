@@ -27,8 +27,9 @@ async function run() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             uid = userCredential.user.uid;
             console.log("Created Auth Record.");
-        } catch (e: any) {
-            console.log("User may exist:", e.message);
+        } catch (e: unknown) {
+            const err = e as Error;
+            console.log("User may exist:", err.message);
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             uid = userCredential.user.uid;
             console.log("Logged In.");
@@ -53,8 +54,9 @@ async function run() {
 
         console.log("SUCCESSFULLY ASSIGNED RULE ADMIN");
         process.exit(0);
-    } catch (e: any) {
-        console.error("ERROR", e.message);
+    } catch (e: unknown) {
+        const err = e as Error;
+        console.error("ERROR", err.message);
         process.exit(1);
     }
 }

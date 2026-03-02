@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Script from "next/script";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
@@ -94,12 +97,52 @@ const packages = [
 ];
 
 export default function LandingPage() {
-  const { user, userData } = useAuth();
+  const { user, userData, loading } = useAuth();
+  const router = useRouter();
   const isAdmin = userData?.role === "admin";
   const dashboardLink = isAdmin ? "/admin" : "/dashboard";
 
+  useEffect(() => {
+    if (loading) return;
+    if (user && userData) {
+      if (userData.firstLogin) {
+        router.replace("/change-password");
+      } else if (userData.role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, userData, loading, router]);
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <Script id="faq-schema" type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What does the course include?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Live classes, recorded lectures, quizzes, mock tests, previous year papers and rank tracking."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it mobile friendly?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The entire platform is optimized for mobile with secure video playback."
+                }
+              }
+            ]
+          })
+        }}
+      />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-[#254852]/80 backdrop-blur-xl border-b border-white/10 text-white transition-all duration-300">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -363,6 +406,53 @@ export default function LandingPage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Exam Information */}
+      <section className="py-24 bg-[#0A1316] border-t border-white/5">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-white">About the LBS MCA Entrance</h2>
+            <p className="text-[#A5C1C4]/80 mt-3 max-w-3xl mx-auto">
+              The LBS Centre for Science & Technology conducts Kerala MCA admissions. Our program covers the entire syllabus with subject-wise classes, quizzes and full-length mock tests aligned to the latest pattern.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Exam Pattern</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+                <li>• Objective MCQs</li>
+                <li>• Subjects: CS, Mathematics & Statistics, Quantitative & Logical, English, GK</li>
+                <li>• Time-bound with negative marking (as notified)</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Eligibility</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+              <li>• Bachelor&apos;s degree with required mathematics background</li>
+                <li>• Further criteria as per official LBS guidelines</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Why MCA?</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+                <li>• Strong demand for software professionals</li>
+                <li>• Solid CS fundamentals and application development skills</li>
+                <li>• Opportunities in product, services, data and research</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            <h3 className="text-xl font-semibold text-white mb-2">Frequently Asked Questions</h3>
+            <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+              <li><b>How to register?</b> Create an account, complete payment verification and wait for admin approval.</li>
+              <li><b>What is included?</b> Live classes, recorded lectures, quizzes, mock tests, previous papers and rank tracking.</li>
+              <li><b>Mobile friendly?</b> Yes, the entire platform is optimized for mobile with secure video playback.</li>
+            </ul>
           </div>
         </div>
       </section>
