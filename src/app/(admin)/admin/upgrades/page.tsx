@@ -112,6 +112,7 @@ export default function AdminUpgradesPage() {
                                                     rel="noopener noreferrer"
                                                     className="block relative aspect-video bg-black/5 hover:opacity-90 transition-opacity"
                                                 >
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={req.screenshotUrl}
                                                         alt="Payment Screenshot"

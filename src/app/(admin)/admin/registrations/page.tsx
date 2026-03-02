@@ -11,9 +11,29 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { ref, onValue, update, set } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { PendingRegistration } from "@/lib/types";
-import { UserPlus, Eye, UserCheck, UserX, Loader2, ExternalLink, Clock } from "lucide-react";
+import { UserPlus, Eye, UserCheck, UserX, Loader2, ExternalLink, Clock, FileWarning } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+
+const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
+
+async function syncStatusToGoogleSheet(email: string, status: "Verified" | "Rejected") {
+    if (!APPS_SCRIPT_URL) return;
+    try {
+        const formData = new FormData();
+        formData.append("action", "updateStatus");
+        formData.append("email", email);
+        formData.append("status", status);
+
+        // Fire and forget, no await needed to prevent blocking the UI
+        fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            body: formData,
+        }).catch(err => console.error("Sheet sync error:", err));
+    } catch (e) {
+        console.error(e);
+    }
+}
 
 export default function AdminRegistrations() {
     const [registrations, setRegistrations] = useState<PendingRegistration[]>([]);
@@ -23,13 +43,16 @@ export default function AdminRegistrations() {
     const [rejectionReason, setRejectionReason] = useState("");
     const [processing, setProcessing] = useState(false);
 
+    // Tab State
+    const [activeTab, setActiveTab] = useState<"pending" | "rejected">("pending");
+
     useEffect(() => {
         const regRef = ref(db, "pendingRegistrations");
         const unsub = onValue(regRef, (snapshot) => {
             const list: PendingRegistration[] = [];
             snapshot.forEach((child) => {
                 const data = child.val();
-                if (data.status === "pending") {
+                if (data.status === "pending" || data.status === "rejected") {
                     list.push({ ...data, id: child.key! });
                 }
             });
@@ -39,12 +62,24 @@ export default function AdminRegistrations() {
         return () => unsub();
     }, []);
 
+    const sendApprovalEmail = (email: string, name: string, loginId: string, tempPass: string) => {
+        const subject = encodeURIComponent("Welcome to LBS MCA Crash Course! Your Account is Ready");
+        const body = encodeURIComponent(`Hi ${name},\n\nYour registration for the LBS MCA Crash Course has been fully approved!\n\nYou can now log in to the portal using your credentials:\nLogin ID: ${loginId}\nPassword: ${tempPass}\n\nWe recommend logging in as soon as possible to start your preparations.\n\nBest regards,\nLBS MCA Team`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    };
+
+    const sendRejectionEmail = (email: string, name: string, reason: string) => {
+        const subject = encodeURIComponent("Update on your LBS MCA Crash Course Registration");
+        const body = encodeURIComponent(`Hi ${name},\n\nThank you for registering for the LBS MCA Crash Course. Unfortunately, we had to reject your recent application for the following reason:\n\n${reason}\n\nIf you believe this is a mistake or would like to appeal this decision, please reply directly to this email.\n\nBest regards,\nLBS MCA Team`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    };
+
     const handleAddUser = async () => {
         if (!selectedReg) return;
         setProcessing(true);
         try {
-            // Generate login ID
-            const loginId = selectedReg.email;
+            // Generate login ID: LBS- followed by 4 random digits
+            const loginId = `LBS-${Math.floor(1000 + Math.random() * 9000)}`;
             const tempPassword = selectedReg.phone;
 
             // Create Firebase Auth user via API route
@@ -86,12 +121,22 @@ export default function AdminRegistrations() {
                 createdAt: Date.now(),
             });
 
+            // Map loginId to email for public lookups
+            await set(ref(db, `loginIdEmails/${loginId}`), selectedReg.email);
+
             // Update pending registration status
             await update(ref(db, `pendingRegistrations/${selectedReg.id}`), {
                 status: "approved",
             });
 
-            toast.success(`User ${selectedReg.name} added successfully! Login: ${loginId}, Password: ${tempPassword}`);
+            // Sync status to Google Sheet Webhook
+            syncStatusToGoogleSheet(selectedReg.email, "Verified");
+
+            toast.success(`User added successfully! Opening email client...`);
+
+            // Open user's default email client with pre-filled approval email
+            sendApprovalEmail(selectedReg.email, selectedReg.name, loginId, tempPassword);
+
             setShowDetail(false);
             setSelectedReg(null);
         } catch (error: unknown) {
@@ -108,11 +153,20 @@ export default function AdminRegistrations() {
         }
         setProcessing(true);
         try {
+            const reason = rejectionReason.trim();
             await update(ref(db, `pendingRegistrations/${selectedReg.id}`), {
                 status: "rejected",
-                rejectionReason: rejectionReason.trim(),
+                rejectionReason: reason,
             });
-            toast.success(`Registration for ${selectedReg.name} rejected`);
+
+            // Sync status to Google Sheet Webhook
+            syncStatusToGoogleSheet(selectedReg.email, "Rejected");
+
+            toast.success(`Registration rejected. Opening email client...`);
+
+            // Open user's default email client with pre-filled rejection email
+            sendRejectionEmail(selectedReg.email, selectedReg.name, reason);
+
             setShowReject(false);
             setShowDetail(false);
             setSelectedReg(null);
@@ -133,24 +187,54 @@ export default function AdminRegistrations() {
         }
     };
 
+    const filteredRegistrations = registrations.filter(r => r.status === activeTab);
+
     return (
         <div className="space-y-6 animate-fade-in">
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <UserPlus className="h-6 w-6 text-amber-500" />
-                    Pending Registrations
-                </h1>
-                <p className="text-[var(--muted-foreground)] mt-1">
-                    Review and approve new student registrations ({registrations.length} pending)
-                </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <UserPlus className="h-6 w-6 text-amber-500" />
+                        Registrations
+                    </h1>
+                    <p className="text-[var(--muted-foreground)] mt-1">
+                        Review and manage student registrations
+                    </p>
+                </div>
+
+                {/* Custom Tab Switcher */}
+                <div className="flex p-1 bg-[var(--muted)]/50 border border-[var(--border)] rounded-lg">
+                    <button
+                        onClick={() => setActiveTab("pending")}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "pending"
+                            ? "bg-white text-[var(--foreground)] shadow-sm dark:bg-[var(--background)]"
+                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            }`}
+                    >
+                        Pending ({registrations.filter(r => r.status === "pending").length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("rejected")}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "rejected"
+                            ? "bg-white text-[var(--foreground)] shadow-sm dark:bg-[var(--background)]"
+                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            }`}
+                    >
+                        Rejected ({registrations.filter(r => r.status === "rejected").length})
+                    </button>
+                </div>
             </div>
 
-            {registrations.length === 0 ? (
+            {filteredRegistrations.length === 0 ? (
                 <Card>
                     <CardContent className="py-12 text-center text-[var(--muted-foreground)]">
-                        <UserPlus className="h-10 w-10 mx-auto mb-2" />
-                        <p className="font-medium">No pending registrations</p>
-                        <p className="text-sm">New registrations will appear here</p>
+                        {activeTab === "pending" ? (
+                            <UserPlus className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        ) : (
+                            <FileWarning className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        )}
+                        <p className="font-medium">No {activeTab} registrations</p>
+                        <p className="text-sm">They will appear here when available</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -168,13 +252,15 @@ export default function AdminRegistrations() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--border)]">
-                                {registrations.map((reg) => (
+                                {filteredRegistrations.map((reg) => (
                                     <tr key={reg.id} className="hover:bg-[var(--muted)]/30 transition-colors">
                                         <td className="px-4 py-3 font-medium">{reg.name}</td>
                                         <td className="px-4 py-3 hidden sm:table-cell text-[var(--muted-foreground)]">{reg.email}</td>
                                         <td className="px-4 py-3 hidden md:table-cell text-[var(--muted-foreground)]">{reg.phone}</td>
                                         <td className="px-4 py-3">
-                                            <Badge variant="outline" className="text-xs">{packageLabel(reg.selectedPackage)}</Badge>
+                                            <Badge variant={activeTab === "rejected" ? "secondary" : "outline"} className="text-xs">
+                                                {packageLabel(reg.selectedPackage)}
+                                            </Badge>
                                         </td>
                                         <td className="px-4 py-3 hidden lg:table-cell text-[var(--muted-foreground)] text-xs">
                                             {format(new Date(reg.submittedAt), "MMM d, yyyy")}
@@ -204,7 +290,13 @@ export default function AdminRegistrations() {
             <Dialog open={showDetail} onOpenChange={setShowDetail}>
                 <DialogHeader>
                     <DialogTitle>Registration Details</DialogTitle>
-                    <DialogDescription>Review the applicant&apos;s information</DialogDescription>
+                    <DialogDescription>
+                        {selectedReg?.status === "rejected" ? (
+                            <span className="text-red-500 font-medium flex items-center gap-1 mt-1">
+                                <FileWarning className="w-4 h-4" /> This application was previously rejected
+                            </span>
+                        ) : "Review the applicant's information"}
+                    </DialogDescription>
                 </DialogHeader>
 
                 {selectedReg && (
@@ -245,6 +337,14 @@ export default function AdminRegistrations() {
                                 <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Transaction ID</p>
                                 <p className="font-mono text-sm">{selectedReg.transactionId || "Not provided"}</p>
                             </div>
+
+                            {/* Rejection Reason Display */}
+                            {selectedReg.status === "rejected" && selectedReg.rejectionReason && (
+                                <div className="col-span-2 bg-red-50 dark:bg-red-950/20 p-3 rounded-lg border border-red-200 dark:border-red-900/50">
+                                    <p className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold mb-1">Reason for Rejection</p>
+                                    <p className="text-sm text-red-800 dark:text-red-300">{selectedReg.rejectionReason}</p>
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-4">
                             {selectedReg.screenshotUrl && (
@@ -255,7 +355,7 @@ export default function AdminRegistrations() {
                                         rel="noopener noreferrer"
                                         className="block relative aspect-video bg-black/5 hover:opacity-90 transition-opacity"
                                     >
-                                        {/* Using standard img for external blob/cloudinary links if domains aren't configured in next.config */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={selectedReg.screenshotUrl}
                                             alt="Payment Screenshot"
@@ -271,16 +371,16 @@ export default function AdminRegistrations() {
                             )}
 
                             <DialogFooter>
-                                <Button
-                                    variant="destructive"
-                                    onClick={() => {
-                                        setShowReject(true);
-                                    }}
-                                    disabled={processing}
-                                >
-                                    <UserX className="h-4 w-4 mr-1" />
-                                    Reject
-                                </Button>
+                                {selectedReg.status === "pending" && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => setShowReject(true)}
+                                        disabled={processing}
+                                    >
+                                        <UserX className="h-4 w-4 mr-1" />
+                                        Reject
+                                    </Button>
+                                )}
                                 <Button
                                     onClick={handleAddUser}
                                     disabled={processing}
@@ -289,7 +389,9 @@ export default function AdminRegistrations() {
                                     {processing ? (
                                         <><Loader2 className="h-4 w-4 animate-spin mr-1" />Processing...</>
                                     ) : (
-                                        <><UserCheck className="h-4 w-4 mr-1" />Add User</>
+                                        <><UserCheck className="h-4 w-4 mr-1" />
+                                            {selectedReg.status === "rejected" ? "Overrule & Approve User" : "Approve User"}
+                                        </>
                                     )}
                                 </Button>
                             </DialogFooter>

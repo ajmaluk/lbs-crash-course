@@ -1,5 +1,9 @@
 {
     "rules": {
+        "loginIdEmails": {
+            ".read": true,
+            ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
         "users": {
             ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
             "$userId": {

@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update } from "firebase/database";
+import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { LiveClass, LiveClassStatus } from "@/lib/types";
-import { Video, Plus, Edit, Calendar, Clock, ExternalLink } from "lucide-react";
+import { Video, Plus, Edit, Calendar, Clock, ExternalLink, Trash2, Trash } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -100,6 +100,16 @@ export default function AdminLiveClassesPage() {
         }
     };
 
+    const handleDelete = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this live class? This cannot be undone.")) return;
+        try {
+            await remove(ref(db, `liveClasses/${id}`));
+            toast.success("Live class deleted successfully");
+        } catch {
+            toast.error("Failed to delete live class");
+        }
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
@@ -109,38 +119,43 @@ export default function AdminLiveClassesPage() {
                     </h1>
                     <p className="text-[var(--muted-foreground)] mt-1">{classes.length} total classes</p>
                 </div>
-                <Button onClick={openCreate} className="gradient-primary border-0">
+                <Button onClick={openCreate} className="gradient-primary border-0 shadow-lg shadow-blue-500/20">
                     <Plus className="h-4 w-4 mr-1" /> Create Class
                 </Button>
             </div>
 
             {classes.length === 0 ? (
-                <Card><CardContent className="py-12 text-center text-[var(--muted-foreground)]">
-                    <Video className="h-10 w-10 mx-auto mb-2" />
-                    <p>No live classes created yet</p>
+                <Card className="border-dashed"><CardContent className="py-12 text-center text-[var(--muted-foreground)]">
+                    <Video className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p className="text-lg font-medium">No live classes created yet</p>
                 </CardContent></Card>
             ) : (
-                <div className="space-y-3">
+                <div className="grid gap-3">
                     {classes.map((cls) => (
-                        <Card key={cls.id} className="hover:border-[var(--primary)]/20 transition-all">
+                        <Card key={cls.id} className="hover:border-[var(--primary)]/20 transition-all group">
                             <CardContent className="p-5 flex items-center justify-between gap-3 flex-wrap">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <p className="font-semibold">{cls.title}</p>
-                                        <Badge variant={cls.status === "live" ? "live" : cls.status === "completed" ? "secondary" : "default"}>
+                                        <p className="font-semibold text-lg">{cls.title}</p>
+                                        <Badge variant={cls.status === "live" ? "success" : cls.status === "completed" ? "secondary" : "default"}>
                                             {cls.status}
                                         </Badge>
                                     </div>
-                                    <p className="text-sm text-[var(--muted-foreground)]">{cls.subject}</p>
-                                    <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)] mt-1">
-                                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(cls.scheduledAt), "MMM d, yyyy")}</span>
-                                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(new Date(cls.scheduledAt), "h:mm a")}</span>
-                                        {cls.meetLink && <span className="flex items-center gap-1"><ExternalLink className="h-3 w-3" />Link set</span>}
+                                    <p className="text-sm text-[var(--muted-foreground)] font-medium">{cls.subject}</p>
+                                    <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)] mt-2">
+                                        <span className="flex items-center gap-1.5 bg-[var(--muted)]/50 px-2 py-1 rounded-md"><Calendar className="h-3.5 w-3.5" />{format(new Date(cls.scheduledAt), "MMM d, yyyy")}</span>
+                                        <span className="flex items-center gap-1.5 bg-[var(--muted)]/50 px-2 py-1 rounded-md"><Clock className="h-3.5 w-3.5" />{format(new Date(cls.scheduledAt), "h:mm a")}</span>
+                                        {cls.meetLink && <span className="flex items-center gap-1.5 text-blue-500 font-medium"><ExternalLink className="h-3.5 w-3.5" />Link set</span>}
                                     </div>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => openEdit(cls)}>
-                                    <Edit className="h-4 w-4 mr-1" /> Edit
-                                </Button>
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                    <Button variant="outline" size="icon" onClick={() => openEdit(cls)} className="h-10 w-10 rounded-xl">
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="icon" onClick={() => handleDelete(cls.id)} className="h-10 w-10 rounded-xl text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/20">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                     ))}

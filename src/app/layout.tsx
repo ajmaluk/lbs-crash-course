@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -31,7 +32,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" />
+        <Script id="onesignal-init">
+          {`
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            OneSignalDeferred.push(async function(OneSignal) {
+              await OneSignal.init({
+                appId: "3936b2f0-0dd0-4912-b5a4-9e091640e947",
+                safari_web_id: "web.onesignal.auto.204803f7-478b-4564-9a97-0318e873c676",
+                notifyButton: {
+                  enable: true,
+                },
+              });
+            });
+          `}
+        </Script>
         <AuthProvider>
           {children}
           <Toaster

@@ -127,11 +127,27 @@ export default function AdminDashboardLayout({
             </aside>
 
             <div className="flex flex-1 flex-col overflow-hidden">
-                <header className="flex h-16 items-center gap-4 border-b border-[var(--border)] bg-[var(--card)] px-4 lg:hidden">
-                    <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-[var(--muted)] cursor-pointer">
-                        <Menu className="h-5 w-5" />
-                    </button>
-                    <span className="font-semibold">Admin Panel</span>
+                <header className="flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-[var(--muted)] cursor-pointer lg:hidden">
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        <span className="font-semibold lg:text-lg">Admin Panel</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="hidden sm:flex flex-col items-end mr-2">
+                            <p className="text-xs font-semibold">{userData.name}</p>
+                            <p className="text-[10px] text-[var(--muted-foreground)]">Administrator</p>
+                        </div>
+                        <button
+                            onClick={logout}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--destructive)]/10 text-[var(--destructive)] hover:bg-[var(--destructive)] hover:text-white transition-all duration-200 cursor-pointer group"
+                            title="Logout"
+                        >
+                            <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                        </button>
+                    </div>
                 </header>
 
                 <main className="flex-1 overflow-y-auto">

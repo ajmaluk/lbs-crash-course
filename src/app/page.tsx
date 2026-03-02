@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 import {
   GraduationCap,
   Video,
@@ -93,6 +94,10 @@ const packages = [
 ];
 
 export default function LandingPage() {
+  const { user, userData } = useAuth();
+  const isAdmin = userData?.role === "admin";
+  const dashboardLink = isAdmin ? "/admin" : "/dashboard";
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       {/* Navigation */}
@@ -111,17 +116,28 @@ export default function LandingPage() {
               <Link href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/login" className="hidden sm:block">
-                <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white rounded-full px-6">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Start now
-                </Button>
-              </Link>
+              {user && userData ? (
+                <Link href={dashboardLink}>
+                  <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
+                    {isAdmin ? "Admin Panel" : "Go to Dashboard"}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="hidden sm:block">
+                    <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white rounded-full px-6">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Start now
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -156,7 +172,7 @@ export default function LandingPage() {
           <motion.div
             initial="hidden"
             animate="visible"
-            variants={{ 
+            variants={{
               hidden: { opacity: 0 },
               visible: {
                 opacity: 1,
@@ -355,14 +371,20 @@ export default function LandingPage() {
       <section className="py-20 border-t border-[var(--border)]">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Ready to Start Your <span className="gradient-text">Journey?</span>
+            {user && userData ? (
+              <>Welcome Back to <span className="gradient-text">LBS MCA</span></>
+            ) : (
+              <>Ready to Start Your <span className="gradient-text">Journey?</span></>
+            )}
           </h2>
           <p className="text-lg text-[var(--muted-foreground)] mb-8">
-            Join hundreds of aspirants who are already preparing with our platform.
+            {user && userData
+              ? "Pick up where you left off and continue your preparation."
+              : "Join hundreds of aspirants who are already preparing with our platform."}
           </p>
-          <Link href="/register">
+          <Link href={user && userData ? dashboardLink : "/register"}>
             <Button size="lg" className="gradient-primary border-0 text-base px-10">
-              Register Now
+              {user && userData ? (isAdmin ? "Admin Panel" : "Go to Dashboard") : "Register Now"}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>

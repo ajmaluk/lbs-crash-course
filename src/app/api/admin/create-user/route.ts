@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// This endpoint would need Firebase Admin SDK to create users server-side
-// For now, it provides the interface for the admin panel
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email, password } = body;
+        const { email, password, displayName } = body;
 
         if (!email || !password) {
             return NextResponse.json(
@@ -14,36 +12,48 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // NOTE: To properly create Firebase Auth users from the server,
-        // you need Firebase Admin SDK. Install it and initialize:
-        //
-        // import * as admin from "firebase-admin";
-        // const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
-        // if (!admin.apps.length) {
-        //   admin.initializeApp({
-        //     credential: admin.credential.cert(serviceAccount),
-        //   });
-        // }
-        // const userRecord = await admin.auth().createUser({
-        //   email,
-        //   password,
-        //   displayName,
-        // });
-        //
-        // For now, return a placeholder that the frontend can handle.
-        // The admin will need to create users through the Firebase Console
-        // or install firebase-admin separately.
+        const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-        // Placeholder: return the email as a mock UID
-        // Replace with actual Firebase Admin implementation
-        return NextResponse.json({
-            uid: `user_${Date.now()}`,
-            email,
-            message: "User creation placeholder — install firebase-admin for production",
+        // 1. Create User via Firebase REST API
+        const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                password,
+                returnSecureToken: true
+            })
         });
-    } catch (error: unknown) {
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (data.error?.message === 'EMAIL_EXISTS') {
+                // If the user happens to exist already, we need to return a failure since we cannot easily query their UID 
+                // without the Admin SDK. Or we can just login? 
+                // Since this runs on the server, we can login to get their UID.
+                const loginRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        returnSecureToken: true
+                    })
+                });
+                const loginData = await loginRes.json();
+                if (loginRes.ok) {
+                    return NextResponse.json({ uid: loginData.localId });
+                }
+            }
+            throw new Error(data.error?.message || "Failed to create user");
+        }
+
+        return NextResponse.json({ uid: data.localId });
+
+    } catch (error: any) {
         return NextResponse.json(
-            { message: `Failed to create user: ${(error as Error).message}` },
+            { message: `Failed to create user: ${error.message}` },
             { status: 500 }
         );
     }

@@ -24,6 +24,7 @@ export interface UserData {
     activeSessionId: string;
     firstLogin: boolean;
     loginId?: string;
+    banned?: boolean;
     createdAt: number;
     rejectionReason?: string;
 }

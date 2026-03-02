@@ -22,7 +22,7 @@ export async function POST(req: Request) {
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
         // Use a Promise to wrap the upload_stream callback
-        return await new Promise<NextResponse>((resolve, reject) => {
+        return await new Promise<NextResponse>((resolve) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 { upload_preset: uploadPreset },
                 (error, result) => {
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
             uploadStream.end(buffer);
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Backend Upload Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
