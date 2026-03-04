@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Script from "next/script";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 import {
   GraduationCap,
   Video,
@@ -93,8 +97,61 @@ const packages = [
 ];
 
 export default function LandingPage() {
+  const { user, userData, loading } = useAuth();
+  const router = useRouter();
+  const isAdmin = userData?.role === "admin";
+  const dashboardLink = isAdmin ? "/admin" : "/dashboard";
+
+  const liveOnlyEnabled = process.env.NEXT_PUBLIC_LIVE_ONLY === "true";
+  const recordOnlyEnabled = process.env.NEXT_PUBLIC_RECORD_ONLY === "true";
+
+  const activePackages = packages.filter((pkg) => {
+    if (pkg.name === "Live Only") return liveOnlyEnabled;
+    if (pkg.name === "Recorded Only") return recordOnlyEnabled;
+    return true; // "Live + Recorded" is always visible
+  });
+
+  useEffect(() => {
+    if (loading) return;
+    if (user && userData) {
+      if (userData.firstLogin) {
+        router.replace("/change-password");
+      } else if (userData.role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, userData, loading, router]);
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <Script id="faq-schema" type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What does the course include?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Live classes, recorded lectures, quizzes, mock tests, previous year papers and rank tracking."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it mobile friendly?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The entire platform is optimized for mobile with secure video playback."
+                }
+              }
+            ]
+          })
+        }}
+      />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-[#254852]/80 backdrop-blur-xl border-b border-white/10 text-white transition-all duration-300">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -111,17 +168,23 @@ export default function LandingPage() {
               <Link href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/login" className="hidden sm:block">
-                <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white rounded-full px-6">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Start now
-                </Button>
-              </Link>
+              {user && userData ? (
+                <Link href={dashboardLink}>
+                  <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
+                    {isAdmin ? "Admin Panel" : "Go to Dashboard"}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Login
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -156,7 +219,7 @@ export default function LandingPage() {
           <motion.div
             initial="hidden"
             animate="visible"
-            variants={{ 
+            variants={{
               hidden: { opacity: 0 },
               visible: {
                 opacity: 1,
@@ -194,7 +257,7 @@ export default function LandingPage() {
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto"
             >
-              <Link href="/register" className="w-full sm:w-auto group">
+              <Link href="/login" className="w-full sm:w-auto group">
                 <Button size="lg" className="w-full bg-gradient-to-r from-[#5E9EA2] to-[#254852] hover:from-[#4B6F76] hover:to-[#1a333a] text-white border border-white/10 rounded-full px-10 h-14 text-lg font-semibold shadow-2xl shadow-[#5E9EA2]/30 group-hover:shadow-[#5E9EA2]/50 group-hover:-translate-y-1 transition-all duration-300">
                   Start Your Journey
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -296,7 +359,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {packages.map((pkg, index) => (
+            {activePackages.map((pkg, index) => (
               <motion.div
                 key={pkg.name}
                 initial={{ opacity: 0, scale: 0.95, y: 30 }}
@@ -351,18 +414,71 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Exam Information */}
+      <section className="py-24 bg-[#0A1316] border-t border-white/5">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-white">About the LBS MCA Entrance</h2>
+            <p className="text-[#A5C1C4]/80 mt-3 max-w-3xl mx-auto">
+              The LBS Centre for Science & Technology conducts Kerala MCA admissions. Our program covers the entire syllabus with subject-wise classes, quizzes and full-length mock tests aligned to the latest pattern.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Exam Pattern</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+                <li>• Objective MCQs</li>
+                <li>• Subjects: CS, Mathematics & Statistics, Quantitative & Logical, English, GK</li>
+                <li>• Time-bound with negative marking (as notified)</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Eligibility</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+                <li>• Bachelor&apos;s degree with required mathematics background</li>
+                <li>• Further criteria as per official LBS guidelines</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Why MCA?</h3>
+              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+                <li>• Strong demand for software professionals</li>
+                <li>• Solid CS fundamentals and application development skills</li>
+                <li>• Opportunities in product, services, data and research</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            <h3 className="text-xl font-semibold text-white mb-2">Frequently Asked Questions</h3>
+            <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+              <li><b>How to register?</b> Create an account, complete payment verification and wait for admin approval.</li>
+              <li><b>What is included?</b> Live classes, recorded lectures, quizzes, mock tests, previous papers and rank tracking.</li>
+              <li><b>Mobile friendly?</b> Yes, the entire platform is optimized for mobile with secure video playback.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-20 border-t border-[var(--border)]">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Ready to Start Your <span className="gradient-text">Journey?</span>
+            {user && userData ? (
+              <>Welcome Back to <span className="gradient-text">LBS MCA</span></>
+            ) : (
+              <>Ready to Start Your <span className="gradient-text">Journey?</span></>
+            )}
           </h2>
           <p className="text-lg text-[var(--muted-foreground)] mb-8">
-            Join hundreds of aspirants who are already preparing with our platform.
+            {user && userData
+              ? "Pick up where you left off and continue your preparation."
+              : "Join hundreds of aspirants who are already preparing with our platform."}
           </p>
-          <Link href="/register">
+          <Link href={user && userData ? dashboardLink : "/login"}>
             <Button size="lg" className="gradient-primary border-0 text-base px-10">
-              Register Now
+              {user && userData ? (isAdmin ? "Admin Panel" : "Go to Dashboard") : "Login Now"}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>

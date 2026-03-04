@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { User, Lock, Upload, Loader2, Package, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
@@ -51,20 +52,34 @@ export default function ProfilePage() {
 
         setSubmittingUpgrade(true);
         try {
-            let screenshotUrl = "";
-            if (APPS_SCRIPT_URL && upgradeScreenshot) {
+            // STEP 1: Upload Image to Cloudinary directly from Client
+            let cloudinaryUrl = "";
+            try {
+                cloudinaryUrl = await uploadImageToCloudinary(upgradeScreenshot);
+            } catch (imageError) {
+                console.error("Cloudinary Error:", imageError);
+                toast.error("Failed to upload screenshot. Please try again.");
+                setSubmittingUpgrade(false);
+                return;
+            }
+
+            // STEP 2: Send metadata to Apps Script (Google Sheets)
+            if (APPS_SCRIPT_URL) {
                 const formPayload = new FormData();
                 formPayload.append("type", "upgrade");
                 formPayload.append("userId", userData.uid);
                 if (upgradeTransactionId) {
                     formPayload.append("transactionId", upgradeTransactionId);
                 }
-                formPayload.append("screenshot", upgradeScreenshot);
-                const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", body: formPayload });
-                const result = await resp.json();
-                screenshotUrl = result.driveUrl || "";
+                // Send Cloudinary URL instead of massive base64 file string
+                formPayload.append("screenshotUrl", cloudinaryUrl);
+
+                // Fire and forget (optional await)
+                fetch(APPS_SCRIPT_URL, { method: "POST", body: formPayload })
+                    .catch(err => console.error("Apps Script Error:", err));
             }
 
+            // STEP 3: Create pending upgrade request in Firebase
             const upgradeRef = push(ref(db, "upgradeRequests"));
             await set(upgradeRef, {
                 userId: userData.uid,
@@ -72,7 +87,7 @@ export default function ProfilePage() {
                 userEmail: userData.email,
                 currentPackage: userData.is_live && userData.is_record_class ? "both" : userData.is_live ? "live_only" : "recorded_only",
                 requestedPackage: "both",
-                screenshotDriveUrl: screenshotUrl,
+                screenshotUrl: cloudinaryUrl, // Save Cloudinary URL
                 transactionId: upgradeTransactionId || null,
                 submittedAt: Date.now(),
                 status: "pending",

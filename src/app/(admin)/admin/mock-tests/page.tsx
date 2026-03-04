@@ -9,11 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
+import { ref, onValue, push, set, update, remove, get } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus } from "@/lib/types";
-import { FileText, Plus, Edit, Trash2, CheckCircle } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, CheckCircle, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 const statusOptions = [
@@ -33,6 +33,7 @@ export default function AdminMockTestsPage() {
     const [qForm, setQForm] = useState({ question: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" });
     const [editingQ, setEditingQ] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
+    const [viewingRanking, setViewingRanking] = useState<any>(null);
 
     useEffect(() => {
         const mtRef = ref(db, "mockTests");
@@ -61,11 +62,83 @@ export default function AdminMockTestsPage() {
         if (!form.title || !form.subject) { toast.error("Title and subject required"); return; }
         setSaving(true);
         try {
-            const data = { title: form.title, subject: form.subject, status: form.status, duration: parseInt(form.duration) || 60, questions, createdBy: userData?.uid || "", ...(editing ? {} : { createdAt: Date.now() }) };
-            if (editing) { await update(ref(db, `mockTests/${editing.id}`), data); toast.success("Updated"); }
-            else { await set(push(ref(db, "mockTests")), data); toast.success("Created"); }
+            const data: any = {
+                title: form.title,
+                subject: form.subject,
+                status: form.status,
+                duration: parseInt(form.duration) || 60,
+                questions,
+                createdBy: userData?.uid || "",
+                ...(editing ? {} : { createdAt: Date.now() }),
+                ...(form.status === "closed" && !editing?.closedAt ? { closedAt: Date.now() } : {}),
+            };
+
+            const testId = editing ? editing.id : push(ref(db, "mockTests")).key!;
+
+            // If closing the test, generate rankings snapshot
+            if (form.status === "closed") {
+                const attemptsSnap = await get(ref(db, "mockAttempts"));
+                const attempts: any[] = [];
+                if (attemptsSnap.exists()) {
+                    attemptsSnap.forEach((child) => {
+                        const val = child.val();
+                        if (val.mockTestId === testId || val.quizId === testId) {
+                            attempts.push(val);
+                        }
+                    });
+                }
+
+                const bestByUser: Record<string, any> = {};
+                attempts.forEach((a) => {
+                    if (!bestByUser[a.userId] || a.score > bestByUser[a.userId].score) {
+                        bestByUser[a.userId] = a;
+                    } else if (a.score === bestByUser[a.userId].score) {
+                        if (a.submittedAt < bestByUser[a.userId].submittedAt) {
+                            bestByUser[a.userId] = a;
+                        }
+                    }
+                });
+
+                const sortedRankings = Object.values(bestByUser).sort((a: any, b: any) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return a.submittedAt - b.submittedAt;
+                }).map((entry: any, index: number) => ({
+                    userId: entry.userId,
+                    userName: entry.userName,
+                    score: entry.score,
+                    totalQuestions: entry.totalQuestions,
+                    rank: index + 1,
+                    submittedAt: entry.submittedAt
+                }));
+
+                await set(ref(db, `mockRankings/${testId}`), {
+                    mockTestId: testId,
+                    quizTitle: form.title,
+                    generatedAt: Date.now(),
+                    entries: sortedRankings
+                });
+
+                if (attempts.length > 0) {
+                    toast.success("Leaderboard updated with participant rankings");
+                } else {
+                    toast.success("Test closed. No attempts found to generate rankings.");
+                }
+            }
+
+            if (editing) {
+                await update(ref(db, `mockTests/${editing.id}`), data);
+                toast.success("Updated");
+            } else {
+                await set(ref(db, `mockTests/${testId}`), data);
+                toast.success("Created");
+            }
             setShowForm(false);
-        } catch { toast.error("Failed"); } finally { setSaving(false); }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -91,6 +164,20 @@ export default function AdminMockTestsPage() {
                                 <p className="text-xs text-[var(--muted-foreground)]">{test.subject} · {test.questions?.length || 0} questions · {test.duration || 60} min</p>
                             </div>
                             <div className="flex gap-2">
+                                {test.status === "closed" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                                        onClick={async () => {
+                                            const snap = await get(ref(db, `mockRankings/${test.id}`));
+                                            if (snap.exists()) setViewingRanking(snap.val());
+                                            else toast.error("No ranking found");
+                                        }}
+                                    >
+                                        <Trophy className="h-3.5 w-3.5" />
+                                    </Button>
+                                )}
                                 <Button variant="outline" size="sm" onClick={() => openEdit(test)}><Edit className="h-3.5 w-3.5" /></Button>
                                 <Button variant="outline" size="sm" onClick={() => handleDelete(test.id)} className="text-[var(--destructive)]"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
@@ -137,6 +224,35 @@ export default function AdminMockTestsPage() {
                     ))}
                     <DialogFooter><Button variant="outline" onClick={() => setShowQForm(false)}>Cancel</Button><Button onClick={addQuestion} className="gradient-primary border-0">{editingQ !== null ? "Update" : "Add"}</Button></DialogFooter>
                 </div>
+            </Dialog>
+            {/* Rankings View Dialog */}
+            <Dialog open={!!viewingRanking} onOpenChange={(open) => !open && setViewingRanking(null)}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Trophy className="h-5 w-5 text-yellow-500" />
+                        Rankings: {viewingRanking?.quizTitle}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto mt-4 pr-1">
+                    {!viewingRanking?.entries || viewingRanking.entries.length === 0 ? (
+                        <div className="text-center py-6 text-[var(--muted-foreground)]">
+                            <p className="text-sm">No participants yet for this mock test.</p>
+                        </div>
+                    ) : (
+                        viewingRanking.entries.map((entry: any) => (
+                            <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-[var(--muted)]/50 border border-[var(--border)]">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold w-6">{entry.rank}.</span>
+                                    <span className="text-sm font-medium">{entry.userName}</span>
+                                </div>
+                                <div className="text-sm font-bold">{entry.score} / {entry.totalQuestions}</div>
+                            </div>
+                        ))
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => setViewingRanking(null)}>Close</Button>
+                </DialogFooter>
             </Dialog>
         </div>
     );

@@ -24,6 +24,7 @@ export interface UserData {
     activeSessionId: string;
     firstLogin: boolean;
     loginId?: string;
+    banned?: boolean;
     createdAt: number;
     rejectionReason?: string;
 }
@@ -36,7 +37,7 @@ export interface PendingRegistration {
     whatsapp: string;
     graduationYear: string;
     selectedPackage: PackageType;
-    screenshotDriveUrl: string;
+    screenshotUrl: string;
     submittedAt: number;
     status: "pending" | "rejected";
     rejectionReason?: string;
@@ -50,7 +51,7 @@ export interface UpgradeRequest {
     userEmail: string;
     currentPackage: PackageType;
     requestedPackage: PackageType;
-    screenshotDriveUrl: string;
+    screenshotUrl: string;
     submittedAt: number;
     status: "pending" | "approved" | "rejected";
     rejectionReason?: string;

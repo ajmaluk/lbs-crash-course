@@ -62,21 +62,21 @@
 
 /* ===== Dark Mode ===== */
 .dark {
-  --background: #122429;
-  --foreground: #d7e6e6;
-  --card: #1c363d;
-  --card-foreground: #e6f0f0;
+  --background: #0b1417;
+  --foreground: #e8f2f2;
+  --card: #0f1b1f;
+  --card-foreground: #eaf3f3;
   --primary: #5e9ea2;
   --primary-foreground: #ffffff;
-  --secondary: #254852;
+  --secondary: #19333a;
   --secondary-foreground: #d7e6e6;
-  --muted: #254852;
-  --muted-foreground: #7eaeb4;
+  --muted: #153038;
+  --muted-foreground: #a7c9cd;
   --accent: #4b6f76;
   --accent-foreground: #ffffff;
   --destructive: #f87171;
-  --border: #254852;
-  --input: #254852;
+  --border: #26464f;
+  --input: #26464f;
   --ring: #5e9ea2;
   --success: #4ade80;
   --warning: #fbbf24;

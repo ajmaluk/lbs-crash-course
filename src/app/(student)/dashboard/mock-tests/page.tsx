@@ -10,6 +10,7 @@ import { db } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { FileText, Clock, CheckCircle, ArrowRight, Trophy, Timer } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function MockTestsPage() {
     const { userData } = useAuth();
@@ -200,7 +201,16 @@ export default function MockTestsPage() {
                 <h2 className="text-2xl font-bold">Mock Test Completed!</h2>
                 <div className="text-5xl font-bold gradient-text">{percentage}%</div>
                 <p className="text-[var(--muted-foreground)]">You scored {result.score} out of {result.total}</p>
-                <Button onClick={() => { setActiveTest(null); setResult(null); }}>Back to Mock Tests</Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button variant="outline" onClick={() => { setActiveTest(null); setResult(null); }}>
+                        Back to Mock Tests
+                    </Button>
+                    <Link href="/dashboard/rankings">
+                        <Button className="gradient-primary border-0 w-full sm:w-auto">
+                            View Leaderboard <Trophy className="h-4 w-4 ml-2" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -240,16 +250,33 @@ export default function MockTestsPage() {
                                         <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{test.questions?.length || 0} questions</span>
                                         <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{test.duration || 60} min</span>
                                     </div>
-                                    {attempted ? (
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-[var(--success)]" />
-                                            <span className="text-sm font-medium text-[var(--success)]">Score: {attempted.score}/{attempted.totalQuestions}</span>
-                                        </div>
-                                    ) : test.status === "published" ? (
-                                        <Button onClick={() => startTest(test)} className="w-full gradient-primary border-0" size="sm">Start Test</Button>
-                                    ) : (
-                                        <p className="text-sm text-[var(--muted-foreground)]">Test closed</p>
-                                    )}
+                                    <div className="space-y-4">
+                                        {attempted && (
+                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-[var(--success)]/5">
+                                                <CheckCircle className="h-4 w-4 text-[var(--success)]" />
+                                                <span className="text-sm font-medium text-[var(--success)]">
+                                                    Score: {attempted.score}/{attempted.totalQuestions}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {test.status === "published" && !attempted && (
+                                            <Button onClick={() => startTest(test)} className="w-full gradient-primary border-0" size="sm">
+                                                Start Test
+                                            </Button>
+                                        )}
+
+                                        {test.status === "closed" && (
+                                            <div className="space-y-2">
+                                                {!attempted && <p className="text-sm text-[var(--muted-foreground)]">Test closed</p>}
+                                                <Link href="/dashboard/rankings">
+                                                    <Button variant="outline" size="sm" className="w-full">
+                                                        View Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        )}
+                                    </div>
                                 </CardContent>
                             </Card>
                         );

@@ -104,10 +104,27 @@ export default function AdminUpgradesPage() {
                                             <span className="text-xs text-[var(--muted-foreground)]">→</span>
                                             <Badge className="text-xs">{req.requestedPackage}</Badge>
                                         </div>
-                                        {req.screenshotDriveUrl && (
-                                            <a href={req.screenshotDriveUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline mt-2">
-                                                <ExternalLink className="h-3 w-3" /> View Screenshot
-                                            </a>
+                                        {req.screenshotUrl && (
+                                            <div className="mt-4 rounded-xl border border-[var(--border)] overflow-hidden w-full max-w-sm">
+                                                <a
+                                                    href={req.screenshotUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block relative aspect-video bg-black/5 hover:opacity-90 transition-opacity"
+                                                >
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={req.screenshotUrl}
+                                                        alt="Payment Screenshot"
+                                                        className="w-full h-full object-contain"
+                                                    />
+                                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/20 transition-opacity">
+                                                        <span className="bg-black/70 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                                                            <ExternalLink className="w-4 h-4" /> View Full Image
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </div>
                                         )}
                                         {req.transactionId && (
                                             <p className="text-xs text-[var(--muted-foreground)] mt-1 font-mono">

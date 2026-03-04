@@ -11,6 +11,7 @@ import type { Quiz, QuizAttempt } from "@/lib/types";
 import { BookOpen, Clock, CheckCircle, ArrowRight, Trophy } from "lucide-react";
 
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function QuizzesPage() {
     const { userData } = useAuth();
@@ -195,9 +196,16 @@ export default function QuizzesPage() {
                 <p className="text-[var(--muted-foreground)]">
                     You scored {result.score} out of {result.total}
                 </p>
-                <Button onClick={() => { setActiveQuiz(null); setResult(null); }}>
-                    Back to Quizzes
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button variant="outline" onClick={() => { setActiveQuiz(null); setResult(null); }}>
+                        Back to Quizzes
+                    </Button>
+                    <Link href="/dashboard/rankings">
+                        <Button className="gradient-primary border-0 w-full sm:w-auto">
+                            View Leaderboard <Trophy className="h-4 w-4 ml-2" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -249,20 +257,33 @@ export default function QuizzesPage() {
                                             </span>
                                         )}
                                     </div>
-                                    {attempted ? (
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-4 w-4 text-[var(--success)]" />
-                                            <span className="text-sm font-medium text-[var(--success)]">
-                                                Score: {attempted.score}/{attempted.totalQuestions}
-                                            </span>
-                                        </div>
-                                    ) : quiz.status === "published" ? (
-                                        <Button onClick={() => startQuiz(quiz)} className="w-full gradient-primary border-0" size="sm">
-                                            Start Quiz
-                                        </Button>
-                                    ) : (
-                                        <p className="text-sm text-[var(--muted-foreground)]">Quiz closed</p>
-                                    )}
+                                    <div className="space-y-4">
+                                        {attempted && (
+                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-[var(--success)]/5">
+                                                <CheckCircle className="h-4 w-4 text-[var(--success)]" />
+                                                <span className="text-sm font-medium text-[var(--success)]">
+                                                    Score: {attempted.score}/{attempted.totalQuestions}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {quiz.status === "published" && !attempted && (
+                                            <Button onClick={() => startQuiz(quiz)} className="w-full gradient-primary border-0" size="sm">
+                                                Start Quiz
+                                            </Button>
+                                        )}
+
+                                        {quiz.status === "closed" && (
+                                            <div className="space-y-2">
+                                                {!attempted && <p className="text-sm text-[var(--muted-foreground)]">Quiz closed</p>}
+                                                <Link href="/dashboard/rankings">
+                                                    <Button variant="outline" size="sm" className="w-full">
+                                                        View Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        )}
+                                    </div>
                                 </CardContent>
                             </Card>
                         );

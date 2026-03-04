@@ -3,6 +3,20 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+interface TabsContextValue {
+    activeValue: string;
+    onValueChange: (value: string) => void;
+}
+
+const TabsContext = React.createContext<TabsContextValue>({
+    activeValue: "",
+    onValueChange: () => { },
+});
+
+function useTabsContext() {
+    return React.useContext(TabsContext);
+}
+
 interface TabsProps {
     value: string;
     onValueChange: (value: string) => void;
@@ -12,39 +26,23 @@ interface TabsProps {
 
 function Tabs({ value, onValueChange, children, className }: TabsProps) {
     return (
-        <div className={cn("w-full", className)} data-value={value}>
-            {React.Children.map(children, (child) => {
-                if (React.isValidElement(child)) {
-                    return React.cloneElement(child as React.ReactElement<{ value?: string; activeValue?: string; onValueChange?: (v: string) => void }>, {
-                        activeValue: value,
-                        onValueChange,
-                    });
-                }
-                return child;
-            })}
-        </div>
+        <TabsContext.Provider value={{ activeValue: value, onValueChange }}>
+            <div className={cn("w-full", className)}>
+                {children}
+            </div>
+        </TabsContext.Provider>
     );
 }
 
 interface TabsListProps {
     children: React.ReactNode;
     className?: string;
-    activeValue?: string;
-    onValueChange?: (value: string) => void;
 }
 
-function TabsList({ children, className, activeValue, onValueChange }: TabsListProps) {
+function TabsList({ children, className }: TabsListProps) {
     return (
         <div className={cn("inline-flex items-center gap-1 rounded-xl bg-[var(--muted)] p-1", className)}>
-            {React.Children.map(children, (child) => {
-                if (React.isValidElement(child)) {
-                    return React.cloneElement(child as React.ReactElement<{ activeValue?: string; onValueChange?: (v: string) => void }>, {
-                        activeValue,
-                        onValueChange,
-                    });
-                }
-                return child;
-            })}
+            {children}
         </div>
     );
 }
@@ -53,11 +51,10 @@ interface TabsTriggerProps {
     value: string;
     children: React.ReactNode;
     className?: string;
-    activeValue?: string;
-    onValueChange?: (value: string) => void;
 }
 
-function TabsTrigger({ value, children, className, activeValue, onValueChange }: TabsTriggerProps) {
+function TabsTrigger({ value, children, className }: TabsTriggerProps) {
+    const { activeValue, onValueChange } = useTabsContext();
     const isActive = activeValue === value;
     return (
         <button
@@ -69,7 +66,7 @@ function TabsTrigger({ value, children, className, activeValue, onValueChange }:
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                 className
             )}
-            onClick={() => onValueChange?.(value)}
+            onClick={() => onValueChange(value)}
         >
             {children}
         </button>
@@ -80,10 +77,10 @@ interface TabsContentProps {
     value: string;
     children: React.ReactNode;
     className?: string;
-    activeValue?: string;
 }
 
-function TabsContent({ value, children, className, activeValue }: TabsContentProps) {
+function TabsContent({ value, children, className }: TabsContentProps) {
+    const { activeValue } = useTabsContext();
     if (activeValue !== value) return null;
     return (
         <div className={cn("mt-4 animate-fade-in", className)}>

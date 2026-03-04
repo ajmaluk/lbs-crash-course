@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { PageLoader } from "@/components/ui/loading";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { db } from "@/lib/firebase"; // Assuming firebase.ts is in lib/firebase
+import { ref, get } from "firebase/database";
 
 function LoginForm() {
     const [email, setEmail] = useState("");
@@ -39,18 +41,34 @@ function LoginForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email || !password) {
-            toast.error("Please enter your login ID and password");
+            toast.error("Please enter your login ID or email and password");
             return;
         }
 
         setLoading(true);
         try {
-            await login(email, password);
+            const loginIdentifier = email.trim();
+            let actualEmail = loginIdentifier;
+
+            // If the input doesn't look like an email, assume it's a Login ID (e.g., LBS-XXXX)
+            if (!loginIdentifier.includes("@")) {
+                const lookupRef = ref(db, `loginIdEmails/${loginIdentifier}`);
+                const snapshot = await get(lookupRef);
+                if (snapshot.exists()) {
+                    actualEmail = snapshot.val();
+                } else {
+                    toast.error("Invalid Login ID or User not found.");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            await login(actualEmail, password);
             toast.success("Login successful!");
         } catch (error: unknown) {
             const firebaseError = error as { code?: string };
             if (firebaseError.code === "auth/user-not-found" || firebaseError.code === "auth/wrong-password" || firebaseError.code === "auth/invalid-credential") {
-                toast.error("Invalid login ID or password");
+                toast.error("Invalid login ID/email or password");
             } else if (firebaseError.code === "auth/too-many-requests") {
                 toast.error("Too many failed attempts. Please try again later.");
             } else {
@@ -60,6 +78,10 @@ function LoginForm() {
             setLoading(false);
         }
     };
+
+    if (authLoading || (user && userData)) {
+        return <PageLoader />;
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
@@ -100,18 +122,18 @@ function LoginForm() {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Login ID (Email)</Label>
+                            <Label htmlFor="email">Login ID or Email</Label>
                             <Input
                                 id="email"
-                                type="email"
-                                placeholder="your@email.com"
+                                type="text"
+                                placeholder="LBS-XXXX or your@email.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 relative">
                             <Label htmlFor="password">Password</Label>
                             <Input
                                 id="password"
@@ -119,6 +141,7 @@ function LoginForm() {
                                 placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                className="pr-10"
                                 required
                             />
                         </div>
@@ -144,7 +167,7 @@ function LoginForm() {
 
                         <p className="text-center text-sm text-[var(--muted-foreground)]">
                             Don&apos;t have an account?{" "}
-                            <Link href="/register" className="text-[var(--primary)] hover:underline font-medium">
+                            <Link href="/register" className="text-[var(--primary)] hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-[var(--primary)] rounded-md px-1">
                                 Register here
                             </Link>
                         </p>
