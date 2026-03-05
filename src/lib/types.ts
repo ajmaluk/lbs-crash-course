@@ -133,4 +133,13 @@ export interface RankEntry {
     score: number;
     rank: number;
     totalQuestions: number;
+    submittedAt?: number;
+}
+
+export interface RankData {
+    quizId?: string;
+    mockTestId?: string;
+    quizTitle: string;
+    generatedAt: number;
+    entries: RankEntry[];
 }

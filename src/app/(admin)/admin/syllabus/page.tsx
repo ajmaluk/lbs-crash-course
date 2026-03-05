@@ -6,6 +6,7 @@
  import { Card, CardContent } from "@/components/ui/card";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
+import Image from "next/image";
  import { Label } from "@/components/ui/label";
  import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
  import { Badge } from "@/components/ui/badge";
@@ -76,7 +77,7 @@
              <Card key={it.id} className="overflow-hidden group">
                <CardContent className="p-0">
                  <div className="aspect-[3/4] bg-[var(--muted)]/20 relative">
-                   <img src={it.url} alt={it.title} className="h-full w-full object-cover" />
+                   <Image src={it.url} alt={it.title || "Syllabus"} fill className="object-cover" unoptimized />
                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                      <Button variant="outline" size="icon" onClick={() => handleDelete(it.id)} className="h-9 w-9 rounded-xl text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/20">
                        <Trash2 className="h-4 w-4" />

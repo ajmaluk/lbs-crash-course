@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState, startTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { ref, onValue, query, orderByChild, get, update } from "firebase/database";
 import { db } from "@/lib/firebase";
@@ -10,9 +9,10 @@ import type { RecordedClass } from "@/lib/types";
 import { MonitorPlay, Play, Pause, AlertCircle, Search, X, SkipBack, SkipForward, Maximize2, Minimize2, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 import { Dialog } from "@/components/ui/dialog";
- 
+
 
 const SUBJECTS = [
     "Computer Science",
@@ -35,19 +35,6 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         mute?: () => void;
         playVideo?: () => void;
         pauseVideo?: () => void;
-    };
-    type YTIframeAPI = {
-        Player: new (
-            element: HTMLElement | string,
-            options: {
-                host?: string;
-                height?: string | number;
-                width?: string | number;
-                videoId: string;
-                playerVars?: Record<string, number | string>;
-                events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void };
-            }
-        ) => YTPlayer;
     };
     const { userData } = useAuth();
     const [isReady, setIsReady] = useState(false);
@@ -166,40 +153,40 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         };
         loadProgress();
         return () => { active = false; };
-    }, [open, video?.id, userData?.uid]);
+    }, [open, video, userData?.uid]);
 
     // rendering handles null video below
 
     const applyRate = (r: number) => {
         setRate(r);
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "rate", rate: r }, window.location.origin); } catch {}
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "rate", rate: r }, window.location.origin); } catch { }
     };
 
     const applyQuality = (q: string) => {
         setQuality(q);
         if (q === "auto") return;
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "quality", quality: q }, window.location.origin); } catch {}
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "quality", quality: q }, window.location.origin); } catch { }
     };
 
     const seekBy = (delta: number) => {
         const ct = currentTime ?? 0;
         const nt = Math.max(0, Math.min((duration || 0), ct + delta));
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, window.location.origin); } catch {}
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, window.location.origin); } catch { }
         setCurrentTime(nt);
     };
 
     const seekTo = (t: number) => {
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: t }, window.location.origin); } catch {}
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: t }, window.location.origin); } catch { }
         setCurrentTime(t);
     };
 
     const togglePlay = () => {
         if (isPaused) {
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, window.location.origin); } catch {}
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, window.location.origin); } catch { }
             setIsPaused(false);
             setCoverVisible(false);
         } else {
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, window.location.origin); } catch {}
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, window.location.origin); } catch { }
             setIsPaused(true);
             setCoverVisible(true);
         }
@@ -256,7 +243,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             window.clearInterval(iv);
             void persist(true);
         };
-    }, [open, video?.id, userData?.uid, currentTime, duration]);
+    }, [open, video, userData?.uid, currentTime, duration]);
 
     return (
         <Dialog
@@ -274,54 +261,54 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     ) : null}
                 </div>
                 <div className="px-6 py-4 bg-zinc-900 border-b border-white/5 z-20">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex-1">
-                        <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                            <MonitorPlay className="h-5 w-5 text-violet-400" />
-                            <span className="break-words">{video?.title || ""}</span>
-                        </h3>
-                        <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{video?.subject || ""} • {video?.section || ""}</p>
-                    </div>
-                    <div className="flex items-center gap-3 mr-2 w-full sm:w-auto">
-                        <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md text-white rounded-lg border border-white/10 px-2.5 py-1.5">
-                            <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
-                            <select
-                                value={rate}
-                                onChange={(e) => applyRate(Number(e.target.value))}
-                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
-                            >
-                                {rates.map((r) => (
-                                    <option key={r} value={r}>{r}x</option>
-                                ))}
-                            </select>
-                            <div className="h-4 w-px bg-white/10" />
-                            <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
-                            <select
-                                value={quality}
-                                onChange={(e) => applyQuality(e.target.value)}
-                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
-                            >
-                                {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                    <option key={q} value={q}>
-                                        {q === "hd1080" ? "1080p" :
-                                            q === "hd720" ? "720p" :
-                                            q === "large" ? "480p" :
-                                            q === "medium" ? "360p" :
-                                            q === "small" ? "240p" :
-                                            q === "auto" ? "Auto" : q}
-                                    </option>
-                                ))}
-                            </select>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex-1">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <MonitorPlay className="h-5 w-5 text-violet-400" />
+                                <span className="break-words">{video?.title || ""}</span>
+                            </h3>
+                            <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{video?.subject || ""} • {video?.section || ""}</p>
                         </div>
-                        <button
-                            aria-label="Close"
-                            onClick={() => onOpenChange(false)}
-                            className="ml-auto sm:ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
+                        <div className="flex items-center gap-3 mr-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md text-white rounded-lg border border-white/10 px-2.5 py-1.5">
+                                <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
+                                <select
+                                    value={rate}
+                                    onChange={(e) => applyRate(Number(e.target.value))}
+                                    className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                >
+                                    {rates.map((r) => (
+                                        <option key={r} value={r}>{r}x</option>
+                                    ))}
+                                </select>
+                                <div className="h-4 w-px bg-white/10" />
+                                <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
+                                <select
+                                    value={quality}
+                                    onChange={(e) => applyQuality(e.target.value)}
+                                    className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                >
+                                    {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                        <option key={q} value={q}>
+                                            {q === "hd1080" ? "1080p" :
+                                                q === "hd720" ? "720p" :
+                                                    q === "large" ? "480p" :
+                                                        q === "medium" ? "360p" :
+                                                            q === "small" ? "240p" :
+                                                                q === "auto" ? "Auto" : q}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button
+                                aria-label="Close"
+                                onClick={() => onOpenChange(false)}
+                                className="ml-auto sm:ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
                     </div>
-                  </div>
                 </div>
 
                 <div ref={playerRootRef} className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-white/5">
@@ -426,10 +413,10 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                                     <option key={q} value={q}>
                                                         {q === "hd1080" ? "1080p" :
                                                             q === "hd720" ? "720p" :
-                                                            q === "large" ? "480p" :
-                                                            q === "medium" ? "360p" :
-                                                            q === "small" ? "240p" :
-                                                            q === "auto" ? "Auto" : q}
+                                                                q === "large" ? "480p" :
+                                                                    q === "medium" ? "360p" :
+                                                                        q === "small" ? "240p" :
+                                                                            q === "auto" ? "Auto" : q}
                                                     </option>
                                                 ))}
                                             </select>
@@ -486,20 +473,20 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 </div>
 
                 <div className="px-6 py-3 bg-zinc-950/90 backdrop-blur-md border-t border-white/5">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 text-[9px]">
-                    <div className="grid grid-cols-1 sm:flex sm:items-center sm:gap-4 text-zinc-500">
-                      <span className="flex items-center gap-2">
-                        <div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
-                        PROGRESS: {fmt(currentTime)} / {fmt(duration || 0)}
-                      </span>
-                      <span className="flex items-center gap-2 uppercase tracking-widest">
-                        Server ID: LBS-KERALA-01
-                      </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 text-[9px]">
+                        <div className="grid grid-cols-1 sm:flex sm:items-center sm:gap-4 text-zinc-500">
+                            <span className="flex items-center gap-2">
+                                <div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+                                PROGRESS: {fmt(currentTime)} / {fmt(duration || 0)}
+                            </span>
+                            <span className="flex items-center gap-2 uppercase tracking-widest">
+                                Server ID: LBS-KERALA-01
+                            </span>
+                        </div>
+                        <div className="text-zinc-600 font-bold tracking-[0.3em] uppercase opacity-40">
+                            PROTECTED BY CET MCA VIRTUAL SECURE PLAYER
+                        </div>
                     </div>
-                    <div className="text-zinc-600 font-bold tracking-[0.3em] uppercase opacity-40">
-                      PROTECTED BY CET MCA VIRTUAL SECURE PLAYER
-                    </div>
-                  </div>
                 </div>
             </div>
         </Dialog>
@@ -668,8 +655,8 @@ export default function RecordedClassesPage() {
                         return (
                             <details key={subject} open={!!openSubjects[subject]} className="border border-[var(--border)] rounded-2xl bg-[var(--card)]/40 overflow-hidden">
                                 <summary
-                                  className="list-none px-4 py-3 flex items-center gap-3 cursor-pointer select-none"
-                                  onClick={(e) => { e.preventDefault(); toggleSubject(subject); }}
+                                    className="list-none px-4 py-3 flex items-center gap-3 cursor-pointer select-none"
+                                    onClick={(e) => { e.preventDefault(); toggleSubject(subject); }}
                                 >
                                     <span className="h-7 w-1.5 rounded-full gradient-primary" />
                                     <span className="flex-1 text-left text-sm font-semibold">{subject}</span>
@@ -703,7 +690,15 @@ export default function RecordedClassesPage() {
                                                             onClick={() => setSelectedVideo(cls)}
                                                             className="flex flex-row items-center gap-3 p-2 sm:flex-row sm:items-center sm:gap-4 sm:p-4 hover:bg-white/5 cursor-pointer transition"
                                                         >
-                                                            <img src={thumb} alt={cls.title} className="h-12 w-20 sm:h-16 sm:w-28 rounded-md object-cover bg-[var(--muted)]/30 shrink-0" />
+                                                            <div className="relative h-12 w-20 sm:h-16 sm:w-28 rounded-md overflow-hidden bg-[var(--muted)]/30 shrink-0">
+                                                                <Image
+                                                                    src={thumb}
+                                                                    alt={cls.title}
+                                                                    fill
+                                                                    className="object-cover"
+                                                                    unoptimized
+                                                                />
+                                                            </div>
                                                             <div className="min-w-0 flex-1 w-full">
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <Badge className="bg-black/60 text-white border-0 text-[9px] uppercase tracking-widest px-2 py-0.5">Lecture</Badge>

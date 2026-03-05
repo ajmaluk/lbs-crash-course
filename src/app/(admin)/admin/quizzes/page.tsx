@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove, get } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
-import type { Quiz, QuizQuestion, QuizStatus } from "@/lib/types";
+import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
 import { BookOpen, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,7 +32,7 @@ export default function AdminQuizzesPage() {
     const [qForm, setQForm] = useState({ question: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" });
     const [editingQ, setEditingQ] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
-    const [viewingRanking, setViewingRanking] = useState<any>(null);
+    const [viewingRanking, setViewingRanking] = useState<RankData | null>(null);
 
     useEffect(() => {
         const qRef = ref(db, "quizzes");
@@ -99,7 +98,7 @@ export default function AdminQuizzesPage() {
         if (!form.title || !form.subject) { toast.error("Title and subject required"); return; }
         setSaving(true);
         try {
-            const data: any = {
+            const data: Partial<Quiz> = {
                 title: form.title,
                 subject: form.subject,
                 status: form.status,
@@ -115,7 +114,7 @@ export default function AdminQuizzesPage() {
             // If closing the quiz, generate rankings snapshot
             if (form.status === "closed") {
                 const attemptsSnap = await get(ref(db, "quizAttempts"));
-                const attempts: any[] = [];
+                const attempts: Array<{ userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number; quizId: string }> = [];
                 if (attemptsSnap.exists()) {
                     attemptsSnap.forEach((child) => {
                         const val = child.val();
@@ -125,7 +124,7 @@ export default function AdminQuizzesPage() {
                     });
                 }
 
-                const bestByUser: Record<string, any> = {};
+                const bestByUser: Record<string, typeof attempts[0]> = {};
                 attempts.forEach((a) => {
                     if (!bestByUser[a.userId] || a.score > bestByUser[a.userId].score) {
                         bestByUser[a.userId] = a;
@@ -136,10 +135,10 @@ export default function AdminQuizzesPage() {
                     }
                 });
 
-                const sortedRankings = Object.values(bestByUser).sort((a: any, b: any) => {
+                const sortedRankings: RankEntry[] = Object.values(bestByUser).sort((a, b) => {
                     if (b.score !== a.score) return b.score - a.score;
                     return a.submittedAt - b.submittedAt;
-                }).map((entry: any, index: number) => ({
+                }).map((entry, index) => ({
                     userId: entry.userId,
                     userName: entry.userName,
                     score: entry.score,
@@ -276,6 +275,46 @@ export default function AdminQuizzesPage() {
                 </DialogFooter>
             </Dialog>
 
+            {/* Question Form Dialog */}
+            <Dialog open={showQuestionForm} onOpenChange={setShowQuestionForm}>
+                <DialogHeader><DialogTitle>{editingQ !== null ? "Edit" : "Add"} Question</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Question</Label>
+                        <Input value={qForm.question} onChange={(e) => setQForm({ ...qForm, question: e.target.value })} placeholder="Enter question text" />
+                    </div>
+                    {qForm.options.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setQForm({ ...qForm, correctAnswer: i })}
+                                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer ${qForm.correctAnswer === i ? "border-[var(--success)] bg-[var(--success)] text-white" : "border-[var(--border)]"
+                                    }`}
+                            >
+                                {qForm.correctAnswer === i && <CheckCircle className="h-4 w-4" />}
+                            </button>
+                            <Input
+                                value={opt}
+                                onChange={(e) => {
+                                    const opts = [...qForm.options];
+                                    opts[i] = e.target.value;
+                                    setQForm({ ...qForm, options: opts });
+                                }}
+                                placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                            />
+                        </div>
+                    ))}
+                    <div className="space-y-2">
+                        <Label>Explanation (Optional)</Label>
+                        <Input value={qForm.explanation} onChange={(e) => setQForm({ ...qForm, explanation: e.target.value })} placeholder="Explanation for the correct answer" />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowQuestionForm(false)}>Cancel</Button>
+                        <Button onClick={addQuestion} className="gradient-primary border-0">{editingQ !== null ? "Update" : "Add"}</Button>
+                    </DialogFooter>
+                </div>
+            </Dialog>
+
             {/* Rankings View Dialog */}
             <Dialog open={!!viewingRanking} onOpenChange={(open) => !open && setViewingRanking(null)}>
                 <DialogHeader>
@@ -290,7 +329,7 @@ export default function AdminQuizzesPage() {
                             <p className="text-sm">No participants yet for this quiz.</p>
                         </div>
                     ) : (
-                        viewingRanking.entries.map((entry: any) => (
+                        viewingRanking.entries.map((entry) => (
                             <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-[var(--muted)]/50 border border-[var(--border)]">
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs font-bold w-6">{entry.rank}.</span>

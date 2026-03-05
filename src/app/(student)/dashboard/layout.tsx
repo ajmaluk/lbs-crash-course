@@ -21,6 +21,7 @@ import {
     Menu,
     X,
     ChevronRight,
+    Sparkles,
 } from "lucide-react";
 
 const navItems = [
@@ -33,6 +34,7 @@ const navItems = [
     { href: "/dashboard/mock-tests", label: "Mock Tests", icon: FileText },
     { href: "/dashboard/rankings", label: "Leaderboard & Rankings", icon: Trophy },
     { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/dashboard/ai-chat", label: "AI Assistant", icon: Sparkles },
     { href: "/dashboard/profile", label: "Profile", icon: User },
 ];
 
@@ -140,7 +142,7 @@ export default function StudentDashboardLayout({
 
                 {/* Page content */}
                 <main className="flex-1 overflow-y-auto">
-                    <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+                    <div className="h-full">
                         {children}
                     </div>
                 </main>

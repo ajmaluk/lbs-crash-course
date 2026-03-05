@@ -12,7 +12,7 @@ import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { LiveClass, LiveClassStatus } from "@/lib/types";
-import { Video, Plus, Edit, Calendar, Clock, ExternalLink, Trash2, Trash } from "lucide-react";
+import { Video, Plus, Edit, Calendar, Clock, ExternalLink, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 

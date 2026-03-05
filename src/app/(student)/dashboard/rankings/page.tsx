@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
-import type { QuizAttempt } from "@/lib/types";
 import { Trophy, Medal, Crown, Award, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,13 +24,15 @@ export default function RankingsPage() {
     const [tab, setTab] = useState("mockTests");
     const [quizRankings, setQuizRankings] = useState<RankData[]>([]);
     const [mockRankings, setMockRankings] = useState<RankData[]>([]);
-    const [loadingQuizzes, setLoadingQuizzes] = useState(true);
-    const [loadingMocks, setLoadingMocks] = useState(true);
+    const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+    const [loadingMocks, setLoadingMocks] = useState(false);
     const [selectedId, setSelectedId] = useState<string>("");
 
     useEffect(() => {
-        setLoadingQuizzes(true);
-        setLoadingMocks(true);
+        startTransition(() => {
+            setLoadingQuizzes(true);
+            setLoadingMocks(true);
+        });
         const qRef = ref(db, "rankings");
         const unsub1 = onValue(qRef, (snapshot) => {
             const list: RankData[] = [];
@@ -42,9 +43,6 @@ export default function RankingsPage() {
             }
             const sorted = list.sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
             setQuizRankings(sorted);
-            if (tab === "quizzes" && sorted.length > 0 && !selectedId) {
-                setSelectedId(sorted[0].quizId);
-            }
             setLoadingQuizzes(false);
         }, (error) => {
             console.error("Error fetching quiz rankings:", error);
@@ -62,9 +60,6 @@ export default function RankingsPage() {
             }
             const sorted = list.sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
             setMockRankings(sorted);
-            if (tab === "mockTests" && sorted.length > 0 && !selectedId) {
-                setSelectedId(sorted[0].quizId);
-            }
             setLoadingMocks(false);
         }, (error) => {
             console.error("Error fetching mock rankings:", error);
@@ -75,16 +70,22 @@ export default function RankingsPage() {
         return () => { unsub1(); unsub2(); };
     }, []);
 
-    // Effect to reset selection when tab changes
+    // Effect to reset selection when tab changes or data arrives
     useEffect(() => {
-        if (tab === "quizzes" && quizRankings.length > 0) {
-            setSelectedId(quizRankings[0].quizId);
-        } else if (tab === "mockTests" && mockRankings.length > 0) {
-            setSelectedId(mockRankings[0].quizId);
-        } else {
-            setSelectedId("");
-        }
-    }, [tab]);
+        startTransition(() => {
+            if (tab === "quizzes" && quizRankings.length > 0) {
+                if (!selectedId || !quizRankings.find(r => r.quizId === selectedId)) {
+                    setSelectedId(quizRankings[0].quizId);
+                }
+            } else if (tab === "mockTests" && mockRankings.length > 0) {
+                if (!selectedId || !mockRankings.find(r => r.quizId === selectedId)) {
+                    setSelectedId(mockRankings[0].quizId);
+                }
+            } else if ((tab === "quizzes" && quizRankings.length === 0) || (tab === "mockTests" && mockRankings.length === 0)) {
+                setSelectedId("");
+            }
+        });
+    }, [tab, quizRankings, mockRankings, selectedId]);
 
     const getRankStyles = (rank: number) => {
         if (rank === 1) return { icon: <Crown className="h-5 w-5 text-yellow-500" />, bg: "bg-yellow-500/10 border-yellow-500/20" };

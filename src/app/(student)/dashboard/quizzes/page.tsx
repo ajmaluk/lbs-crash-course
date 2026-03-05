@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { ref, onValue, query, orderByChild, push, set, equalTo } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
-import { BookOpen, Clock, CheckCircle, ArrowRight, Trophy, AlertCircle, Timer, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, Trophy, AlertCircle, Timer, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { toast } from "sonner";
 import Link from "next/link";
@@ -503,8 +503,8 @@ export default function QuizzesPage() {
                                 </h4>
                                 <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
                                     <li>Ensure you have a stable internet connection.</li>
-                                    <li>The timer starts as soon as you click "Start Test".</li>
-                                    <li>The test will auto-submit when the timer reaching zero.</li>
+                                    <li>The timer starts as soon as you click &quot;Start Test&quot;.</li>
+                                    <li>The test will auto-submit when the timer reaches zero.</li>
                                     <li>Once submitted, you cannot retake the quiz.</li>
                                 </ul>
                             </div>

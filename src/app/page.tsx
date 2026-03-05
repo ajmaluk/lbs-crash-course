@@ -126,6 +126,31 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <Script id="course-schema" type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Course",
+            "name": "LBS MCA Entrance Examination Comprehensive Coaching",
+            "description": "Expert online coaching for Kerala LBS MCA Entrance Examination. Includes live interactive classes, HD recorded lectures, mock tests according to LBS pattern, and previous year paper discussions.",
+            "provider": {
+              "@type": "Organization",
+              "name": "LBS MCA",
+              "sameAs": "https://lbscourse.cetmca.in"
+            },
+            "offers": {
+              "@type": "Offer",
+              "category": "Paid",
+              "priceCurrency": "INR"
+            },
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": "Online",
+              "courseWorkload": "Complete preparation for LBS Entrance"
+            }
+          })
+        }}
+      />
       <Script id="faq-schema" type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
@@ -134,7 +159,7 @@ export default function LandingPage() {
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "What does the course include?",
+                "name": "What does the LBS MCA Entrance course include?",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Live classes, recorded lectures, quizzes, mock tests, previous year papers and rank tracking."
@@ -142,10 +167,42 @@ export default function LandingPage() {
               },
               {
                 "@type": "Question",
-                "name": "Is it mobile friendly?",
+                "name": "Is LBS MCA prospectus available?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, our course covers all topics from the official LBS MCA prospectus and syllabus."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the LBS MCA exam timing?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The LBS MCA entrance exam is typically conducted in April/May. Our platform provides timed mock tests to help you prepare for the actual exam schedule."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How to apply for LBS MCA?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Applications are submitted through the official LBS Centre for Science and Technology website. Our platform helps you prepare thoroughly for the entrance exam."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the platform mobile friendly?",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Yes. The entire platform is optimized for mobile with secure video playback."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the syllabus for LBS MCA Entrance?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The LBS MCA syllabus includes Mathematics, Statistics, Quantitative Aptitude, Logical Reasoning, English, and General Knowledge. Our comprehensive course covers all subjects."
                 }
               }
             ]
@@ -240,9 +297,9 @@ export default function LandingPage() {
               variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
               className="text-5xl sm:text-7xl md:text-[5.5rem] font-extrabold tracking-tight text-[var(--foreground)] mb-8 leading-[1.05]"
             >
-              Master Your Exams.<br />
+              LBS MCA Entrance<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-[var(--primary)] to-teal-800 drop-shadow-sm">
-                Anywhere, Anytime.
+                Preparation Course
               </span>
             </motion.h1>
 
@@ -308,10 +365,10 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 z-10">
           <div className="text-center mb-20">
             <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--foreground)]">
-              Everything You Need to <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]">Succeed</span>
+              Complete <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]">LBS MCA Preparation</span>
             </h2>
             <p className="mt-5 text-lg text-[var(--muted-foreground)] max-w-2xl mx-auto font-light leading-relaxed">
-              Our platform provides a complete digital learning experience packed with cutting-edge tools designed to maximize your MCA entrance preparation.
+              Everything you need to crack LBS MCA Entrance: live classes, recorded lectures, mock tests, previous papers, and rank tracking.
             </p>
           </div>
 
@@ -491,6 +548,17 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-[var(--primary)]" />
             <span className="text-sm font-semibold">LBS MCA Entrance Learning Platform</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <Link href="/privacy-policy" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms-of-service" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Contact Us
+            </Link>
           </div>
           <p className="text-sm text-[var(--muted-foreground)]">
             © 2024 LBS MCA. All rights reserved.

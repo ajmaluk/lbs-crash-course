@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { ref, onValue, query, orderByChild, push, set, equalTo } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
-import { FileText, Clock, CheckCircle, ArrowRight, Trophy, Timer, AlertCircle, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Clock, CheckCircle, Trophy, Timer, AlertCircle, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 

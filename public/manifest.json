@@ -1,0 +1,21 @@
+{
+  "name": "LBS MCA Entrance Learning Platform",
+  "short_name": "LBS MCA",
+  "description": "Prepare for LBS MCA Entrance Examination 2025/2026 with live classes, recorded lectures, quizzes, mock tests, and previous year papers.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5E9EA2",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
