@@ -13,7 +13,7 @@ import { ref, onValue, push, set, update, remove, get } from "firebase/database"
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus } from "@/lib/types";
-import { BookOpen, Plus, Edit, Trash2, CheckCircle, Trophy } from "lucide-react";
+import { BookOpen, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 const statusOptions = [
@@ -205,7 +205,12 @@ export default function AdminQuizzesPage() {
                                         <p className="font-semibold">{quiz.title}</p>
                                         <Badge variant={quiz.status === "published" ? "success" : quiz.status === "closed" ? "secondary" : "outline"}>{quiz.status}</Badge>
                                     </div>
-                                    <p className="text-xs text-[var(--muted-foreground)]">{quiz.subject} · {quiz.questions?.length || 0} questions · {quiz.duration || 30} min</p>
+                                    <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-1.5">
+                                        {quiz.subject} · {quiz.questions?.length || 0} questions ·
+                                        <span className="flex items-center gap-0.5 text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-md font-medium">
+                                            <Clock className="h-3 w-3" /> {quiz.duration || 30} min
+                                        </span>
+                                    </p>
                                 </div>
                                 <div className="flex gap-2">
                                     {quiz.status === "closed" && (
@@ -238,7 +243,12 @@ export default function AdminQuizzesPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
                         <div className="space-y-2"><Label>Subject *</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
-                        <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} /></div>
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5">
+                                <Clock className="h-4 w-4 text-pink-500" /> Duration (min)
+                            </Label>
+                            <Input type="number" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="e.g. 30" />
+                        </div>
                         <div className="space-y-2"><Label>Status</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as QuizStatus })} options={statusOptions} /></div>
                     </div>
 
