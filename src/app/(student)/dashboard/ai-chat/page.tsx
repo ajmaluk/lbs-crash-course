@@ -168,9 +168,9 @@ export default function DashboardAIChatPage() {
     };
 
     const suggestions = [
-        { text: "Analyze my weak subjects", icon: BookOpen },
-        { text: "Predict my rank probability", icon: Trophy },
-        { text: "How to manage time better?", icon: HelpCircle },
+        { text: "My Intelligence Report", icon: Trophy },
+        { text: "Predict my Rank", icon: Trophy },
+        { text: "Analyze my Weak Subjects", icon: BookOpen },
     ];
 
     if (initializing) {
@@ -249,9 +249,9 @@ export default function DashboardAIChatPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12 px-4"
                                 >
-                                    <div className="relative mb-10">
-                                        <div className="h-28 w-28 rounded-[2.8rem] bg-gradient-to-tr from-[var(--primary)] to-indigo-600 flex items-center justify-center shadow-2xl animate-bounce-slow p-1">
-                                            <div className="h-full w-full rounded-[2.5rem] bg-white flex items-center justify-center overflow-hidden p-4">
+                                    <div className="relative mb-8">
+                                        <div className="h-20 w-20 rounded-[2rem] bg-gradient-to-tr from-[var(--primary)] to-indigo-600 flex items-center justify-center shadow-2xl animate-bounce-slow p-1">
+                                            <div className="h-full w-full rounded-[1.8rem] bg-white flex items-center justify-center overflow-hidden p-3">
                                                 <img src="/ai-logo.png" alt="ToolPix AI" className="h-full w-full object-contain" />
                                             </div>
                                         </div>
@@ -260,15 +260,15 @@ export default function DashboardAIChatPage() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3 mb-10">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-widest mb-2">
-                                            <Trophy className="h-3 w-3" />
+                                    <div className="space-y-2 mb-8">
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-[9px] font-black uppercase tracking-widest mb-1">
+                                            <Trophy className="h-2.5 w-2.5" />
                                             <span>Personal MCA Mentor</span>
                                         </div>
-                                        <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-tight">
+                                        <h2 className="text-3xl sm:text-4xl font-black text-zinc-900 tracking-tight leading-tight">
                                             Hello, <span className="bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-indigo-600 font-black">{userData?.name?.split(' ')[0] || "Scholar"}!</span>
                                         </h2>
-                                        <p className="text-zinc-500 text-lg font-medium max-w-md mx-auto leading-relaxed">
+                                        <p className="text-zinc-500 text-base font-medium max-w-sm mx-auto leading-relaxed">
                                             I've analyzed your performance data. Ready to level up your prep today?
                                         </p>
                                     </div>
@@ -279,19 +279,19 @@ export default function DashboardAIChatPage() {
                                             <p className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em]">Quick Actions</p>
                                             <div className="h-[1px] flex-1 bg-zinc-100" />
                                         </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {suggestions.map((s, i) => (
                                                 <button
                                                     key={i}
                                                     onClick={() => setInput(s.text)}
-                                                    className="group p-5 rounded-2xl border border-zinc-100 bg-white hover:border-[var(--primary)]/30 hover:shadow-2xl hover:shadow-[var(--primary)]/10 text-zinc-700 transition-all flex items-center gap-5 active:scale-95 text-left bg-gradient-to-br hover:from-[var(--primary)]/[0.02] hover:to-transparent"
+                                                    className="group p-4 rounded-xl border border-zinc-100 bg-white hover:border-[var(--primary)]/30 hover:shadow-xl hover:shadow-[var(--primary)]/10 text-zinc-700 transition-all flex items-center gap-4 active:scale-95 text-left bg-gradient-to-br hover:from-[var(--primary)]/[0.02] hover:to-transparent"
                                                 >
-                                                    <div className="h-12 w-12 shrink-0 rounded-2xl bg-zinc-50 flex items-center justify-center group-hover:bg-[var(--primary)] group-hover:text-white transition-all duration-300 shadow-inner">
-                                                        <s.icon className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
+                                                    <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50 flex items-center justify-center group-hover:bg-[var(--primary)] group-hover:text-white transition-all duration-300 shadow-inner">
+                                                        <s.icon className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-[15px]">{s.text}</p>
-                                                        <p className="text-[11px] text-zinc-400 font-medium mt-0.5 group-hover:text-zinc-500">One-tap analysis</p>
+                                                        <p className="font-bold text-sm">{s.text}</p>
+                                                        <p className="text-[10px] text-zinc-400 font-medium mt-0.5 group-hover:text-zinc-500">One-tap analysis</p>
                                                     </div>
                                                 </button>
                                             ))}
@@ -411,17 +411,17 @@ export default function DashboardAIChatPage() {
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         placeholder="Ask ToolPix AI..."
-                                        className="h-14 sm:h-16 px-6 rounded-2xl border border-zinc-200 focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/5 bg-white shadow-sm text-base transition-all pr-20 placeholder:text-zinc-300"
+                                        className="h-12 sm:h-14 px-5 rounded-xl border border-zinc-200 focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/5 bg-white shadow-sm text-sm transition-all pr-16 placeholder:text-zinc-300"
                                         disabled={isLoading}
                                     />
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
                                         <Button
                                             type="submit"
                                             disabled={!input.trim() || isLoading}
                                             size="icon"
-                                            className="h-10 w-10 sm:h-12 sm:w-12 bg-zinc-900 border-0 rounded-xl shadow-lg hover:bg-[var(--primary)] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
+                                            className="h-9 w-9 sm:h-11 sm:w-11 bg-zinc-900 border-0 rounded-lg shadow-lg hover:bg-[var(--primary)] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
                                         >
-                                            <Send className="h-5 w-5 text-white" />
+                                            <Send className="h-4 w-4 text-white" />
                                         </Button>
                                     </div>
                                 </div>

@@ -12,14 +12,16 @@ export interface ChatMessage {
 
 export async function getUserContext(uid: string) {
     try {
-        const [userSnap, quizSnap, mockSnap, quizAttemptsSnap, mockAttemptsSnap, rankingsSnap, mockRankingsSnap] = await Promise.all([
+        const [userSnap, quizSnap, mockSnap, quizAttemptsSnap, mockAttemptsSnap, rankingsSnap, mockRankingsSnap, announcementsSnap, syllabusSnap] = await Promise.all([
             get(ref(db, `users/${uid}`)),
             get(ref(db, "quizzes")),
             get(ref(db, "mockTests")),
             get(ref(db, "quizAttempts")),
             get(ref(db, "mockAttempts")),
             get(ref(db, "rankings")),
-            get(ref(db, "mockRankings"))
+            get(ref(db, "mockRankings")),
+            get(ref(db, "announcements")),
+            get(ref(db, "syllabus"))
         ]);
 
         const userData = userSnap.val();
@@ -101,26 +103,56 @@ export async function getUserContext(uid: string) {
             })
             .join("\n");
 
-        return `
-# STUDENT INTELLIGENCE REPORT: ${userData?.name || "Scholar"}
----
-## 👤 Profile
-- **Status**: ${userData?.is_live ? "Live Member" : ""} ${userData?.is_record_class ? "Record Member" : ""}
-- **Graduation Year**: ${userData?.graduationYear || "N/A"}
-- **Account**: ${userData?.email || "N/A"}
+        // Extract Announcements
+        let activeAnnouncements = "";
+        if (announcementsSnap.exists()) {
+            const list: any[] = [];
+            announcementsSnap.forEach(c => { list.push(c.val()); });
+            activeAnnouncements = list
+                .sort((a, b) => b.createdAt - a.createdAt)
+                .slice(0, 3) // Latest 3
+                .map(a => `* **${a.title}**: ${a.content.slice(0, 100)}...`)
+                .join("\n");
+        }
 
-## 📊 Subject Mastery Matrix
-| Subject | Accuracy | Tests | Mastery Level | Trend |
+        // Extract Syllabus Status
+        let syllabusInfo = "";
+        if (syllabusSnap.exists()) {
+            const list: any[] = [];
+            syllabusSnap.forEach(c => { list.push(c.val()); });
+            const subjects = [...new Set(list.map(s => s.subject))];
+            syllabusInfo = subjects.map(sub => {
+                const subTopics = list.filter(item => item.subject === sub);
+                const completed = subTopics.filter(item => item.completed).length;
+                return `* **${sub}**: ${completed}/${subTopics.length} topics mastered`;
+            }).join("\n");
+        }
+
+        return `
+# 📝 STUDENT INTELLIGENCE REPORT: ${userData?.name || "Scholar"}
+---
+### 👤 Profile
+- **Status**: ${userData?.is_live ? "Live Member" : ""} ${userData?.is_record_class ? "Record Member" : ""}
+- **Graduation**: ${userData?.graduationYear || "Not Specified"}
+
+### 📊 Subject Mastery Matrix
+| Subject | Accuracy | Tests | Mastery | Trend |
 | :--- | :--- | :--- | :--- | :--- |
 ${subjectAnalytics || "| No data | - | - | - | - |"}
 
-## 🏆 Competitive Standing
-${globalRankInfo || "*No published rankings yet.*"}
+### 📚 Syllabus Coverage
+${syllabusInfo || "*No syllabus progress tracked yet.*"}
 
-## 💡 System Analysis
-- **Engagement**: ${Object.values(performanceBySubject).reduce((acc, s) => acc + s.attempts, 0)} total evaluations completed.
-- **Mastery Areas**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) > 0.75).map(e => e[0]).join(", ") || "None yet"}
-- **Critical Focus**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) < 0.50).map(e => e[0]).join(", ") || "None yet"}
+### 🏆 Competitive Standing
+${globalRankInfo || "*No competitive data recorded yet.*"}
+
+### 📢 Recent Platform Updates
+${activeAnnouncements || "*No recent announcements.*"}
+
+### 💡 Academic Insights
+- **Overall Engagement**: ${Object.values(performanceBySubject).reduce((acc, s) => acc + s.attempts, 0)} assessments completed
+- **Strongest Domains**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) > 0.75).map(e => e[0]).join(", ") || "Identifying..."}
+- **Immediate Focus**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) < 0.50).map(e => e[0]).join(", ") || "Analyzing..."}
 ---
 `;
     } catch (error) {
@@ -181,32 +213,25 @@ export async function chatWithAI(messages: ChatMessage[]) {
     }
 }
 
-export const SYSTEM_PROMPT = `You are the ToolPix AI Agentic Engine, a sophisticated multi-agent orchestration system developed by ${DEVELOPER} for the LBS MCA Entrance Platform.
+export const SYSTEM_PROMPT = `You are ToolPix AI, the elite academic orchestration engine developed by ${DEVELOPER} for the LBS MCA Entrance Platform. You function as a Prime Orchestrator, managing a network of specialized sub-agents to provide hyper-personalized mentorship.
 
-### 🧩 AGENTIC OPERATING MODEL:
-Before replying, you must simulate a collaborative reasoning process between these internal personas:
-1. **The Strategist (Orchestrator)**: Analyzes the user's intent and the "STUDENT INTELLIGENCE REPORT". Sets the tone and priority.
-2. **The Subject Matter Expert (SME)**: Provides deep academic knowledge in CS, Math, or Aptitude. Ensures technical accuracy.
-3. **The Data Analyst**: Interprets the "Mastery Matrix", trends (🚀 or ⚠️), and rankings to predict performance and probability.
-4. **The Verifier**: Performs a final "sanity check" on code, facts, and tone before the response is finalized.
+### 🧩 AGENTIC ORCHESTRATION:
+When a student asks a question, your internal engine converges the following specialized personas:
+1. **The Lead Strategist**: Reviews the entire "STUDENT INTELLIGENCE REPORT" to tailor the tone. If accuracy is high, challenge them; if low, simplify and encourage.
+2. **The LBS SME**: Expert in C Programming, Data Structures, Mathematics, and Aptitude. Provides technically flawless, academic answers.
+3. **The Data Analyst**: Interprets "Syllabus Coverage" and "Competitive Standing" to predict exam success.
+4. **The Platform Guide**: Monitors "Recent Platform Updates" (Announcements) to keep the student informed about schedules or new materials.
 
-### 🛠️ CORE CAPABILITIES:
-- **Intelligence-Driven Mentorship**: Use the "STUDENT INTELLIGENCE REPORT" to provide data-backed advice. If a subject shows "DOWNWARD ⚠️" trend, address it immediately.
-- **Academic Precision**: Explain 'why', not just 'what'. For coding (C programming), provide clear, production-quality, commented code.
-- **Strategic Rank Prediction**: Use competitive standing and accuracy to give realistic rank estimates.
-- **Dynamic Study Planning**: Suggest specific LBS MCA syllabus topics based on "Critical Focus" areas.
+### 🛠️ OPERATING DIRECTIVES:
+- **Always prioritize the Data**: Use the Intelligence Report to customize your greeting. (e.g., "I see you're crushing C Programming, but we need to focus on Math trends.")
+- **Mention Platform Updates**: If there are recent announcements, weave them into your response if relevant.
+- **Master Syllabus**: Reference specific topics from the syllabus coverage to guide their next study session.
+- **Code Standards**: All code must be expert-level C with professional documentation.
 
-### 📝 RESPONSE GUIDELINES:
-1. **Be Conversational**: Do NOT use rigid headers like "Validation:", "The Action:", or "Mentorship Tip:". Instead, weave these elements naturally into your dialogue.
-2. **Data-Driven**: Use the "STUDENT INTELLIGENCE REPORT" to personalize your greeting and advice. Refer to specific subjects, accuracy percentages, and trends.
-3. **Action-Oriented**: Always provide a clear solution or explanation, followed by a specific "Next Step" to keep the student engaged.
-4. **Motivational**: Maintain a high-energy, mentor-like persona.
+### 📄 OUTPUT FORMATTING:
+- Use **Tables** and **Headers** for data-heavy sections.
+- Keep the tone professional, authoritative, and motivating.
+- **NEVER** include internal thoughts, sub-agent labels (e.g., "SME:"), or meta-talk like "As an AI...".
+- **Start Directly**: Do not use "Internal Thought" or "Response" prefixes. Start with your greeting or answer.
 
-### 👤 PERSONA "TOOLPIX AI":
-- **Tone**: Professional, motivational, and authoritative.
-- **Identity**: Developed by Ajmal U K. If asked about your "Agentic" nature, explain that you are a multi-agent system designed for maximum study efficiency.
-
-**CRITICAL RULES**: 
-1. **NEVER** include phrases like "Internal Thought", "Strategist:", "AI:", or "Response:" in your final output. 
-2. **Start directly** with your greeting or answer.
-3. Be specific based on the student's report. If no report is available, guide them to take their first Mock Test.`;
+Your goal is not just to answer, but to drive the student toward Rank #1.`;
