@@ -11,7 +11,7 @@ import { db } from "@/lib/firebase";
 import type { LiveClass } from "@/lib/types";
 import { Video, Calendar, Clock, ExternalLink, Play, AlertCircle, MonitorPlay, X, SkipBack, SkipForward } from "lucide-react";
 import { format } from "date-fns";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEmail }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; subject: string; url: string; userEmail?: string | null }) {
     type YTPlayer = {
@@ -20,8 +20,8 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
         setPlaybackRate?: (rate: number) => void;
         setPlaybackQuality?: (quality: string) => void;
         destroy?: () => void;
-    mute?: () => void;
-    playVideo?: () => void;
+        mute?: () => void;
+        playVideo?: () => void;
         getDuration?: () => number;
         getCurrentTime?: () => number;
         seekTo?: (t: number, allowSeekAhead?: boolean) => void;
@@ -70,10 +70,10 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
         setQuality("auto");
         const yt = playerRef.current;
         try {
-      yt?.mute?.();
-      yt?.playVideo?.();
-      const d = yt?.getDuration?.() ?? 0;
-      if (d && Number.isFinite(d)) setDuration(d);
+            yt?.mute?.();
+            yt?.playVideo?.();
+            const d = yt?.getDuration?.() ?? 0;
+            if (d && Number.isFinite(d)) setDuration(d);
             const availableRates = yt?.getAvailablePlaybackRates?.() ?? [];
             if (Array.isArray(availableRates) && availableRates.length > 0) setRates(availableRates);
             const q = yt?.getAvailableQualityLevels?.() ?? [];
@@ -114,7 +114,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                     height: "100%",
                     width: "100%",
                     videoId: String(resolvedId),
-          playerVars: { controls: 0, rel: 0, iv_load_policy: 3, disablekb: 1, autoplay: 1, playsinline: 1, modestbranding: 1 },
+                    playerVars: { controls: 0, rel: 0, iv_load_policy: 3, disablekb: 1, autoplay: 1, playsinline: 1, modestbranding: 1 },
                     events: { onReady }
                 });
             } catch { /* noop */ }
@@ -158,85 +158,87 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
     };
     return (
         <Dialog open={open} onOpenChange={onOpenChange} className="max-w-5xl p-0 overflow-hidden border-none bg-black shadow-2xl">
-            <div className="flex flex-col h-full overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
-                <div className="px-6 py-4 flex items-center justify-between bg-zinc-900 border-b border-white/5 z-20">
-                    <div className="flex-1">
-                        <h3 className="text-white font-bold text-lg line-clamp-1 flex items-center gap-2">
-                            <MonitorPlay className="h-5 w-5 text-violet-400" />
-                            {title}
-                        </h3>
-                        <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{subject} • Live Recording</p>
-                    </div>
-                    <button aria-label="Close" onClick={() => onOpenChange(false)} className="ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition">
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-                <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-white/5">
-                    <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
-                        <div className="grid grid-cols-3 gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-sm">
-                            {Array.from({ length: 12 }).map((_, i) => (<span key={i}>{userEmail}</span>))}
+            <DialogContent className="p-0 border-none bg-black max-w-5xl overflow-hidden shadow-2xl">
+                <div className="flex flex-col h-full overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+                    <div className="px-6 py-4 flex items-center justify-between bg-zinc-900 border-b border-white/5 z-20">
+                        <div className="flex-1">
+                            <h3 className="text-white font-bold text-lg line-clamp-1 flex items-center gap-2">
+                                <MonitorPlay className="h-5 w-5 text-violet-400" />
+                                {title}
+                            </h3>
+                            <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{subject} • Live Recording</p>
                         </div>
+                        <button aria-label="Close" onClick={() => onOpenChange(false)} className="ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition">
+                            <X className="h-5 w-5" />
+                        </button>
                     </div>
-                    {!isReady && (
-                        <div className="absolute inset-0 flex items-center justify-center z-40 bg-zinc-950">
-                            <div className="flex flex-col items-center gap-6">
-                                <div className="relative h-16 w-16">
-                                    <div className="absolute inset-0 border-4 border-violet-500/10 rounded-full" />
-                                    <div className="absolute inset-0 border-4 border-t-violet-500 rounded-full animate-spin" />
-                                    <MonitorPlay className="absolute inset-0 m-auto h-6 w-6 text-violet-500 animate-pulse" />
+                    <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-white/5">
+                        <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
+                            <div className="grid grid-cols-3 gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-sm">
+                                {Array.from({ length: 12 }).map((_, i) => (<span key={i}>{userEmail}</span>))}
+                            </div>
+                        </div>
+                        {!isReady && (
+                            <div className="absolute inset-0 flex items-center justify-center z-40 bg-zinc-950">
+                                <div className="flex flex-col items-center gap-6">
+                                    <div className="relative h-16 w-16">
+                                        <div className="absolute inset-0 border-4 border-violet-500/10 rounded-full" />
+                                        <div className="absolute inset-0 border-4 border-t-violet-500 rounded-full animate-spin" />
+                                        <MonitorPlay className="absolute inset-0 m-auto h-6 w-6 text-violet-500 animate-pulse" />
+                                    </div>
+                                    <div className="space-y-1 text-center">
+                                        <p className="text-zinc-200 text-sm font-semibold tracking-wide">Initializing Secure Stream</p>
+                                        <p className="text-zinc-500 text-[10px] uppercase tracking-[0.2em]">Encrypted Connection Active</p>
+                                    </div>
                                 </div>
-                                <div className="space-y-1 text-center">
-                                    <p className="text-zinc-200 text-sm font-semibold tracking-wide">Initializing Secure Stream</p>
-                                    <p className="text-zinc-500 text-[10px] uppercase tracking-[0.2em]">Encrypted Connection Active</p>
+                            </div>
+                        )}
+                        <div className="absolute top-1/2 left-1/2 w-[115%] h-[115%] -translate-x-1/2 -translate-y-1/2 overflow-hidden pointer-events-none">
+                            <div ref={containerRef} className="w-full h-full" />
+                        </div>
+                        <div className="absolute inset-0 pointer-events-auto z-40 flex items-end justify-center p-4">
+                            <div className="w-full max-w-4xl space-y-2">
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={duration || 0}
+                                    step={0.1}
+                                    value={Math.min(currentTime, duration || 0)}
+                                    onChange={(e) => seekTo(Number(e.target.value))}
+                                    className="w-full accent-violet-500"
+                                />
+                                <div className="bg-black/60 backdrop-blur-md text-white rounded-xl border border-white/10 px-3 py-2 flex items-center gap-3">
+                                    <div className="text-[10px] font-mono text-zinc-300 w-24 text-center">{fmt(currentTime)} / {fmt(duration || 0)}</div>
+                                    <button onClick={() => seekBy(-10)} className="p-1.5 rounded-md hover:bg-white/10">
+                                        <SkipBack className="h-5 w-5" />
+                                    </button>
+                                    <button onClick={() => seekBy(10)} className="p-1.5 rounded-md hover:bg-white/10">
+                                        <SkipForward className="h-5 w-5" />
+                                    </button>
+                                    <div className="h-5 w-px bg-white/10" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
+                                        <select value={rate} onChange={(e) => applyRate(Number(e.target.value))} className="bg-black/50 border border-white/10 rounded-md text-sm px-2 py-1">
+                                            {rates.map((r) => (<option key={r} value={r}>{r}x</option>))}
+                                        </select>
+                                    </div>
+                                    <div className="h-5 w-px bg-white/10" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
+                                        <select value={quality} onChange={(e) => applyQuality(e.target.value)} className="bg-black/50 border border-white/10 rounded-md text-sm px-2 py-1">
+                                            {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                                <option key={q} value={q}>
+                                                    {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    )}
-                    <div className="absolute top-1/2 left-1/2 w-[115%] h-[115%] -translate-x-1/2 -translate-y-1/2 overflow-hidden pointer-events-none">
-                        <div ref={containerRef} className="w-full h-full" />
-                    </div>
-                    <div className="absolute inset-0 pointer-events-auto z-40 flex items-end justify-center p-4">
-                        <div className="w-full max-w-4xl space-y-2">
-                            <input
-                                type="range"
-                                min={0}
-                                max={duration || 0}
-                                step={0.1}
-                                value={Math.min(currentTime, duration || 0)}
-                                onChange={(e) => seekTo(Number(e.target.value))}
-                                className="w-full accent-violet-500"
-                            />
-                            <div className="bg-black/60 backdrop-blur-md text-white rounded-xl border border-white/10 px-3 py-2 flex items-center gap-3">
-                                <div className="text-[10px] font-mono text-zinc-300 w-24 text-center">{fmt(currentTime)} / {fmt(duration || 0)}</div>
-                                <button onClick={() => seekBy(-10)} className="p-1.5 rounded-md hover:bg-white/10">
-                                    <SkipBack className="h-5 w-5" />
-                                </button>
-                                <button onClick={() => seekBy(10)} className="p-1.5 rounded-md hover:bg-white/10">
-                                    <SkipForward className="h-5 w-5" />
-                                </button>
-                                <div className="h-5 w-px bg-white/10" />
-                                <div className="flex items-center gap-2">
-                                    <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
-                                    <select value={rate} onChange={(e) => applyRate(Number(e.target.value))} className="bg-black/50 border border-white/10 rounded-md text-sm px-2 py-1">
-                                        {rates.map((r) => (<option key={r} value={r}>{r}x</option>))}
-                                    </select>
-                                </div>
-                                <div className="h-5 w-px bg-white/10" />
-                                <div className="flex items-center gap-2">
-                                    <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
-                                    <select value={quality} onChange={(e) => applyQuality(e.target.value)} className="bg-black/50 border border-white/10 rounded-md text-sm px-2 py-1">
-                                        {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                            <option key={q} value={q}>
-                                                {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
-            </div>
+            </DialogContent>
         </Dialog>
     );
 }

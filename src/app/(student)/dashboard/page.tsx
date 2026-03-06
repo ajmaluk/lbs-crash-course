@@ -8,38 +8,48 @@ import { ref, onValue, query, orderByChild, limitToLast } from "firebase/databas
 import { db } from "@/lib/firebase";
 import type { LiveClass, Announcement } from "@/lib/types";
 import {
-    LayoutDashboard,
     Video,
     MonitorPlay,
     BookOpen,
     FileText,
     Trophy,
     Megaphone,
-    Search,
-    ChevronRight,
-    Play,
     Clock,
     Calendar,
     ArrowRight,
-    Sparkles,
     AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+interface RankEntry {
+    userId: string;
+    userName: string;
+    score: number;
+    totalQuestions: number;
+    rank: number;
+}
+
+interface RankData {
+    quizId: string;
+    quizTitle: string;
+    entries: RankEntry[];
+    generatedAt: number;
+}
+
 // Add this component before the main DashboardPage
 function LeaderboardSummary() {
     const { userData } = useAuth();
-    const [latestRanking, setLatestRanking] = useState<any>(null);
+    const [latestRanking, setLatestRanking] = useState<RankData | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const rRef = ref(db, "rankings");
         const unsub = onValue(rRef, (snapshot) => {
-            let latest: any = null;
+            let latest: RankData | null = null;
             snapshot.forEach((child) => {
-                const val = child.val();
+                const val = child.val() as RankData;
                 if (!latest || val.generatedAt > latest.generatedAt) {
                     latest = val;
                 }
@@ -52,7 +62,7 @@ function LeaderboardSummary() {
 
     if (loading || !latestRanking) return null;
 
-    const myEntry = latestRanking.entries.find((e: any) => e.userId === userData?.uid);
+    const myEntry = latestRanking.entries.find((e) => e.userId === userData?.uid);
     const top3 = latestRanking.entries.slice(0, 3);
 
     return (
@@ -66,7 +76,7 @@ function LeaderboardSummary() {
             </CardHeader>
             <CardContent>
                 <div className="space-y-3">
-                    {top3.map((entry: any, i: number) => (
+                    {top3.map((entry, i: number) => (
                         <div key={entry.userId} className="flex items-center gap-3 bg-white/10 rounded-lg p-2 border border-white/10">
                             <div className="h-6 w-6 rounded-full bg-yellow-400 text-[#254852] flex items-center justify-center text-xs font-bold">
                                 {i + 1}
@@ -99,7 +109,7 @@ function LeaderboardSummary() {
 }
 
 export default function StudentDashboard() {
-    const { userData, loading: authLoading } = useAuth();
+    const { userData } = useAuth();
     const [upcomingClasses, setUpcomingClasses] = useState<LiveClass[]>([]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [recorded, setRecorded] = useState<Array<{ id: string; subject: string; title: string }>>([]);
@@ -197,7 +207,7 @@ export default function StudentDashboard() {
         : quickActions;
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="animate-fade-in space-y-6">
             {/* Top Row: Welcome & Leaderboard */}
             <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">

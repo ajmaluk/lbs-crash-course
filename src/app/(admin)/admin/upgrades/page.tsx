@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { UpgradeRequest } from "@/lib/types";
@@ -169,20 +169,33 @@ export default function AdminUpgradesPage() {
                 </div>
             )}
 
-            <Dialog open={showReject} onOpenChange={setShowReject}>
-                <DialogHeader>
-                    <DialogTitle>Reject Upgrade Request</DialogTitle>
-                    <DialogDescription>Enter a reason for rejection</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Reason..." rows={3} />
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowReject(false)}>Cancel</Button>
-                        <Button variant="destructive" onClick={handleReject} disabled={processing}>
-                            {processing ? "Rejecting..." : "Reject"}
-                        </Button>
-                    </DialogFooter>
-                </div>
+            <Dialog open={showReject} onOpenChange={setShowReject} className="max-w-md">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-red-500">Reject Upgrade Request</DialogTitle>
+                        <DialogDescription>Enter a reason for rejection. This will be visible to the user.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                        <Textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="e.g., Payment screenshot is mismatched..."
+                            rows={4}
+                            className="rounded-xl border-[var(--border)] focus:ring-2 focus:ring-red-500/20"
+                        />
+                        <DialogFooter className="gap-3 sm:gap-0 mt-2">
+                            <Button variant="outline" onClick={() => setShowReject(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleReject}
+                                disabled={processing}
+                                className="h-11 rounded-xl px-8 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20"
+                            >
+                                {processing ? "Rejecting..." : "Confirm Reject"}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
             </Dialog>
         </div>
     );

@@ -31,32 +31,23 @@
 
 /* ===== Light Mode ===== */
 :root {
-  --background: #d7e6e6;
-  /* Very Light Background */
-  --foreground: #1c333a;
-  /* Deep text */
+  --background: #f8fafc;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #254852;
-  /* Dark Teal */
-  --primary: #5e9ea2;
-  /* Primary Teal */
+  --card-foreground: #1e293b;
+  --primary: #0d9488;
   --primary-foreground: #ffffff;
-  --secondary: #a5c1c4;
-  /* Light Teal Background */
-  --secondary-foreground: #254852;
-  /* Dark Teal */
-  --muted: #a5c1c4;
-  /* Light Teal Background */
-  --muted-foreground: #4b6f76;
-  /* Muted Teal */
-  --accent: #5e9ea2;
-  /* Primary Teal */
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #14b8a6;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
-  --border: #a5c1c4;
-  --input: #a5c1c4;
-  --ring: #5e9ea2;
-  --success: #22c55e;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0d9488;
+  --success: #10b981;
   --warning: #f59e0b;
 }
 
@@ -80,6 +71,10 @@
   --ring: #5e9ea2;
   --success: #4ade80;
   --warning: #fbbf24;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 /* ===== Base Styles ===== */
@@ -129,11 +124,11 @@ body {
 
 /* ===== Gradient Utilities ===== */
 .gradient-primary {
-  background: linear-gradient(135deg, #254852 0%, #4b6f76 50%, #5e9ea2 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #254852, #5e9ea2, #a5c1c4);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -222,6 +217,20 @@ body {
   }
 }
 
+@keyframes bounce-slow {
+
+  0%,
+  100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
 @keyframes float {
 
   0%,
@@ -252,6 +261,10 @@ body {
 
 .animate-scale-in {
   animation: scaleIn 0.3s ease-out;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 3s infinite;
 }
 
 .animate-float {

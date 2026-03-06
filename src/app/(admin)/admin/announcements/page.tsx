@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
@@ -82,16 +82,39 @@ export default function AdminAnnouncementsPage() {
                 ))}</div>
             )}
 
-            <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogHeader><DialogTitle>{editing ? "Edit" : "New"} Announcement</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Announcement title" /></div>
-                    <div className="space-y-2"><Label>Content *</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Write your announcement..." rows={5} /></div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0">{saving ? "Publishing..." : editing ? "Update" : "Publish"}</Button>
-                    </DialogFooter>
-                </div>
+            <Dialog open={showForm} onOpenChange={setShowForm} className="max-w-2xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editing ? "Edit" : "New"} Announcement</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Title *</Label>
+                            <Input
+                                value={form.title}
+                                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                                placeholder="Special Announcement..."
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Content *</Label>
+                            <Textarea
+                                value={form.content}
+                                onChange={(e) => setForm({ ...form, content: e.target.value })}
+                                placeholder="Enter the announcement details here..."
+                                rows={6}
+                                className="rounded-xl"
+                            />
+                        </div>
+                        <DialogFooter className="gap-3 sm:gap-0 mt-2">
+                            <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-blue-500/20">
+                                {saving ? "Publishing..." : editing ? "Update" : "Publish"}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
             </Dialog>
         </div>
     );

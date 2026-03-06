@@ -132,6 +132,10 @@ export default function ProfilePage() {
                 <CardContent>
                     <div className="grid sm:grid-cols-2 gap-4">
                         <div>
+                            <p className="text-xs text-[var(--muted-foreground)]">Login ID</p>
+                            <p className="font-mono font-medium text-[var(--primary)]">{userData?.loginId || "N/A"}</p>
+                        </div>
+                        <div>
                             <p className="text-xs text-[var(--muted-foreground)]">Full Name</p>
                             <p className="font-medium">{userData?.name}</p>
                         </div>

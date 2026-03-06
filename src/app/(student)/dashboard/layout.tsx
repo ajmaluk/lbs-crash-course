@@ -21,6 +21,7 @@ import {
     Menu,
     X,
     ChevronRight,
+    Sparkles,
 } from "lucide-react";
 
 const navItems = [
@@ -33,6 +34,7 @@ const navItems = [
     { href: "/dashboard/mock-tests", label: "Mock Tests", icon: FileText },
     { href: "/dashboard/rankings", label: "Leaderboard & Rankings", icon: Trophy },
     { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/dashboard/ai-chat", label: "AI Assistant", icon: Sparkles },
     { href: "/dashboard/profile", label: "Profile", icon: User },
 ];
 
@@ -81,31 +83,6 @@ export default function StudentDashboardLayout({
                         >
                             <X className="h-5 w-5" />
                         </button>
-                    </div>
-
-                    {/* User Info */}
-                    <div className="border-b border-[var(--border)] p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full gradient-primary text-sm font-bold text-white">
-                                {userData.name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{userData.name}</p>
-                                <p className="text-xs text-[var(--muted-foreground)] truncate">{userData.email}</p>
-                            </div>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                            {userData.is_live && (
-                                <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
-                                    Live
-                                </span>
-                            )}
-                            {userData.is_record_class && (
-                                <span className="inline-flex items-center rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-400">
-                                    Recorded
-                                </span>
-                            )}
-                        </div>
                     </div>
 
                     {/* Navigation */}
@@ -164,8 +141,10 @@ export default function StudentDashboardLayout({
                 </header>
 
                 {/* Page content */}
-                <main className="flex-1 overflow-y-auto">
-                    <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+                <main className={cn("flex-1 overflow-y-auto", pathname === "/dashboard/ai-chat" && "overflow-hidden")}>
+                    <div className={cn(
+                        pathname !== "/dashboard/ai-chat" && "mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"
+                    )}>
                         {children}
                     </div>
                 </main>

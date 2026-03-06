@@ -11,7 +11,8 @@ import { GraduationCap, LogIn, Loader2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { PageLoader } from "@/components/ui/loading";
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/firebase"; // Assuming firebase.ts is in lib/firebase
 import { ref, get } from "firebase/database";
 
@@ -84,13 +85,22 @@ function LoginForm() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] p-6 sm:p-12 lg:p-20">
+            <div className="w-full max-w-md mb-6">
+                <Link href="/">
+                    <Button variant="ghost" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] -ml-4">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Home
+                    </Button>
+                </Link>
+            </div>
+
             <div className="fixed inset-0 -z-10">
                 <div className="absolute top-1/4 left-1/3 h-64 w-64 rounded-full bg-[var(--primary)]/10 blur-[100px]" />
                 <div className="absolute bottom-1/4 right-1/3 h-64 w-64 rounded-full bg-[var(--accent)]/10 blur-[100px]" />
             </div>
 
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-md z-10 shadow-2xl border-[var(--border)]">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary">
                         <GraduationCap className="h-7 w-7 text-white" />
@@ -100,24 +110,30 @@ function LoginForm() {
                 </CardHeader>
                 <CardContent>
                     <Dialog open={showExpiredPopup} onOpenChange={setShowExpiredPopup}>
-                        <div className="text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--warning)]/10 mb-2">
-                                <AlertTriangle className="h-6 w-6 text-[var(--warning)]" />
+                        <DialogContent className="max-w-[400px]">
+                            <div className="text-center py-4">
+                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 mb-6">
+                                    <AlertTriangle className="h-7 w-7 text-amber-500" />
+                                </div>
+                                <DialogHeader>
+                                    <DialogTitle className="text-2xl font-bold text-center">Session Terminated</DialogTitle>
+                                    <DialogDescription className="text-center text-zinc-500 mt-2 leading-relaxed">
+                                        Your account was logged in from another device.
+                                        <div className="mt-4 p-3 bg-zinc-50 rounded-xl border border-zinc-100 text-sm italic">
+                                            Only one active session is allowed per account for security.
+                                        </div>
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <DialogFooter className="sm:justify-center mt-8">
+                                    <Button
+                                        onClick={() => setShowExpiredPopup(false)}
+                                        className="w-full h-12 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg transition-all"
+                                    >
+                                        Acknowledge
+                                    </Button>
+                                </DialogFooter>
                             </div>
-                            <DialogHeader>
-                                <DialogTitle className="text-xl">Session Terminated</DialogTitle>
-                                <DialogDescription className="text-base mt-2">
-                                    Your account was logged in from another device.
-                                    <br /><br />
-                                    <b>Only one account can use the platform at a time.</b> For your security, this session has been automatically logged out.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="sm:justify-center mt-4">
-                                <Button onClick={() => setShowExpiredPopup(false)} className="px-8 bg-[var(--warning)] text-white hover:bg-[var(--warning)]/90 border-0">
-                                    Acknowledge
-                                </Button>
-                            </DialogFooter>
-                        </div>
+                        </DialogContent>
                     </Dialog>
 
                     <form onSubmit={handleSubmit} className="space-y-4">

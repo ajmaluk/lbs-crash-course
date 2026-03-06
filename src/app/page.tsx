@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,12 @@ import {
   Sparkles,
   Shield,
   Zap,
+  Mail,
+  Phone,
+  Clock,
+  MessageCircle,
+  Menu,
+  X,
 } from "lucide-react";
 
 const features = [
@@ -105,11 +111,15 @@ export default function LandingPage() {
   const liveOnlyEnabled = process.env.NEXT_PUBLIC_LIVE_ONLY === "true";
   const recordOnlyEnabled = process.env.NEXT_PUBLIC_RECORD_ONLY === "true";
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const activePackages = packages.filter((pkg) => {
     if (pkg.name === "Live Only") return liveOnlyEnabled;
     if (pkg.name === "Recorded Only") return recordOnlyEnabled;
     return true; // "Live + Recorded" is always visible
   });
+
+
 
   useEffect(() => {
     if (loading) return;
@@ -126,6 +136,31 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <Script id="course-schema" type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Course",
+            "name": "LBS MCA Entrance Examination Comprehensive Coaching",
+            "description": "Expert online coaching for Kerala LBS MCA Entrance Examination. Includes live interactive classes, HD recorded lectures, mock tests according to LBS pattern, and previous year paper discussions.",
+            "provider": {
+              "@type": "Organization",
+              "name": "LBS MCA",
+              "sameAs": "https://lbscourse.cetmca.in"
+            },
+            "offers": {
+              "@type": "Offer",
+              "category": "Paid",
+              "priceCurrency": "INR"
+            },
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": "Online",
+              "courseWorkload": "Complete preparation for LBS Entrance"
+            }
+          })
+        }}
+      />
       <Script id="faq-schema" type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
@@ -134,7 +169,7 @@ export default function LandingPage() {
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "What does the course include?",
+                "name": "What does the LBS MCA Entrance course include?",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Live classes, recorded lectures, quizzes, mock tests, previous year papers and rank tracking."
@@ -142,10 +177,42 @@ export default function LandingPage() {
               },
               {
                 "@type": "Question",
-                "name": "Is it mobile friendly?",
+                "name": "Is LBS MCA prospectus available?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, our course covers all topics from the official LBS MCA prospectus and syllabus."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the LBS MCA exam timing?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The LBS MCA entrance exam is typically conducted in April/May. Our platform provides timed mock tests to help you prepare for the actual exam schedule."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How to apply for LBS MCA?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Applications are submitted through the official LBS Centre for Science and Technology website. Our platform helps you prepare thoroughly for the entrance exam."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the platform mobile friendly?",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Yes. The entire platform is optimized for mobile with secure video playback."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the syllabus for LBS MCA Entrance?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The LBS MCA syllabus includes Mathematics, Statistics, Quantitative Aptitude, Logical Reasoning, English, and General Knowledge. Our comprehensive course covers all subjects."
                 }
               }
             ]
@@ -153,62 +220,104 @@ export default function LandingPage() {
         }}
       />
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-[#254852]/80 backdrop-blur-xl border-b border-white/10 text-white transition-all duration-300">
+      <nav className="sticky top-0 z-50 bg-[var(--primary)]/90 backdrop-blur-xl border-b border-[var(--border)] text-white transition-all duration-300">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#5E9EA2] to-[#254852] shadow-lg shadow-[#5E9EA2]/20 group-hover:scale-105 transition-transform duration-300">
-              <GraduationCap className="h-6 w-6 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg group-hover:scale-105 transition-transform duration-300">
+              <GraduationCap className="h-6 w-6 text-[var(--primary)]" />
             </div>
-            <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-[#A5C1C4]">LBS MCA</span>
+            <span className="text-xl font-bold tracking-tight text-white">LBS MCA</span>
           </Link>
           <div className="flex items-center gap-8">
             <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-              <Link href="#" className="text-white hover:text-[#A5C1C4] transition-colors">Home</Link>
+              <Link href="#" className="hover:text-white/80 transition-colors">Home</Link>
               <Link href="#features" className="text-white/80 hover:text-white transition-colors">About</Link>
               <Link href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
             </div>
             <div className="flex items-center gap-4">
-              {user && userData ? (
-                <Link href={dashboardLink}>
-                  <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
-                    {isAdmin ? "Admin Panel" : "Go to Dashboard"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              ) : (
-                <>
+              <div className="hidden sm:block">
+                {user && userData ? (
+                  <Link href={dashboardLink}>
+                    <Button className="bg-white hover:bg-white/90 text-[var(--primary)] rounded-full px-8 py-5 h-auto font-semibold shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                      {isAdmin ? "Admin Panel" : "Go to Dashboard"}
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                ) : (
                   <Link href="/login">
-                    <Button className="bg-gradient-to-r from-[#5E9EA2] to-[#4B6F76] hover:from-[#A5C1C4] hover:to-[#5E9EA2] text-white rounded-full px-8 py-5 h-auto font-semibold border border-white/10 shadow-lg shadow-[#5E9EA2]/20 hover:shadow-xl hover:shadow-[#5E9EA2]/40 hover:-translate-y-0.5 transition-all duration-300">
+                    <Button className="bg-white hover:bg-white/90 text-[var(--primary)] rounded-full px-8 py-5 h-auto font-semibold shadow-md hover:-translate-y-0.5 transition-all duration-300">
                       <Sparkles className="w-4 h-4 mr-2" />
                       Login
                     </Button>
                   </Link>
-                </>
-              )}
+                )}
+              </div>
+
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu Overlay */}
+        <motion.div
+          initial={false}
+          animate={mobileMenuOpen ? "open" : "closed"}
+          variants={{
+            open: { opacity: 1, height: "auto", display: "block" },
+            closed: { opacity: 0, height: 0, transitionEnd: { display: "none" } }
+          }}
+          className="md:hidden border-t border-white/10 bg-[var(--primary)] overflow-hidden"
+        >
+          <div className="px-4 py-8 space-y-6 flex flex-col items-center">
+            <Link href="#" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium">Home</Link>
+            <Link href="#features" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-white/80">About</Link>
+            <Link href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-white/80">Contact</Link>
+
+            <div className="pt-4 w-full">
+              {user && userData ? (
+                <Link href={dashboardLink} onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full bg-white text-[var(--primary)] rounded-2xl h-14 font-bold">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full bg-white text-[var(--primary)] rounded-2xl h-14 font-bold">
+                    Login Now
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </motion.div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-32 sm:py-48 bg-[#0F1C20]">
+      <section className="relative overflow-hidden py-32 sm:py-48 ">
 
         {/* Deep Animated Gradients */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-[#5E9EA2]/20 rounded-full blur-[120px]"
+            className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-[var(--primary)]/10 rounded-full blur-[120px]"
           />
           <motion.div
             animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.4, 0.2] }}
             transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute top-1/4 -right-32 w-[500px] h-[500px] bg-[#254852]/40 rounded-full blur-[100px]"
+            className="absolute top-1/4 -right-32 w-[500px] h-[500px] bg-[var(--primary)]/20 rounded-full blur-[100px]"
           />
           <motion.div
             animate={{ y: [0, -50, 0], opacity: [0.1, 0.3, 0.1] }}
             transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -bottom-40 left-1/3 w-[800px] h-[400px] bg-[#A5C1C4]/10 rounded-full blur-[150px]"
+            className="absolute -bottom-40 left-1/3 w-[800px] h-[400px] bg-[var(--accent)]/10 rounded-full blur-[150px]"
           />
 
           {/* Subtle Grid overlay for texture */}
@@ -230,27 +339,27 @@ export default function LandingPage() {
           >
             <motion.div
               variants={{ hidden: { opacity: 0, scale: 0.8, y: -20 }, visible: { opacity: 1, scale: 1, y: 0 } }}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md px-5 py-2 text-xs sm:text-sm font-medium text-[#A5C1C4] uppercase tracking-[0.2em] mb-10 shadow-lg shadow-black/20"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/50 backdrop-blur-md px-5 py-2 text-xs sm:text-sm font-medium text-[var(--primary)] uppercase tracking-[0.2em] mb-10 shadow-lg"
             >
-              <Zap className="h-4 w-4 text-[#5E9EA2]" />
+              <Zap className="h-4 w-4 text-[var(--primary)]" />
               MCA Entrance Preparation Program
             </motion.div>
 
             <motion.h1
               variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
-              className="text-5xl sm:text-7xl md:text-[5.5rem] font-extrabold tracking-tight text-white mb-8 leading-[1.05]"
+              className="text-5xl sm:text-7xl md:text-[5.5rem] font-extrabold tracking-tight text-[var(--foreground)] mb-8 leading-[1.05]"
             >
-              Master Your Exams.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A5C1C4] via-[#5E9EA2] to-[#254852] drop-shadow-sm">
-                Anywhere, Anytime.
+              LBS MCA Entrance<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-[var(--primary)] to-teal-800 drop-shadow-sm">
+                Preparation Course
               </span>
             </motion.h1>
 
             <motion.p
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              className="max-w-2xl text-xl sm:text-2xl font-light text-[#D7E6E6]/90 mb-12 leading-relaxed"
+              className="max-w-2xl text-xl sm:text-2xl font-light text-[var(--muted-foreground)] mb-12 leading-relaxed"
             >
-              The most advanced digital learning platform designed exclusively for MCA entrance aspirants. <strong className="font-semibold text-white">Live. Flexible. Efficient.</strong>
+              The most advanced digital learning platform designed exclusively for MCA entrance aspirants. <strong className="font-semibold text-[var(--foreground)]">Live. Flexible. Efficient.</strong>
             </motion.p>
 
             <motion.div
@@ -258,14 +367,14 @@ export default function LandingPage() {
               className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto"
             >
               <Link href="/login" className="w-full sm:w-auto group">
-                <Button size="lg" className="w-full bg-gradient-to-r from-[#5E9EA2] to-[#254852] hover:from-[#4B6F76] hover:to-[#1a333a] text-white border border-white/10 rounded-full px-10 h-14 text-lg font-semibold shadow-2xl shadow-[#5E9EA2]/30 group-hover:shadow-[#5E9EA2]/50 group-hover:-translate-y-1 transition-all duration-300">
+                <Button size="lg" className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] hover:from-[var(--accent)] hover:to-[var(--primary)] text-white border border-transparent rounded-full px-10 h-14 text-lg font-semibold shadow-xl shadow-[var(--primary)]/30 group-hover:shadow-[var(--primary)]/50 group-hover:-translate-y-1 transition-all duration-300">
                   Start Your Journey
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
 
               <Link href="#features" className="w-full sm:w-auto hover:-translate-y-1 transition-transform duration-300">
-                <Button variant="outline" size="lg" className="w-full rounded-full border-white/20 text-white hover:bg-white/10 hover:text-white px-10 h-14 text-lg bg-transparent backdrop-blur-sm">
+                <Button variant="outline" size="lg" className="w-full rounded-full border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)] px-10 h-14 text-lg bg-[var(--background)]/50 backdrop-blur-sm">
                   Explore Platform
                 </Button>
               </Link>
@@ -274,7 +383,7 @@ export default function LandingPage() {
             {/* Trusted by text */}
             <motion.p
               variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-              className="mt-16 text-sm font-medium text-[#A5C1C4]/70 tracking-widest uppercase"
+              className="mt-16 text-sm font-medium text-[var(--muted-foreground)] tracking-widest uppercase"
             >
               Trusted by 1000+ top rankers
             </motion.p>
@@ -290,10 +399,10 @@ export default function LandingPage() {
             {stats.map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 text-center hover:bg-white/10 transition-colors duration-300 shadow-xl shadow-black/20"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/50 backdrop-blur-md p-6 text-center hover:bg-[var(--secondary)] transition-colors duration-300 shadow-md"
               >
-                <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-[#A5C1C4] mb-2">{stat.value}</div>
-                <div className="text-sm font-medium text-[#A5C1C4]/80 tracking-wide uppercase">{stat.label}</div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[var(--foreground)] to-[var(--primary)] mb-2">{stat.value}</div>
+                <div className="text-sm font-medium text-[var(--muted-foreground)] tracking-wide uppercase">{stat.label}</div>
               </div>
             ))}
           </motion.div>
@@ -301,17 +410,17 @@ export default function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="relative py-24 sm:py-32 bg-[#0A1316]">
+      <section id="features" className="relative py-24 sm:py-32 bg-[var(--secondary)]/20">
         {/* Decorative Grid */}
         <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,rgba(255,255,255,0),white,rgba(255,255,255,0))] opacity-[0.02] pointer-events-none"></div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 z-10">
           <div className="text-center mb-20">
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
-              Everything You Need to <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5E9EA2] to-[#A5C1C4]">Succeed</span>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--foreground)]">
+              Complete <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]">LBS MCA Preparation</span>
             </h2>
-            <p className="mt-5 text-lg text-[#A5C1C4]/70 max-w-2xl mx-auto font-light leading-relaxed">
-              Our platform provides a complete digital learning experience packed with cutting-edge tools designed to maximize your MCA entrance preparation.
+            <p className="mt-5 text-lg text-[var(--muted-foreground)] max-w-2xl mx-auto font-light leading-relaxed">
+              Everything you need to crack LBS MCA Entrance: live classes, recorded lectures, mock tests, previous papers, and rank tracking.
             </p>
           </div>
 
@@ -325,17 +434,17 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: index * 0.1, type: "spring", stiffness: 100 }}
                 whileHover={{ y: -8, transition: { duration: 0.2 } }}
               >
-                <div className="group relative rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-8 h-full shadow-2xl shadow-black/40 overflow-hidden transition-all duration-500 hover:bg-white/[0.04] hover:border-[#5E9EA2]/30">
+                <div className="group relative rounded-3xl border border-[var(--border)] bg-[var(--card)] backdrop-blur-xl p-8 h-full shadow-lg hover:shadow-xl overflow-hidden transition-all duration-500 hover:bg-[var(--card)] hover:border-[var(--primary)]/30">
                   {/* Subtle top glow on hover */}
                   <div className="absolute inset-0 bg-gradient-to-b from-[#5E9EA2]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                   <div
-                    className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.gradient} mb-6 shadow-lg shadow-black/20 ring-1 ring-white/10`}
+                    className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.gradient} mb-6 shadow-lg shadow-sm ring-1 ring-white/10`}
                   >
-                    <feature.icon className="h-7 w-7 text-white" />
+                    <feature.icon className="h-7 w-7 text-[var(--foreground)]" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3 tracking-wide">{feature.title}</h3>
-                  <p className="text-base text-[#A5C1C4]/70 leading-relaxed font-light">
+                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-3 tracking-wide">{feature.title}</h3>
+                  <p className="text-base text-[var(--muted-foreground)] leading-relaxed font-light">
                     {feature.description}
                   </p>
                 </div>
@@ -346,14 +455,14 @@ export default function LandingPage() {
       </section>
 
       {/* Packages */}
-      <section className="relative py-24 sm:py-32 bg-[#0F1C20] border-t border-white/5">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0A1316] to-transparent h-40 pointer-events-none"></div>
+      <section className="relative py-24 sm:py-32  border-t border-[var(--border)]">
+        <div className="absolute inset-0 hidden pointer-events-none"></div>
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 z-10">
           <div className="text-center mb-20">
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
-              Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5E9EA2] to-[#A5C1C4]">Package</span>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--foreground)]">
+              Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]">Package</span>
             </h2>
-            <p className="mt-5 text-lg text-[#A5C1C4]/70 max-w-2xl mx-auto font-light leading-relaxed">
+            <p className="mt-5 text-lg text-[var(--muted-foreground)] max-w-2xl mx-auto font-light leading-relaxed">
               Select the plan that fits your learning style
             </p>
           </div>
@@ -370,28 +479,28 @@ export default function LandingPage() {
               >
                 <div
                   className={`relative rounded-3xl border p-8 h-full flex flex-col transition-all duration-500 overflow-hidden ${pkg.highlighted
-                    ? "border-[#5E9EA2]/30 bg-white/[0.04] shadow-2xl shadow-[#5E9EA2]/20 hover:shadow-[#5E9EA2]/40"
-                    : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] shadow-xl shadow-black/20"
+                    ? "border-[var(--primary)]/30 bg-[var(--card)] shadow-xl shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/20"
+                    : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--card)] shadow-md"
                     }`}
                 >
                   {pkg.highlighted && (
                     <>
                       <div className="absolute inset-0 bg-gradient-to-b from-[#5E9EA2]/10 to-transparent pointer-events-none" />
-                      <div className="absolute top-0 right-8 bg-gradient-to-b from-[#5E9EA2] to-[#254852] rounded-b-xl px-3 py-1.5 text-xs font-bold text-white tracking-widest uppercase shadow-lg shadow-black/50">
+                      <div className="absolute top-0 right-8 bg-gradient-to-b from-[var(--primary)] to-teal-800 rounded-b-xl px-3 py-1.5 text-xs font-bold text-[var(--primary-foreground)] tracking-widest uppercase shadow-lg shadow-md">
                         Most Popular
                       </div>
                     </>
                   )}
-                  <h3 className={`text-2xl font-bold ${pkg.highlighted ? "text-white" : "text-white/90"}`}>{pkg.name}</h3>
-                  <div className="text-xl font-medium text-[#A5C1C4] mt-2 mb-4">{pkg.price}</div>
-                  <p className="text-base text-[#A5C1C4]/60 font-light leading-relaxed flex-1">{pkg.description}</p>
+                  <h3 className={`text-2xl font-bold ${pkg.highlighted ? "text-[var(--foreground)]" : "text-[var(--foreground)]/90"}`}>{pkg.name}</h3>
+                  <div className="text-xl font-medium text-[var(--primary)] mt-2 mb-4">{pkg.price}</div>
+                  <p className="text-base text-[var(--muted-foreground)] font-light leading-relaxed flex-1">{pkg.description}</p>
 
                   <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-6"></div>
 
                   <ul className="space-y-4 mb-8">
                     {pkg.features.map((f) => (
-                      <li key={f} className="flex items-center gap-3 text-sm text-[#D7E6E6]/90">
-                        <Sparkles className={`h-4 w-4 shrink-0 ${pkg.highlighted ? "text-[#5E9EA2]" : "text-[#5E9EA2]/60"}`} />
+                      <li key={f} className="flex items-center gap-3 text-sm text-[var(--muted-foreground)]">
+                        <Sparkles className={`h-4 w-4 shrink-0 ${pkg.highlighted ? "text-[var(--primary)]" : "text-[var(--primary)]/60"}`} />
                         <span>{f}</span>
                       </li>
                     ))}
@@ -401,7 +510,7 @@ export default function LandingPage() {
                     className="mt-auto block"
                   >
                     <Button
-                      className={`w-full rounded-full h-12 text-base font-semibold shadow-none transition-all duration-300 ${pkg.highlighted ? "bg-gradient-to-r from-[#5E9EA2] to-[#254852] hover:from-[#4B6F76] hover:to-[#1a333a] text-white border-0 shadow-lg shadow-[#5E9EA2]/30 hover:-translate-y-1" : "bg-transparent border border-white/20 text-white hover:bg-white/10 hover:border-white/40"}`}
+                      className={`w-full rounded-full h-12 text-base font-semibold shadow-none transition-all duration-300 ${pkg.highlighted ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] hover:from-[var(--accent)] hover:to-[var(--primary)] text-white border-0 shadow-lg shadow-[var(--primary)]/30 hover:-translate-y-1" : "bg-transparent border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--secondary)] hover:border-[var(--primary)]/40"}`}
                       variant={pkg.highlighted ? "default" : "outline"}
                     >
                       Register Now
@@ -415,34 +524,34 @@ export default function LandingPage() {
       </section>
 
       {/* Exam Information */}
-      <section className="py-24 bg-[#0A1316] border-t border-white/5">
+      <section className="py-24 bg-[var(--secondary)]/20 border-t border-[var(--border)]">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center">
-            <h2 className="text-4xl font-bold text-white">About the LBS MCA Entrance</h2>
-            <p className="text-[#A5C1C4]/80 mt-3 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-[var(--foreground)]">About the LBS MCA Entrance</h2>
+            <p className="text-[var(--muted-foreground)] mt-3 max-w-3xl mx-auto">
               The LBS Centre for Science & Technology conducts Kerala MCA admissions. Our program covers the entire syllabus with subject-wise classes, quizzes and full-length mock tests aligned to the latest pattern.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Exam Pattern</h3>
-              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">Exam Pattern</h3>
+              <ul className="text-sm text-[var(--muted-foreground)] space-y-2">
                 <li>• Objective MCQs</li>
                 <li>• Subjects: CS, Mathematics & Statistics, Quantitative & Logical, English, GK</li>
                 <li>• Time-bound with negative marking (as notified)</li>
               </ul>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Eligibility</h3>
-              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">Eligibility</h3>
+              <ul className="text-sm text-[var(--muted-foreground)] space-y-2">
                 <li>• Bachelor&apos;s degree with required mathematics background</li>
                 <li>• Further criteria as per official LBS guidelines</li>
               </ul>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-              <h3 className="text-xl font-semibold text-white mb-2">Why MCA?</h3>
-              <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">Why MCA?</h3>
+              <ul className="text-sm text-[var(--muted-foreground)] space-y-2">
                 <li>• Strong demand for software professionals</li>
                 <li>• Solid CS fundamentals and application development skills</li>
                 <li>• Opportunities in product, services, data and research</li>
@@ -450,13 +559,111 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <h3 className="text-xl font-semibold text-white mb-2">Frequently Asked Questions</h3>
-            <ul className="text-sm text-[#A5C1C4]/80 space-y-2">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+            <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">Frequently Asked Questions</h3>
+            <ul className="text-sm text-[var(--muted-foreground)] space-y-2">
               <li><b>How to register?</b> Create an account, complete payment verification and wait for admin approval.</li>
               <li><b>What is included?</b> Live classes, recorded lectures, quizzes, mock tests, previous papers and rank tracking.</li>
               <li><b>Mobile friendly?</b> Yes, the entire platform is optimized for mobile with secure video playback.</li>
             </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="relative py-24 sm:py-32 bg-[var(--background)] overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[var(--primary)]/5 blur-[120px] rounded-full" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--foreground)] mb-6">
+                Have Questions? <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-teal-500">Reach Out to Us</span>
+              </h2>
+              <p className="text-lg text-[var(--muted-foreground)] mb-10 font-light leading-relaxed">
+                Whether you have a query about the LBS MCA Entrance pattern, our coaching fee, or platform access, we are here to assist you 24/7.
+              </p>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)] group-hover:text-white transition-all duration-300">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Email Us</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">support@cetmca.in</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-all duration-300">
+                    <MessageCircle className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">WhatsApp Support</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">+91 97477 22003</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Response Time</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">Usually within 1 hour</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="relative"
+            >
+              <div className="absolute -inset-4 bg-gradient-to-tr from-[var(--primary)]/20 to-teal-500/20 blur-2xl rounded-[2.5rem] pointer-events-none opacity-50" />
+              <div className="relative rounded-[2rem] border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-xl p-8 sm:p-10 shadow-2xl overflow-hidden">
+                <div className="absolute top-0 right-0 h-32 w-32 bg-gradient-to-br from-[var(--primary)]/10 to-transparent rounded-bl-[100px] pointer-events-none" />
+
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-[var(--primary)]" />
+                  Quick Connect
+                </h3>
+
+                <div className="space-y-5">
+                  <Link href="https://wa.me/919747722003" target="_blank" className="block transform transition-transform hover:-translate-y-1">
+                    <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-0 h-14 rounded-2xl text-lg font-bold shadow-lg shadow-green-500/20">
+                      Chat on WhatsApp
+                      <MessageCircle className="ml-2 h-6 w-6" />
+                    </Button>
+                  </Link>
+
+                  <Link href="/contact" className="block transform transition-transform hover:-translate-y-1">
+                    <Button variant="outline" className="w-full border-[var(--border)] group hover:border-[var(--primary)] h-14 rounded-2xl text-lg font-semibold text-[var(--foreground)] bg-white/50">
+                      Detailed Inquiry Form
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="mt-8 p-4 rounded-xl bg-[var(--secondary)]/30 border border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted-foreground)] text-center leading-relaxed">
+                    By contacting us, you agree to our Terms of Service and Privacy Policy. We respect your data and never share it with third parties.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -491,6 +698,17 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-[var(--primary)]" />
             <span className="text-sm font-semibold">LBS MCA Entrance Learning Platform</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <Link href="/privacy-policy" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms-of-service" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="/contact" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              Contact Us
+            </Link>
           </div>
           <p className="text-sm text-[var(--muted-foreground)]">
             © 2024 LBS MCA. All rights reserved.

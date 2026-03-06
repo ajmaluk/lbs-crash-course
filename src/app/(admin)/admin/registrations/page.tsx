@@ -316,202 +316,215 @@ LBS MCA Team`;
             )}
 
             {/* Detail Dialog */}
-            <Dialog open={showDetail} onOpenChange={setShowDetail}>
-                <DialogHeader>
-                    <DialogTitle>Registration Details</DialogTitle>
-                    <DialogDescription>
-                        {selectedReg?.status === "rejected" ? (
-                            <span className="text-red-500 font-medium flex items-center gap-1 mt-1">
-                                <FileWarning className="w-4 h-4" /> This application was previously rejected
-                            </span>
-                        ) : "Review the applicant's information"}
-                    </DialogDescription>
-                </DialogHeader>
+            <Dialog open={showDetail} onOpenChange={setShowDetail} className="max-w-2xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Registration Details</DialogTitle>
+                        <DialogDescription>
+                            {selectedReg?.status === "rejected" ? (
+                                <span className="text-red-500 font-medium flex items-center gap-1 mt-1">
+                                    <FileWarning className="w-4 h-4" /> This application was previously rejected
+                                </span>
+                            ) : "Review the applicant's information"}
+                        </DialogDescription>
+                    </DialogHeader>
 
-                {selectedReg && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Full Name</p>
-                                <p className="font-medium">{selectedReg.name}</p>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Email</p>
-                                <p className="font-medium">{selectedReg.email}</p>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Phone</p>
-                                <p className="font-medium">{selectedReg.phone}</p>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">WhatsApp</p>
-                                <p className="font-medium">{selectedReg.whatsapp}</p>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Graduation Year</p>
-                                <p className="font-medium">{selectedReg.graduationYear}</p>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Package</p>
-                                <Badge>{packageLabel(selectedReg.selectedPackage)}</Badge>
-                            </div>
-                            <div>
-                                <p className="text-[var(--muted-foreground)]">Submitted</p>
-                                <p className="font-medium text-xs flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {format(new Date(selectedReg.submittedAt), "MMM d, yyyy h:mm a")}
-                                </p>
-                            </div>
-                            <div className="col-span-2 bg-[var(--muted)]/50 p-3 rounded-lg border border-[var(--border)]">
-                                <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Transaction ID</p>
-                                <p className="font-mono text-sm">{selectedReg.transactionId || "Not provided"}</p>
-                            </div>
-
-                            {selectedReg.status === "rejected" && selectedReg.rejectionReason && (
-                                <div className="col-span-2 bg-red-50 dark:bg-red-950/20 p-3 rounded-lg border border-red-200 dark:border-red-900/50">
-                                    <p className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold mb-1">Reason for Rejection</p>
-                                    <p className="text-sm text-red-800 dark:text-red-300">{selectedReg.rejectionReason}</p>
+                    {selectedReg && (
+                        <div className="space-y-6 pt-2">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Full Name</p>
+                                    <p className="font-bold text-base">{selectedReg.name}</p>
                                 </div>
-                            )}
-                        </div>
-                        <div className="space-y-4">
-                            {selectedReg.screenshotUrl && (
-                                <div className="rounded-xl border border-[var(--border)] overflow-hidden">
-                                    <a
-                                        href={selectedReg.screenshotUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block relative aspect-video bg-black/5 hover:opacity-90 transition-opacity"
-                                    >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={selectedReg.screenshotUrl}
-                                            alt="Payment Screenshot"
-                                            className="w-full h-full object-contain"
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/20 transition-opacity">
-                                            <span className="bg-black/70 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                                                <ExternalLink className="w-4 h-4" /> View Full Image
-                                            </span>
-                                        </div>
-                                    </a>
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Email</p>
+                                    <p className="font-medium">{selectedReg.email}</p>
                                 </div>
-                            )}
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Phone</p>
+                                    <p className="font-medium">{selectedReg.phone}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">WhatsApp</p>
+                                    <p className="font-medium">{selectedReg.whatsapp}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Graduation Year</p>
+                                    <p className="font-medium">{selectedReg.graduationYear}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Package</p>
+                                    <div><Badge variant="outline" className="bg-[var(--primary)]/5 text-[var(--primary)] border-[var(--primary)]/20">{packageLabel(selectedReg.selectedPackage)}</Badge></div>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Submitted</p>
+                                    <p className="font-medium text-xs flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {format(new Date(selectedReg.submittedAt), "MMM d, yyyy h:mm a")}
+                                    </p>
+                                </div>
+                                <div className="col-span-2 bg-[var(--muted)]/50 p-4 rounded-xl border border-[var(--border)]">
+                                    <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1.5">Transaction ID</p>
+                                    <p className="font-mono text-sm break-all font-medium text-[var(--foreground)]">{selectedReg.transactionId || "Not provided"}</p>
+                                </div>
 
-                            <DialogFooter>
-                                {selectedReg.status === "pending" && (
-                                    <Button
-                                        variant="destructive"
-                                        onClick={() => setShowReject(true)}
-                                        disabled={processing}
-                                    >
-                                        <UserX className="h-4 w-4 mr-1" />
-                                        Reject
-                                    </Button>
+                                {selectedReg.status === "rejected" && selectedReg.rejectionReason && (
+                                    <div className="col-span-2 bg-red-50 dark:bg-red-950/20 p-4 rounded-xl border border-red-200 dark:border-red-900/50">
+                                        <p className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold mb-1.5">Reason for Rejection</p>
+                                        <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">{selectedReg.rejectionReason}</p>
+                                    </div>
                                 )}
-                                <Button
-                                    onClick={handleAddUser}
-                                    disabled={processing}
-                                    className="gradient-primary border-0"
-                                >
-                                    {processing ? (
-                                        <><Loader2 className="h-4 w-4 animate-spin mr-1" />Processing...</>
-                                    ) : (
-                                        <><UserCheck className="h-4 w-4 mr-1" />
-                                            {selectedReg.status === "rejected" ? "Overrule & Approve User" : "Approve User"}
-                                        </>
+                            </div>
+                            <div className="space-y-4">
+                                {selectedReg.screenshotUrl && (
+                                    <div className="rounded-2xl border border-[var(--border)] overflow-hidden bg-zinc-950/5 p-1">
+                                        <a
+                                            href={selectedReg.screenshotUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block relative aspect-video bg-black/5 hover:opacity-95 transition-all rounded-xl overflow-hidden group/img"
+                                        >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={selectedReg.screenshotUrl}
+                                                alt="Payment Screenshot"
+                                                className="w-full h-full object-contain"
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 bg-black/40 backdrop-blur-[2px] transition-all">
+                                                <span className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-2xl scale-95 group-hover/img:scale-100 transition-transform">
+                                                    <ExternalLink className="w-4 h-4" /> View Full Image
+                                                </span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                )}
+
+                                <DialogFooter className="gap-3 sm:gap-0">
+                                    {selectedReg.status === "pending" && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setShowReject(true)}
+                                            disabled={processing}
+                                            className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 h-11 rounded-xl px-6"
+                                        >
+                                            <UserX className="h-4 w-4 mr-2" />
+                                            Reject
+                                        </Button>
                                     )}
-                                </Button>
-                            </DialogFooter>
+                                    <Button
+                                        onClick={handleAddUser}
+                                        disabled={processing}
+                                        className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-blue-500/20"
+                                    >
+                                        {processing ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin mr-2" />Processing...</>
+                                        ) : (
+                                            <><UserCheck className="h-4 w-4 mr-2" />
+                                                {selectedReg.status === "rejected" ? "Overrule & Approve" : "Approve User"}
+                                            </>
+                                        )}
+                                    </Button>
+                                </DialogFooter>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </DialogContent>
             </Dialog>
 
             {/* Credential Overlay Dialog */}
-            <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                        User Approved Successfully
-                    </DialogTitle>
-                    <DialogDescription>
-                        Copy the credentials below and send them to the student
-                    </DialogDescription>
-                </DialogHeader>
+            <Dialog open={showCredentials} onOpenChange={setShowCredentials} className="max-w-md">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="h-6 w-6" />
+                            User Approved Successfully
+                        </DialogTitle>
+                        <DialogDescription>
+                            Copy the credentials below and send them to the student
+                        </DialogDescription>
+                    </DialogHeader>
 
-                {credentials && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-3">
-                            <div className="bg-[var(--muted)]/50 p-3 rounded-lg border border-[var(--border)]">
-                                <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Login ID</p>
-                                <p className="font-mono text-base font-bold text-[var(--primary)]">{credentials.loginId}</p>
+                    {credentials && (
+                        <div className="space-y-5 pt-2">
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="bg-[var(--primary)]/5 p-4 rounded-2xl border border-[var(--primary)]/10">
+                                    <p className="text-[10px] text-[var(--primary)] uppercase tracking-[0.2em] font-black mb-1.5">Login ID</p>
+                                    <p className="font-mono text-xl font-bold text-[var(--foreground)]">{credentials.loginId}</p>
+                                </div>
+                                <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
+                                    <p className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black mb-1.5">Registered Email</p>
+                                    <p className="font-mono text-sm font-medium">{credentials.email}</p>
+                                </div>
+                                <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
+                                    <p className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black mb-1.5">Temporary Password (Phone)</p>
+                                    <p className="font-mono text-sm font-medium">{credentials.password}</p>
+                                </div>
                             </div>
-                            <div className="bg-[var(--muted)]/50 p-3 rounded-lg border border-[var(--border)]">
-                                <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Email</p>
-                                <p className="font-mono text-sm">{credentials.email}</p>
+
+                            <div className="rounded-2xl border border-[var(--border)] overflow-hidden">
+                                <div className="bg-[var(--muted)]/50 px-4 py-2.5 border-b border-[var(--border)] flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-widest">Email Template</span>
+                                </div>
+                                <pre className="p-4 text-xs text-[var(--foreground)] whitespace-pre-wrap bg-[var(--background)] max-h-48 overflow-y-auto font-mono leading-relaxed CustomScrollbar">
+                                    {generateEmailTemplate(credentials.name, credentials.loginId, credentials.email, credentials.password)}
+                                </pre>
                             </div>
-                            <div className="bg-[var(--muted)]/50 p-3 rounded-lg border border-[var(--border)]">
-                                <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Password (Phone Number)</p>
-                                <p className="font-mono text-sm">{credentials.password}</p>
-                            </div>
+
+                            <DialogFooter className="flex-col sm:flex-row gap-3">
+                                <Button
+                                    onClick={handleCopyCredentials}
+                                    className="gradient-primary border-0 w-full sm:flex-1 h-11 rounded-xl shadow-lg shadow-blue-500/20"
+                                >
+                                    {copied ? (
+                                        <><CheckCircle className="h-4 w-4 mr-2" /> Copied!</>
+                                    ) : (
+                                        <><Copy className="h-4 w-4 mr-2" /> Copy Email Template</>
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleOpenMailClient}
+                                    className="w-full sm:w-auto h-11 rounded-xl px-6 border-[var(--border)]"
+                                >
+                                    <Mail className="h-4 w-4 mr-2" /> Send Email
+                                </Button>
+                            </DialogFooter>
                         </div>
-
-                        <div className="rounded-lg border border-[var(--border)] overflow-hidden">
-                            <div className="bg-[var(--muted)]/70 px-3 py-2 border-b border-[var(--border)] flex items-center justify-between">
-                                <span className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Email Template</span>
-                            </div>
-                            <pre className="p-3 text-xs text-[var(--foreground)] whitespace-pre-wrap bg-[var(--background)] max-h-48 overflow-y-auto font-mono leading-relaxed">
-                                {generateEmailTemplate(credentials.name, credentials.loginId, credentials.email, credentials.password)}
-                            </pre>
-                        </div>
-
-                        <DialogFooter className="flex-col sm:flex-row gap-2">
-                            <Button
-                                onClick={handleCopyCredentials}
-                                className="gradient-primary border-0 w-full sm:w-auto"
-                            >
-                                {copied ? (
-                                    <><CheckCircle className="h-4 w-4 mr-1" /> Copied!</>
-                                ) : (
-                                    <><Copy className="h-4 w-4 mr-1" /> Copy Email Template</>
-                                )}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handleOpenMailClient}
-                                className="w-full sm:w-auto"
-                            >
-                                <Mail className="h-4 w-4 mr-1" /> Open Mail Client
-                            </Button>
-                        </DialogFooter>
-                    </div>
-                )}
+                    )}
+                </DialogContent>
             </Dialog>
 
             {/* Reject Dialog */}
-            <Dialog open={showReject} onOpenChange={setShowReject}>
-                <DialogHeader>
-                    <DialogTitle>Reject Registration</DialogTitle>
-                    <DialogDescription>Enter a reason for rejection</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Rejection Reason *</Label>
-                        <Textarea
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="Enter the reason for rejecting this registration..."
-                            rows={3}
-                        />
+            <Dialog open={showReject} onOpenChange={setShowReject} className="max-w-md">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600">Reject Registration</DialogTitle>
+                        <DialogDescription>Enter a reason for rejection. This will be sent to the student.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Rejection Reason *</Label>
+                            <Textarea
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                placeholder="e.g., Payment screenshot is not clear, or transaction ID mismatch..."
+                                rows={4}
+                                className="rounded-xl border-[var(--border)] focus:ring-2 focus:ring-red-500/20"
+                            />
+                        </div>
+                        <DialogFooter className="gap-3 sm:gap-0">
+                            <Button variant="outline" onClick={() => setShowReject(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleReject}
+                                disabled={processing}
+                                className="h-11 rounded-xl px-8 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20"
+                            >
+                                {processing ? "Rejecting..." : "Confirm Rejection"}
+                            </Button>
+                        </DialogFooter>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowReject(false)}>Cancel</Button>
-                        <Button variant="destructive" onClick={handleReject} disabled={processing}>
-                            {processing ? "Rejecting..." : "Confirm Reject"}
-                        </Button>
-                    </DialogFooter>
-                </div>
+                </DialogContent>
             </Dialog>
         </div>
     );

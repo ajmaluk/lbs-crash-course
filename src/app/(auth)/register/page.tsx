@@ -207,13 +207,19 @@ function RegisterForm() {
     return (
         <div className="min-h-screen bg-[var(--background)]">
             {/* Header */}
-            <nav className="border-b border-[var(--border)] bg-[#254852] text-white">
-                <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+            <nav className="border-b border-white/10 bg-[var(--primary)] text-white">
+                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                     <Link href="/" className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary">
-                            <GraduationCap className="h-5 w-5 text-white" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm transition-transform hover:scale-105">
+                            <GraduationCap className="h-5 w-5 text-[var(--primary)]" />
                         </div>
                         <span className="text-lg font-bold">LBS MCA</span>
+                    </Link>
+                    <Link href="/">
+                        <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white">
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Home
+                        </Button>
                     </Link>
                 </div>
             </nav>

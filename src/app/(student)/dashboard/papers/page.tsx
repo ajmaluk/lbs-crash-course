@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { ref, onValue, query, orderByChild } from "firebase/database";
 import { FileText, X } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type Paper = {
   id: string;
@@ -24,62 +24,64 @@ function DocumentViewerDialog({ open, onOpenChange, url, title, userEmail }: { o
   const makeSrc = (p: number) => `${url}#toolbar=0&navpanes=0&scrollbar=0&page=${p}`;
   // Keep current page when reopening; reset naturally when URL changes via key or user input
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} className="max-w-5xl p-0 overflow-hidden border-none bg-black shadow-2xl">
-      <div className="flex flex-col h-full overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
-        <div className="px-6 py-4 flex items-center justify-between bg-zinc-900 border-b border-white/5 z-20">
-          <div className="flex-1">
-            <h3 className="text-white font-bold text-lg line-clamp-1 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-emerald-400" /> {title}
-            </h3>
-            <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">Previous Year Paper</p>
-          </div>
-          <button aria-label="Close" onClick={() => onOpenChange(false)} className="ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="relative w-full aspect-[16/10] bg-black flex items-center justify-center overflow-hidden border-b border-white/5">
-          <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
-            <div className="grid grid-cols-3 gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-sm">
-              {Array.from({ length: 12 }).map((_, i) => (<span key={i}>{userEmail}</span>))}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-black shadow-2xl">
+        <div className="flex flex-col h-full overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
+          <div className="px-6 py-4 flex items-center justify-between bg-zinc-900 border-b border-white/5 z-20">
+            <div className="flex-1">
+              <h3 className="text-white font-bold text-lg line-clamp-1 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-400" /> {title}
+              </h3>
+              <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-black mt-0.5">Secure PDF Viewer • Protected Content</p>
             </div>
-          </div>
-          <iframe
-            ref={iframeRef}
-            className="absolute top-1/2 left-1/2 w-[115%] h-[115%] -translate-x-1/2 -translate-y-1/2 border-0 bg-white"
-            src={makeSrc(page)}
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-          />
-        </div>
-        <div className="px-4 py-3 bg-zinc-950/90 backdrop-blur-md flex items-center justify-between text-[11px] border-t border-white/5">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white"
-            >
-              Prev
+            <button aria-label="Close" onClick={() => onOpenChange(false)} className="ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition">
+              <X className="h-5 w-5" />
             </button>
+          </div>
+          <div className="relative w-full aspect-[16/10] bg-black flex items-center justify-center overflow-hidden border-b border-white/5">
+            <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
+              <div className="grid grid-cols-3 gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-sm">
+                {Array.from({ length: 12 }).map((_, i) => (<span key={i}>{userEmail}</span>))}
+              </div>
+            </div>
+            <iframe
+              ref={iframeRef}
+              className="absolute top-1/2 left-1/2 w-[115%] h-[115%] -translate-x-1/2 -translate-y-1/2 border-0 bg-white"
+              src={makeSrc(page)}
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            />
+          </div>
+          <div className="px-4 py-3 bg-zinc-950/90 backdrop-blur-md flex items-center justify-between text-[11px] border-t border-white/5">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-400">Page</span>
-              <input
-                type="number"
-                min={1}
-                value={page}
-                onChange={(e) => setPage(Math.max(1, Number(e.target.value) || 1))}
-                className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-white"
-              />
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-all active:scale-95"
+              >
+                Prev
+              </button>
+              <div className="flex items-center gap-2 mx-2">
+                <span className="text-zinc-500 font-bold uppercase tracking-widest text-[9px]">Page</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={page}
+                  onChange={(e) => setPage(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-center font-bold focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                />
+              </div>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-all active:scale-95"
+              >
+                Next
+              </button>
             </div>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white"
-            >
-              Next
-            </button>
-          </div>
-          <div className="text-zinc-600 font-bold tracking-[0.3em] uppercase opacity-40">
-            PROTECTED VIEWER
+            <div className="text-zinc-600 font-black tracking-[0.4em] uppercase opacity-30 hidden sm:block">
+              SECURE DOCUMENT STREAM
+            </div>
           </div>
         </div>
-      </div>
+      </DialogContent>
     </Dialog>
   );
 }

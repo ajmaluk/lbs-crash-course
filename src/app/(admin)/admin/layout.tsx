@@ -80,17 +80,6 @@ export default function AdminDashboardLayout({
                         </button>
                     </div>
 
-                    <div className="border-b border-[var(--border)] p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-sm font-bold text-white">
-                                {userData.name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium">{userData.name}</p>
-                                <p className="text-xs text-[var(--muted-foreground)]">Administrator</p>
-                            </div>
-                        </div>
-                    </div>
 
                     <nav className="flex-1 overflow-y-auto p-3 space-y-1">
                         {navItems.map((item) => {
@@ -128,7 +117,7 @@ export default function AdminDashboardLayout({
             </aside>
 
             <div className="flex flex-1 flex-col overflow-hidden">
-                <header className="flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
+                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-[var(--muted)] cursor-pointer lg:hidden">
                             <Menu className="h-5 w-5" />

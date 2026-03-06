@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ref, onValue, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
-import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Hash } from "lucide-react";
+import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
