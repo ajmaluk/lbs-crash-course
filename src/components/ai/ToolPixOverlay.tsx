@@ -74,7 +74,6 @@ export default function ToolPixOverlay() {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg leading-none">ToolPix Ai</h3>
-                                    <p className="text-[10px] text-white/70 mt-1 uppercase tracking-widest font-medium">Developed by Ajmal U K</p>
                                 </div>
                             </div>
                             <Button
@@ -109,32 +108,18 @@ export default function ToolPixOverlay() {
                                 <div
                                     key={idx}
                                     className={cn(
-                                        "flex gap-3",
-                                        msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                                        "max-w-[85%] p-3 rounded-[1.2rem] text-[13px] leading-relaxed shadow-sm",
+                                        msg.role === "user"
+                                            ? "bg-[var(--primary)] text-white rounded-tr-none ml-auto"
+                                            : "bg-white border border-[var(--border)] rounded-tl-none text-[var(--foreground)]"
                                     )}
                                 >
-                                    <div className={cn(
-                                        "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
-                                        msg.role === "user" ? "bg-[var(--primary)] text-white" : "bg-[var(--muted)] text-[var(--foreground)]"
-                                    )}>
-                                        {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                                    </div>
-                                    <div className={cn(
-                                        "max-w-[80%] p-3 rounded-2xl text-sm shadow-sm",
-                                        msg.role === "user"
-                                            ? "bg-[var(--primary)] text-white rounded-tr-none"
-                                            : "bg-white border border-[var(--border)] rounded-tl-none text-[var(--foreground)]"
-                                    )}>
-                                        <FormattedMessage content={msg.content} role={msg.role as any} />
-                                    </div>
+                                    <FormattedMessage content={msg.content} role={msg.role as any} />
                                 </div>
                             ))}
                             {isLoading && (
-                                <div className="flex gap-3">
-                                    <div className="h-8 w-8 rounded-lg bg-[var(--muted)] flex items-center justify-center shadow-sm">
-                                        <Bot className="h-4 w-4" />
-                                    </div>
-                                    <div className="bg-white border border-[var(--border)] p-3 rounded-2xl rounded-tl-none shadow-sm">
+                                <div className="flex justify-start">
+                                    <div className="bg-white border border-[var(--border)] p-3 rounded-[1.2rem] rounded-tl-none shadow-sm min-w-[60px] flex items-center justify-center">
                                         <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
                                     </div>
                                 </div>

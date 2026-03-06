@@ -235,7 +235,7 @@ LBS MCA Team`;
                 <div className="flex p-1 bg-[var(--muted)]/50 border border-[var(--border)] rounded-lg">
                     <button
                         onClick={() => setActiveTab("pending")}
-                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "pending"
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === "pending"
                             ? "bg-white text-[var(--foreground)] shadow-sm dark:bg-[var(--background)]"
                             : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                             }`}
@@ -244,7 +244,7 @@ LBS MCA Team`;
                     </button>
                     <button
                         onClick={() => setActiveTab("rejected")}
-                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "rejected"
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === "rejected"
                             ? "bg-white text-[var(--foreground)] shadow-sm dark:bg-[var(--background)]"
                             : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                             }`}
@@ -318,60 +318,60 @@ LBS MCA Team`;
             {/* Detail Dialog */}
             <Dialog open={showDetail} onOpenChange={setShowDetail} className="max-w-2xl">
                 <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Registration Details</DialogTitle>
-                        <DialogDescription>
+                    <DialogHeader className="mb-2">
+                        <DialogTitle className="text-lg">Registration Details</DialogTitle>
+                        <DialogDescription className="text-xs">
                             {selectedReg?.status === "rejected" ? (
-                                <span className="text-red-500 font-medium flex items-center gap-1 mt-1">
-                                    <FileWarning className="w-4 h-4" /> This application was previously rejected
+                                <span className="text-red-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <FileWarning className="w-3.5 h-3.5" /> This application was previously rejected
                                 </span>
                             ) : "Review the applicant's information"}
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedReg && (
-                        <div className="space-y-6 pt-2">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-4 pt-1">
+                            <div className="grid grid-cols-2 gap-3 text-xs">
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Full Name</p>
-                                    <p className="font-bold text-base">{selectedReg.name}</p>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Full Name</p>
+                                    <p className="font-bold text-sm">{selectedReg.name}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Email</p>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Email</p>
                                     <p className="font-medium">{selectedReg.email}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Phone</p>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Phone</p>
                                     <p className="font-medium">{selectedReg.phone}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">WhatsApp</p>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">WhatsApp</p>
                                     <p className="font-medium">{selectedReg.whatsapp}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Graduation Year</p>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Graduation Year</p>
                                     <p className="font-medium">{selectedReg.graduationYear}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Package</p>
-                                    <div><Badge variant="outline" className="bg-[var(--primary)]/5 text-[var(--primary)] border-[var(--primary)]/20">{packageLabel(selectedReg.selectedPackage)}</Badge></div>
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Package</p>
+                                    <div><Badge variant="outline" className="bg-[var(--primary)]/5 text-[var(--primary)] border-[var(--primary)]/20 text-[10px] py-0">{packageLabel(selectedReg.selectedPackage)}</Badge></div>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[var(--muted-foreground)] text-xs uppercase tracking-wider font-semibold">Submitted</p>
-                                    <p className="font-medium text-xs flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
+                                    <p className="text-[var(--muted-foreground)] text-[9px] uppercase tracking-wider font-semibold">Submitted</p>
+                                    <p className="font-medium text-[10px] flex items-center gap-1">
+                                        <Clock className="h-2.5 w-2.5" />
                                         {format(new Date(selectedReg.submittedAt), "MMM d, yyyy h:mm a")}
                                     </p>
                                 </div>
-                                <div className="col-span-2 bg-[var(--muted)]/50 p-4 rounded-xl border border-[var(--border)]">
-                                    <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1.5">Transaction ID</p>
-                                    <p className="font-mono text-sm break-all font-medium text-[var(--foreground)]">{selectedReg.transactionId || "Not provided"}</p>
+                                <div className="col-span-2 bg-[var(--muted)]/50 p-3 rounded-lg border border-[var(--border)]">
+                                    <p className="text-[9px] text-[var(--muted-foreground)] uppercase tracking-wider font-semibold mb-1">Transaction ID</p>
+                                    <p className="font-mono text-xs break-all font-medium text-[var(--foreground)]">{selectedReg.transactionId || "Not provided"}</p>
                                 </div>
 
                                 {selectedReg.status === "rejected" && selectedReg.rejectionReason && (
-                                    <div className="col-span-2 bg-red-50 dark:bg-red-950/20 p-4 rounded-xl border border-red-200 dark:border-red-900/50">
-                                        <p className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold mb-1.5">Reason for Rejection</p>
-                                        <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">{selectedReg.rejectionReason}</p>
+                                    <div className="col-span-2 bg-red-50 dark:bg-red-950/20 p-3 rounded-lg border border-red-200 dark:border-red-900/50">
+                                        <p className="text-[9px] text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold mb-1">Reason for Rejection</p>
+                                        <p className="text-xs text-red-800 dark:text-red-300 leading-relaxed">{selectedReg.rejectionReason}</p>
                                     </div>
                                 )}
                             </div>
@@ -405,21 +405,21 @@ LBS MCA Team`;
                                             variant="outline"
                                             onClick={() => setShowReject(true)}
                                             disabled={processing}
-                                            className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 h-11 rounded-xl px-6"
+                                            className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 h-10 rounded-lg px-5 text-sm"
                                         >
-                                            <UserX className="h-4 w-4 mr-2" />
+                                            <UserX className="h-3.5 w-3.5 mr-1.5" />
                                             Reject
                                         </Button>
                                     )}
                                     <Button
                                         onClick={handleAddUser}
                                         disabled={processing}
-                                        className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-blue-500/20"
+                                        className="gradient-primary border-0 h-10 rounded-lg px-6 shadow-lg shadow-blue-500/10 text-sm"
                                     >
                                         {processing ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin mr-2" />Processing...</>
+                                            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Processing...</>
                                         ) : (
-                                            <><UserCheck className="h-4 w-4 mr-2" />
+                                            <><UserCheck className="h-3.5 w-3.5 mr-1.5" />
                                                 {selectedReg.status === "rejected" ? "Overrule & Approve" : "Approve User"}
                                             </>
                                         )}
