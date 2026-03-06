@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chatWithAI, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
 import { cn } from "@/lib/utils";
+import FormattedMessage from "@/components/ai/FormattedMessage";
 
 export default function ToolPixOverlay() {
     const pathname = usePathname();
@@ -119,7 +120,7 @@ export default function ToolPixOverlay() {
                                             ? "bg-[var(--primary)] text-white rounded-tr-none"
                                             : "bg-white border border-[var(--border)] rounded-tl-none text-[var(--foreground)]"
                                     )}>
-                                        {msg.content}
+                                        <FormattedMessage content={msg.content} role={msg.role as any} />
                                     </div>
                                 </div>
                             ))}

@@ -190,13 +190,22 @@ export default function RootLayout({
           {`
             window.OneSignalDeferred = window.OneSignalDeferred || [];
             OneSignalDeferred.push(async function(OneSignal) {
-              await OneSignal.init({
-                appId: "3936b2f0-0dd0-4912-b5a4-9e091640e947",
-                safari_web_id: "web.onesignal.auto.204803f7-478b-4564-9a97-0318e873c676",
-                notifyButton: {
-                  enable: true,
-                },
-              });
+              try {
+                // Only initialize OneSignal if we are on the production domain
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                  await OneSignal.init({
+                    appId: "3936b2f0-0dd0-4912-b5a4-9e091640e947",
+                    safari_web_id: "web.onesignal.auto.204803f7-478b-4564-9a97-0318e873c676",
+                    notifyButton: {
+                      enable: true,
+                    },
+                  });
+                } else {
+                  console.log("OneSignal: Skipping initialization on localhost");
+                }
+              } catch (e) {
+                console.error("OneSignal initialization error:", e);
+              }
             });
           `}
         </Script>

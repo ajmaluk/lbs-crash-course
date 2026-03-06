@@ -37,26 +37,34 @@ function Dialog({ open, onOpenChange, children, className }: DialogProps) {
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
                 onClick={() => onOpenChange(false)}
                 aria-hidden="true"
             />
-            {/* Content */}
-            <div className="fixed inset-0 flex items-center justify-center p-4">
-                <div className={cn("animate-scale-in relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl", className)}>
+            {/* Content Container */}
+            <div className="min-h-screen px-4 py-8 flex items-center justify-center">
+                <div className={cn("relative w-full max-w-lg", className)}>
                     <button
                         onClick={() => onOpenChange(false)}
-                        className="absolute right-4 top-4 z-10 rounded-full p-1.5 hover:bg-[var(--muted)] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--ring)] bg-[var(--card)]/50 backdrop-blur-sm"
+                        className="absolute right-4 top-4 z-50 rounded-full p-1.5 hover:bg-zinc-100 transition-colors cursor-pointer bg-white/50 backdrop-blur-sm"
                         aria-label="Close dialog"
                     >
-                        <X className="h-4 w-4 text-[var(--muted-foreground)]" />
+                        <X className="h-4 w-4 text-zinc-500" />
                     </button>
                     {children}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function DialogContent({ children, className }: { children: React.ReactNode; className?: string }) {
+    return (
+        <div className={cn("animate-scale-in relative w-full overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl", className)}>
+            {children}
         </div>
     );
 }
@@ -77,4 +85,4 @@ function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     return <div className={cn("flex justify-end gap-3 mt-6", className)} {...props} />;
 }
 
-export { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter };
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };

@@ -1,65 +1,170 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Send, Loader2, User, Bot, Trash2, HelpCircle, Trophy, BookOpen } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Send, Loader2, User, Bot, HelpCircle, Trophy, BookOpen, Clock, Plus, ChevronDown, Trash2, Copy as CopyIcon, ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { chatWithAI, getUserContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
 import { cn } from "@/lib/utils";
+import FormattedMessage from "@/components/ai/FormattedMessage";
+import HistoryOverlay from "@/components/ai/HistoryOverlay";
+import { toast } from "sonner";
+import {
+    ChatSession,
+    loadSessions,
+    saveSessions,
+    createNewSession,
+    updateSession,
+    deleteSession as removeSession
+} from "@/lib/chat-history";
 
 export default function DashboardAIChatPage() {
     const { userData } = useAuth();
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+    // Session State
+    const [sessions, setSessions] = useState<ChatSession[]>([]);
+    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
+
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [initializing, setInitializing] = useState(true);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Get active session
+    const activeSession = sessions.find(s => s.id === activeSessionId) || null;
+    const messages = activeSession?.messages || [];
+
+    // Initialize Sessions
     useEffect(() => {
-        const initChat = async () => {
-            if (userData?.uid) {
-                const context = await getUserContext(userData.uid);
-                setMessages([
-                    { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` },
-                    { role: "assistant", content: `Hello ${userData.name}! I'm ToolPix Ai, your dedicated study assistant. I've reviewed your progress and tests. How can I help you with your LBS MCA preparation today?` }
-                ]);
+        const init = async () => {
+            const loaded = loadSessions();
+            setSessions(loaded);
+
+            if (loaded.length > 0) {
+                // Load the most recent session
+                setActiveSessionId(loaded.sort((a, b) => b.updatedAt - a.updatedAt)[0].id);
+            } else if (userData?.uid) {
+                // Create a first session if none exist
+                handleNewChat();
             }
             setInitializing(false);
         };
-        initChat();
-    }, [userData]);
+        init();
+    }, [userData?.uid]);
+
+    // Handle Scroll Tracking
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+
+        const handleScroll = () => {
+            const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 100;
+            setShowScrollBottom(!isAtBottom);
+        };
+
+        el.addEventListener("scroll", handleScroll);
+        return () => el.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    // Handle Scrolling
+    const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior
+            });
+        }
+    };
 
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+        scrollToBottom();
     }, [messages, isLoading]);
 
+    const handleNewChat = useCallback(async () => {
+        if (!userData) return;
+
+        setIsLoading(true);
+        const context = await getUserContext(userData.uid);
+        const initialMessages: ChatMessage[] = [
+            { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` },
+            { role: "assistant", content: `Hello ${userData.name}! I'm ToolPix Ai, your dedicated study assistant. I've reviewed your progress and tests. How can I help you with your LBS MCA preparation today?` }
+        ];
+
+        const newSession = createNewSession(initialMessages);
+        const updatedSessions = [...loadSessions(), newSession];
+        setSessions(updatedSessions);
+        saveSessions(updatedSessions);
+        setActiveSessionId(newSession.id);
+        setIsLoading(false);
+    }, [userData]);
+
+    const handleSelectSession = (id: string) => {
+        setActiveSessionId(id);
+    };
+
+    const handleDeleteSession = (id: string) => {
+        if (confirm("Delete this session?")) {
+            removeSession(id);
+            const updated = loadSessions();
+            setSessions(updated);
+            if (activeSessionId === id) {
+                if (updated.length > 0) {
+                    setActiveSessionId(updated[0].id);
+                } else {
+                    handleNewChat();
+                }
+            }
+        }
+    };
+
+    const handleClearAll = () => {
+        removeSession("all");
+        setSessions([]);
+        setActiveSessionId(null);
+        handleNewChat();
+        setIsClearDialogOpen(false);
+        toast.success("Chat history cleared");
+    };
+
+    const copyMessage = async (content: string) => {
+        await navigator.clipboard.writeText(content);
+        toast.success("Message copied to clipboard");
+    };
+
     const handleSend = async () => {
-        if (!input.trim() || isLoading) return;
+        if (!input.trim() || isLoading || !activeSessionId) return;
 
         const userMsg: ChatMessage = { role: "user", content: input.trim() };
         const updatedMessages = [...messages, userMsg];
-        setMessages(updatedMessages);
+
+        // Optimistic UI update
+        const updatedSessions = sessions.map(s =>
+            s.id === activeSessionId ? { ...s, messages: updatedMessages, updatedAt: Date.now() } : s
+        );
+        setSessions(updatedSessions);
         setInput("");
         setIsLoading(true);
 
         try {
             const aiResponse = await chatWithAI(updatedMessages);
-            setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
+            const finalMessages: ChatMessage[] = [...updatedMessages, { role: "assistant", content: aiResponse }];
+
+            // Update storage and state
+            updateSession(activeSessionId, finalMessages);
+            setSessions(loadSessions());
         } catch {
-            setMessages(prev => [...prev, { role: "assistant", content: "I encountered an error. Please try again." }]);
+            const errorMessages: ChatMessage[] = [...updatedMessages, { role: "assistant", content: "I encountered an error. Please try again." }];
+            updateSession(activeSessionId, errorMessages);
+            setSessions(loadSessions());
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const clearChat = () => {
-        if (confirm("Are you sure you want to clear this conversation?")) {
-            setMessages(prev => [prev[0], prev[1]]);
         }
     };
 
@@ -74,118 +179,282 @@ export default function DashboardAIChatPage() {
             <div className="flex h-[70vh] items-center justify-center">
                 <div className="text-center">
                     <Loader2 className="h-10 w-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
-                    <p className="text-[var(--muted-foreground)]">Analyzing your progress...</p>
+                    <p className="text-[var(--muted-foreground)] text-xs font-bold uppercase tracking-widest opacity-50">Analysing History...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="w-full h-screen flex flex-col animate-fade-in bg-[var(--background)]">
-            <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none rounded-none bg-transparent">
-                <CardContent className="flex-1 flex flex-col p-0 overflow-hidden relative">
-                    {/* Subtle Clear Button */}
-                    <div className="absolute top-4 right-4 z-10">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={clearChat}
-                            className="text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-50 rounded-full h-8 px-3 text-xs"
-                        >
-                            <Trash2 className="h-3 w-3 mr-2" /> Clear Chat
-                        </Button>
+        <div className="flex flex-col w-full h-screen bg-white overflow-hidden animate-fade-in font-sans">
+            {/* Top Navigation */}
+            <header className="px-4 py-2 sm:px-6 sm:py-3 border-b border-zinc-100 flex items-center justify-between bg-white/80 backdrop-blur-xl z-30 shrink-0 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-sm border border-zinc-100">
+                        <img src="/ai-logo.png" alt="ToolPix AI" className="h-7 w-7 object-contain" />
                     </div>
-                    {/* Chat Area */}
-                    <div
-                        ref={scrollRef}
-                        className="flex-1 overflow-y-auto p-6 space-y-6"
+                    <div>
+                        <h1 className="font-extrabold text-lg tracking-tight text-zinc-900">ToolPix <span className="text-[var(--primary)]">AI</span></h1>
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+                            <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Active Assistant</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsHistoryOpen(true)}
+                        className="rounded-xl gap-1.5 font-bold text-zinc-600 hover:bg-zinc-50 border border-transparent hover:border-zinc-200 h-9 px-3.5 transition-all active:scale-95 text-xs"
                     >
-                        {messages.filter(m => m.role !== "system").map((msg, idx) => (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                key={idx}
-                                className={cn(
-                                    "flex gap-4",
-                                    msg.role === "user" ? "flex-row-reverse text-right" : "flex-row"
-                                )}
-                            >
-                                <div className={cn(
-                                    "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md",
-                                    msg.role === "user" ? "bg-[var(--primary)] text-white" : "bg-[var(--muted)] text-[var(--foreground)]"
-                                )}>
-                                    {msg.role === "user" ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-                                </div>
-                                <div className={cn(
-                                    "max-w-[80%] p-4 rounded-3xl text-sm shadow-sm leading-relaxed",
-                                    msg.role === "user"
-                                        ? "bg-[var(--primary)] text-white rounded-tr-none"
-                                        : "bg-white border border-[var(--border)] rounded-tl-none text-[var(--foreground)]"
-                                )}>
-                                    {msg.content}
-                                </div>
-                            </motion.div>
-                        ))}
-                        {isLoading && (
-                            <div className="flex gap-4">
-                                <div className="h-10 w-10 rounded-2xl bg-[var(--muted)] flex items-center justify-center shadow-md">
-                                    <Bot className="h-5 w-5" />
-                                </div>
-                                <div className="bg-white border border-[var(--border)] p-4 rounded-3xl rounded-tl-none shadow-sm flex items-center gap-2">
-                                    <div className="flex gap-1">
-                                        <span className="w-1.5 h-1.5 bg-[var(--primary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                        <span className="w-1.5 h-1.5 bg-[var(--primary)] rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></span>
-                                        <span className="w-1.5 h-1.5 bg-[var(--primary)] rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></span>
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">History</span>
+                    </Button>
+                    <div className="w-[1px] h-4 bg-zinc-200 mx-0.5" />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsClearDialogOpen(true)}
+                        className="rounded-xl gap-1.5 font-bold text-zinc-500 hover:bg-red-50 hover:text-red-500 border border-transparent hover:border-red-100 h-9 px-3.5 transition-all active:scale-95 text-xs"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Clear</span>
+                    </Button>
+                    <div className="w-[1px] h-4 bg-zinc-200 mx-0.5" />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleNewChat}
+                        className="rounded-xl hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] border border-transparent hover:border-[var(--primary)]/20 h-9 w-9 transition-all active:scale-95 shadow-sm bg-zinc-50"
+                        title="New Chat"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+            </header>
+
+            {/* Main Chat Area */}
+            <div className="flex-1 flex flex-col min-h-0 bg-white relative">
+                <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none rounded-none bg-transparent">
+                    <CardContent className="flex-1 flex flex-col p-0 overflow-hidden relative">
+                        {/* Chat Messages or Welcome Hero */}
+                        <div
+                            ref={scrollRef}
+                            className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 md:px-32 lg:px-64 scroll-smooth flex flex-col relative"
+                        >
+                            {messages.filter(m => m.role !== "system").length <= 1 ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12"
+                                >
+                                    <div className="h-24 w-24 rounded-[2.5rem] bg-white flex items-center justify-center shadow-2xl mb-8 animate-bounce-slow border border-zinc-50 overflow-hidden p-4">
+                                        <img src="/ai-logo.png" alt="ToolPix AI" className="h-full w-full object-contain" />
                                     </div>
-                                    <span className="text-xs text-[var(--muted-foreground)] ml-2">ToolPix is thinking...</span>
+                                    <h2 className="text-3xl font-extrabold text-zinc-900 mb-4 tracking-tight">
+                                        Welcome to <span className="text-[var(--primary)]">ToolPix AI</span>
+                                    </h2>
+                                    <div className="bg-zinc-50 border border-zinc-100 p-6 rounded-3xl mb-10 text-zinc-600 leading-relaxed shadow-sm">
+                                        <p className="text-lg">
+                                            {messages.find(m => m.role === "assistant")?.content ||
+                                                `Hello ${userData?.name}! I'm ToolPix Ai, your dedicated study assistant. How can I help you today?`}
+                                        </p>
+                                    </div>
+
+                                    <div className="w-full">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Suggested for you</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {suggestions.map((s, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setInput(s.text)}
+                                                    className="group text-[14px] font-bold px-6 py-4 rounded-2xl border border-zinc-100 bg-white hover:bg-[var(--primary)]/5 hover:border-[var(--primary)]/20 hover:shadow-md text-zinc-700 transition-all flex items-center gap-4 active:scale-95 text-left"
+                                                >
+                                                    <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50 flex items-center justify-center group-hover:bg-white transition-colors shadow-inner">
+                                                        <s.icon className="h-5 w-5 text-zinc-400 group-hover:text-[var(--primary)] transition-colors" />
+                                                    </div>
+                                                    {s.text}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <div className="space-y-6 pt-6 pb-20">
+                                    <AnimatePresence mode="popLayout">
+                                        {messages.filter(m => m.role !== "system").map((msg, idx) => (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 15, scale: 0.99 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                key={`${activeSessionId}-${idx}`}
+                                                className={cn(
+                                                    "flex w-full group/msg",
+                                                    msg.role === "user" ? "justify-end" : "justify-start"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "max-w-[85%] sm:max-w-[75%] p-4 sm:p-5 rounded-[1.2rem] text-[15px] leading-[1.5] shadow-md transition-all duration-300 relative group/bubble",
+                                                    msg.role === "user"
+                                                        ? "bg-zinc-100 text-zinc-900 rounded-tr-none"
+                                                        : "bg-white border border-zinc-100 rounded-tl-none text-zinc-800 shadow-zinc-200/20"
+                                                )}>
+                                                    <FormattedMessage content={msg.content} role={msg.role as any} />
+
+                                                    {/* Message Actions */}
+                                                    {msg.role === "assistant" && (
+                                                        <div className="absolute -bottom-10 left-0 flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm p-1 rounded-lg border border-zinc-100 shadow-sm z-10">
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600" onClick={() => copyMessage(msg.content)}>
+                                                                <CopyIcon className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-emerald-500">
+                                                                <ThumbsUp className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-red-500">
+                                                                <ThumbsDown className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+
+                                    {isLoading && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.98 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            className="flex justify-start pb-4"
+                                        >
+                                            <div className="bg-zinc-50 border border-zinc-100 p-5 rounded-[1.2rem] rounded-tl-none flex items-center gap-3 shadow-inner shadow-zinc-200/20">
+                                                <div className="flex gap-1.5">
+                                                    {[0, 200, 400].map((delay) => (
+                                                        <span
+                                                            key={delay}
+                                                            className="w-2 h-2 bg-[var(--primary)]/30 rounded-full animate-pulse"
+                                                            style={{ animationDelay: `${delay}ms` }}
+                                                        ></span>
+                                                    ))}
+                                                </div>
+                                                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Studying...</span>
+                                            </div>
+                                        </motion.div>
+                                    )}
                                 </div>
+                            )}
+                        </div>
+
+                        {/* Scroll to Bottom Button */}
+                        <AnimatePresence>
+                            {showScrollBottom && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                    className="absolute bottom-32 right-8 z-20"
+                                >
+                                    <Button
+                                        size="icon"
+                                        onClick={() => scrollToBottom()}
+                                        className="h-10 w-10 rounded-full bg-white border border-zinc-100 shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 transition-all text-zinc-600 hover:text-[var(--primary)]"
+                                    >
+                                        <ChevronDown className="h-5 w-5" />
+                                    </Button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Suggestions or Input Area */}
+                        {!isLoading && messages.filter(m => m.role !== "system").length > 1 && (
+                            <div className="px-6 pb-4 lg:px-12 flex flex-wrap justify-center gap-2 sm:gap-3 max-w-4xl mx-auto">
+                                {suggestions.map((s, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setInput(s.text)}
+                                        className="group text-[13px] font-bold px-5 py-3 rounded-2xl border border-zinc-100 bg-zinc-50 hover:bg-white hover:border-[var(--primary)]/30 hover:shadow-lg text-zinc-600 transition-all flex items-center gap-3 active:scale-95 duration-300"
+                                    >
+                                        <div className="h-7 w-7 rounded-xl bg-white flex items-center justify-center group-hover:bg-[var(--primary)]/10 transition-colors shadow-inner">
+                                            <s.icon className="h-3.5 w-3.5 text-zinc-400 group-hover:text-[var(--primary)] transition-colors" />
+                                        </div>
+                                        {s.text}
+                                    </button>
+                                ))}
                             </div>
                         )}
-                    </div>
 
-                    {/* Suggestions */}
-                    {messages.length < 4 && !isLoading && (
-                        <div className="px-6 pb-6 flex flex-wrap gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            {suggestions.map((s, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setInput(s.text)}
-                                    className="group text-sm font-semibold px-6 py-3 rounded-2xl border border-[var(--primary)]/10 bg-white shadow-sm hover:shadow-md hover:border-[var(--primary)]/30 hover:bg-[var(--primary)]/5 text-[var(--foreground)] transition-all flex items-center gap-3 active:scale-95"
-                                >
-                                    <div className="h-8 w-8 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center group-hover:bg-[var(--primary)]/20 transition-colors">
-                                        <s.icon className="h-4 w-4 text-[var(--primary)]" />
-                                    </div>
-                                    {s.text}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Input Area */}
-                    <div className="p-4 sm:p-6 border-t border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-xl">
-                        <form
-                            onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                            className="flex gap-3"
-                        >
-                            <Input
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Ask me about your exam preparation..."
-                                className="h-14 rounded-2xl border-[var(--border)] focus:ring-[var(--primary)] shadow-inner text-base px-6"
-                                disabled={isLoading}
-                            />
-                            <Button
-                                type="submit"
-                                disabled={!input.trim() || isLoading}
-                                size="icon"
-                                className="h-14 w-14 gradient-primary border-0 rounded-2xl shadow-lg shrink-0"
+                        {/* Input Area */}
+                        <div className="p-4 sm:p-6 shrink-0 bg-white border-t border-zinc-50 relative z-10">
+                            <form
+                                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                                className="max-w-3xl mx-auto relative"
                             >
-                                <Send className="h-6 w-6" />
+                                <div className="relative group">
+                                    <Input
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        placeholder="Ask ToolPix AI..."
+                                        className="h-14 sm:h-16 px-6 rounded-2xl border border-zinc-200 focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/5 bg-white shadow-sm text-base transition-all pr-20 placeholder:text-zinc-300"
+                                        disabled={isLoading}
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                        <Button
+                                            type="submit"
+                                            disabled={!input.trim() || isLoading}
+                                            size="icon"
+                                            className="h-10 w-10 sm:h-12 sm:w-12 bg-zinc-900 border-0 rounded-xl shadow-lg hover:bg-[var(--primary)] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
+                                        >
+                                            <Send className="h-5 w-5 text-white" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-center gap-6 mt-4 opacity-50">
+                                    <div className="flex items-center gap-1.5">
+                                        <BookOpen className="h-2.5 w-2.5 text-zinc-400" />
+                                        <p className="text-[8px] text-zinc-400 font-black uppercase tracking-[0.2em]">Prep Engine</p>
+                                    </div>
+                                    <div className="w-1 h-1 rounded-full bg-zinc-200" />
+                                    <div className="flex items-center gap-1.5">
+                                        <Trophy className="h-2.5 w-2.5 text-zinc-400" />
+                                        <p className="text-[8px] text-zinc-400 font-black uppercase tracking-[0.2em]">Rank Focused</p>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* History Overlay */}
+                <HistoryOverlay
+                    sessions={sessions}
+                    activeSessionId={activeSessionId}
+                    onSelectSession={handleSelectSession}
+                    onNewChat={handleNewChat}
+                    onDeleteSession={handleDeleteSession}
+                    isOpen={isHistoryOpen}
+                    onClose={() => setIsHistoryOpen(false)}
+                />
+
+                {/* Clear Chat Dialog */}
+                <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+                    <DialogContent className="sm:max-w-md rounded-3xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-xl font-bold">Clear all history?</DialogTitle>
+                            <DialogDescription className="text-zinc-500">
+                                This will permanently delete all your chat sessions and cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex gap-2 sm:justify-end mt-4">
+                            <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)} className="rounded-xl font-bold">
+                                Cancel
                             </Button>
-                        </form>
-                    </div>
-                </CardContent>
-            </Card>
+                            <Button variant="destructive" onClick={handleClearAll} className="rounded-xl font-bold bg-red-500 hover:bg-red-600 border-0">
+                                Yes, Clear Everything
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
     );
 }

@@ -30,7 +30,11 @@ if (hasValidConfig) {
     if (typeof window !== "undefined") {
         isSupported().then((supported) => {
             if (supported) {
-                analytics = getAnalytics(app);
+                try {
+                    analytics = getAnalytics(app);
+                } catch (e) {
+                    console.error("Firebase Analytics failed to initialize:", e);
+                }
             }
         });
     }
