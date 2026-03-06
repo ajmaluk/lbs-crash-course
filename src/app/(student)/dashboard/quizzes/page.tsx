@@ -135,7 +135,7 @@ export default function QuizzesPage() {
         const isCorrect = userAnswer === question.correctAnswer;
 
         return (
-            <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
+            <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {reviewMode && (
@@ -343,7 +343,7 @@ export default function QuizzesPage() {
     if (result) {
         const percentage = Math.round((result.score / result.total) * 100);
         return (
-            <div className="max-w-2xl mx-auto text-center space-y-8 animate-fade-in py-12 px-4">
+            <div className="max-w-2xl mx-auto text-center space-y-8 animate-fade-in px-4">
                 <div className="p-8 rounded-3xl bg-white border shadow-xl relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-2 gradient-primary" />
                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-100 mb-6 shadow-inner ring-8 ring-green-50">

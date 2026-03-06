@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,12 @@ import {
   Sparkles,
   Shield,
   Zap,
+  Mail,
+  Phone,
+  Clock,
+  MessageCircle,
+  Menu,
+  X,
 } from "lucide-react";
 
 const features = [
@@ -105,11 +111,15 @@ export default function LandingPage() {
   const liveOnlyEnabled = process.env.NEXT_PUBLIC_LIVE_ONLY === "true";
   const recordOnlyEnabled = process.env.NEXT_PUBLIC_RECORD_ONLY === "true";
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const activePackages = packages.filter((pkg) => {
     if (pkg.name === "Live Only") return liveOnlyEnabled;
     if (pkg.name === "Recorded Only") return recordOnlyEnabled;
     return true; // "Live + Recorded" is always visible
   });
+
+
 
   useEffect(() => {
     if (loading) return;
@@ -225,26 +235,68 @@ export default function LandingPage() {
               <Link href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
             </div>
             <div className="flex items-center gap-4">
-              {user && userData ? (
-                <Link href={dashboardLink}>
-                  <Button className="bg-white hover:bg-white/90 text-[var(--primary)] rounded-full px-8 py-5 h-auto font-semibold shadow-md hover:-translate-y-0.5 transition-all duration-300">
-                    {isAdmin ? "Admin Panel" : "Go to Dashboard"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              ) : (
-                <>
+              <div className="hidden sm:block">
+                {user && userData ? (
+                  <Link href={dashboardLink}>
+                    <Button className="bg-white hover:bg-white/90 text-[var(--primary)] rounded-full px-8 py-5 h-auto font-semibold shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                      {isAdmin ? "Admin Panel" : "Go to Dashboard"}
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                ) : (
                   <Link href="/login">
                     <Button className="bg-white hover:bg-white/90 text-[var(--primary)] rounded-full px-8 py-5 h-auto font-semibold shadow-md hover:-translate-y-0.5 transition-all duration-300">
                       <Sparkles className="w-4 h-4 mr-2" />
                       Login
                     </Button>
                   </Link>
-                </>
-              )}
+                )}
+              </div>
+
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu Overlay */}
+        <motion.div
+          initial={false}
+          animate={mobileMenuOpen ? "open" : "closed"}
+          variants={{
+            open: { opacity: 1, height: "auto", display: "block" },
+            closed: { opacity: 0, height: 0, transitionEnd: { display: "none" } }
+          }}
+          className="md:hidden border-t border-white/10 bg-[var(--primary)] overflow-hidden"
+        >
+          <div className="px-4 py-8 space-y-6 flex flex-col items-center">
+            <Link href="#" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium">Home</Link>
+            <Link href="#features" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-white/80">About</Link>
+            <Link href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-white/80">Contact</Link>
+
+            <div className="pt-4 w-full">
+              {user && userData ? (
+                <Link href={dashboardLink} onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full bg-white text-[var(--primary)] rounded-2xl h-14 font-bold">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full bg-white text-[var(--primary)] rounded-2xl h-14 font-bold">
+                    Login Now
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </motion.div>
       </nav>
 
       {/* Hero Section */}
@@ -287,7 +339,7 @@ export default function LandingPage() {
           >
             <motion.div
               variants={{ hidden: { opacity: 0, scale: 0.8, y: -20 }, visible: { opacity: 1, scale: 1, y: 0 } }}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/50 backdrop-blur-md px-5 py-2 text-xs sm:text-sm font-medium text-[var(--primary)] uppercase tracking-[0.2em] mb-10 shadow-lg shadow-sm"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/50 backdrop-blur-md px-5 py-2 text-xs sm:text-sm font-medium text-[var(--primary)] uppercase tracking-[0.2em] mb-10 shadow-lg"
             >
               <Zap className="h-4 w-4 text-[var(--primary)]" />
               MCA Entrance Preparation Program
@@ -514,6 +566,104 @@ export default function LandingPage() {
               <li><b>What is included?</b> Live classes, recorded lectures, quizzes, mock tests, previous papers and rank tracking.</li>
               <li><b>Mobile friendly?</b> Yes, the entire platform is optimized for mobile with secure video playback.</li>
             </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="relative py-24 sm:py-32 bg-[var(--background)] overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[var(--primary)]/5 blur-[120px] rounded-full" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--foreground)] mb-6">
+                Have Questions? <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-teal-500">Reach Out to Us</span>
+              </h2>
+              <p className="text-lg text-[var(--muted-foreground)] mb-10 font-light leading-relaxed">
+                Whether you have a query about the LBS MCA Entrance pattern, our coaching fee, or platform access, we are here to assist you 24/7.
+              </p>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)] group-hover:text-white transition-all duration-300">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Email Us</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">support@cetmca.in</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-all duration-300">
+                    <MessageCircle className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">WhatsApp Support</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">+91 97477 22003</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 group cursor-default">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Response Time</div>
+                    <div className="text-lg font-semibold text-[var(--foreground)]">Usually within 1 hour</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="relative"
+            >
+              <div className="absolute -inset-4 bg-gradient-to-tr from-[var(--primary)]/20 to-teal-500/20 blur-2xl rounded-[2.5rem] pointer-events-none opacity-50" />
+              <div className="relative rounded-[2rem] border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-xl p-8 sm:p-10 shadow-2xl overflow-hidden">
+                <div className="absolute top-0 right-0 h-32 w-32 bg-gradient-to-br from-[var(--primary)]/10 to-transparent rounded-bl-[100px] pointer-events-none" />
+
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-[var(--primary)]" />
+                  Quick Connect
+                </h3>
+
+                <div className="space-y-5">
+                  <Link href="https://wa.me/919747722003" target="_blank" className="block transform transition-transform hover:-translate-y-1">
+                    <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-0 h-14 rounded-2xl text-lg font-bold shadow-lg shadow-green-500/20">
+                      Chat on WhatsApp
+                      <MessageCircle className="ml-2 h-6 w-6" />
+                    </Button>
+                  </Link>
+
+                  <Link href="/contact" className="block transform transition-transform hover:-translate-y-1">
+                    <Button variant="outline" className="w-full border-[var(--border)] group hover:border-[var(--primary)] h-14 rounded-2xl text-lg font-semibold text-[var(--foreground)] bg-white/50">
+                      Detailed Inquiry Form
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="mt-8 p-4 rounded-xl bg-[var(--secondary)]/30 border border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted-foreground)] text-center leading-relaxed">
+                    By contacting us, you agree to our Terms of Service and Privacy Policy. We respect your data and never share it with third parties.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>

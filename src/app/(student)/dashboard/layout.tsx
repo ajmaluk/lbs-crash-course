@@ -141,8 +141,10 @@ export default function StudentDashboardLayout({
                 </header>
 
                 {/* Page content */}
-                <main className="flex-1 overflow-y-auto">
-                    <div className="h-full">
+                <main className={cn("flex-1 overflow-y-auto", pathname === "/dashboard/ai-chat" && "overflow-hidden")}>
+                    <div className={cn(
+                        pathname !== "/dashboard/ai-chat" && "mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"
+                    )}>
                         {children}
                     </div>
                 </main>

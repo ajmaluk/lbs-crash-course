@@ -16,7 +16,12 @@ export default function ToolPixOverlay() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const isPublicPage = !pathname?.startsWith("/dashboard") && !pathname?.startsWith("/admin");
 
@@ -49,7 +54,7 @@ export default function ToolPixOverlay() {
         }
     };
 
-    if (!isPublicPage) return null;
+    if (!mounted || !isPublicPage) return null;
 
     return (
         <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">

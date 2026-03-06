@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
@@ -162,37 +162,50 @@ export default function AdminPapersPage() {
         </div>
       )}
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogHeader>
-          <DialogTitle className="text-xl">{editing ? "Update" : "Add New"} Previous Paper</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Title *</Label>
-            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. PYQ 2023 - Mathematics" />
+      <Dialog open={showForm} onOpenChange={setShowForm} className="max-w-2xl">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-xl">{editing ? "Update" : "Add New"} Previous Paper</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Title *</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. PYQ 2023 - Mathematics"
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Subject *</Label>
+              <Select
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                options={SUBJECTS.map((s) => ({ value: s, label: s }))}
+                placeholder="Select subject"
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">PDF URL *</Label>
+              <Input
+                value={form.pdfUrl}
+                onChange={(e) => setForm({ ...form, pdfUrl: e.target.value })}
+                placeholder="https://..."
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <DialogFooter className="gap-3 sm:gap-0 mt-4">
+              <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-emerald-500/20">
+                {saving ? "Saving..." : editing ? "Update" : "Add Paper"}
+              </Button>
+            </DialogFooter>
           </div>
-          <div className="space-y-2">
-            <Label>Subject *</Label>
-            <Select
-              value={form.subject}
-              onChange={(e) => setForm({ ...form, subject: e.target.value })}
-              options={SUBJECTS.map((s) => ({ value: s, label: s }))}
-              placeholder="Select subject"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>PDF URL *</Label>
-            <Input value={form.pdfUrl} onChange={(e) => setForm({ ...form, pdfUrl: e.target.value })} placeholder="https://..." />
-          </div>
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setShowForm(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 rounded-xl px-8">
-              {saving ? "Saving..." : editing ? "Update" : "Add"}
-            </Button>
-          </DialogFooter>
-        </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

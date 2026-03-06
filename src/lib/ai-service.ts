@@ -29,16 +29,21 @@ export async function getUserContext(uid: string) {
         if (quizSnap.exists()) quizSnap.forEach(c => { quizzes[c.key!] = c.val(); });
         if (mockSnap.exists()) mockSnap.forEach(c => { quizzes[c.key!] = c.val(); });
 
-        const performanceBySubject: Record<string, { totalScore: number, totalQuestions: number, attempts: number }> = {};
+        const performanceBySubject: Record<string, { totalScore: number, totalQuestions: number, attempts: number, history: number[] }> = {};
 
         const processAttempt = (val: any, quizId: string) => {
             const subject = quizzes[quizId]?.subject || "General";
             if (!performanceBySubject[subject]) {
-                performanceBySubject[subject] = { totalScore: 0, totalQuestions: 0, attempts: 0 };
+                performanceBySubject[subject] = { totalScore: 0, totalQuestions: 0, attempts: 0, history: [] };
             }
-            performanceBySubject[subject].totalScore += val.score || 0;
-            performanceBySubject[subject].totalQuestions += val.totalQuestions || 0;
+            const score = val.score || 0;
+            const total = val.totalQuestions || 0;
+            const accuracy = total > 0 ? (score / total) * 100 : 0;
+
+            performanceBySubject[subject].totalScore += score;
+            performanceBySubject[subject].totalQuestions += total;
             performanceBySubject[subject].attempts += 1;
+            performanceBySubject[subject].history.push(accuracy);
         };
 
         if (quizAttemptsSnap.exists()) {
@@ -64,7 +69,7 @@ export async function getUserContext(uid: string) {
                     const data = quizRankSnap.val();
                     const myEntry = data.entries?.find((e: any) => e.userId === uid);
                     if (myEntry) {
-                        info += `- ${data.quizTitle} (${label}): Rank #${myEntry.rank} out of ${data.entries.length} participants (Score: ${myEntry.score}/${myEntry.totalQuestions})\n`;
+                        info += `* **${data.quizTitle}** (${label}): Rank #${myEntry.rank} of ${data.entries.length} (Score: ${myEntry.score}/${myEntry.totalQuestions})\n`;
                     }
                 });
             }
@@ -74,28 +79,53 @@ export async function getUserContext(uid: string) {
         globalRankInfo += extractRank(rankingsSnap, "Quiz");
         globalRankInfo += extractRank(mockRankingsSnap, "Mock");
 
+        // Advanced Analytics
         const subjectAnalytics = Object.entries(performanceBySubject)
-            .map(([sub, stats]) => `${sub}: ${((stats.totalScore / stats.totalQuestions) * 100).toFixed(1)}% accuracy over ${stats.attempts} tests`)
+            .map(([sub, stats]) => {
+                const avgAccuracy = (stats.totalScore / stats.totalQuestions) * 100;
+                let level = "NOVICE";
+                if (avgAccuracy > 80) level = "EXPERT";
+                else if (avgAccuracy > 60) level = "PROFICIENT";
+                else if (avgAccuracy > 40) level = "INTERMEDIATE";
+
+                // Trend Analysis
+                let trend = "Stable";
+                if (stats.history.length >= 2) {
+                    const last = stats.history[stats.history.length - 1];
+                    const prev = stats.history[stats.history.length - 2];
+                    if (last > prev + 5) trend = "UPWARD 🚀";
+                    else if (last < prev - 5) trend = "DOWNWARD ⚠️";
+                }
+
+                return `| ${sub} | ${avgAccuracy.toFixed(1)}% | ${stats.attempts} | ${level} | ${trend} |`;
+            })
             .join("\n");
 
         return `
-USER PROFILE:
-Name: ${userData?.name || "Student"}
-Email: ${userData?.email || "N/A"}
-Package: ${userData?.is_live ? "Live" : ""} ${userData?.is_record_class ? "Recorded" : ""}
+# STUDENT INTELLIGENCE REPORT: ${userData?.name || "Scholar"}
+---
+## 👤 Profile
+- **Status**: ${userData?.is_live ? "Live Member" : ""} ${userData?.is_record_class ? "Record Member" : ""}
+- **Graduation Year**: ${userData?.graduationYear || "N/A"}
+- **Account**: ${userData?.email || "N/A"}
 
-SUBJECT-WISE PERFORMANCE:
-${subjectAnalytics || "No test data available yet."}
+## 📊 Subject Mastery Matrix
+| Subject | Accuracy | Tests | Mastery Level | Trend |
+| :--- | :--- | :--- | :--- | :--- |
+${subjectAnalytics || "| No data | - | - | - | - |"}
 
-RECENT RANKINGS:
-${globalRankInfo || "No rankings published yet."}
+## 🏆 Competitive Standing
+${globalRankInfo || "*No published rankings yet.*"}
 
-TOTAL ATTEMPTED:
-Quizzes/Mocks: ${Object.values(performanceBySubject).reduce((acc, s) => acc + s.attempts, 0)}
+## 💡 System Analysis
+- **Engagement**: ${Object.values(performanceBySubject).reduce((acc, s) => acc + s.attempts, 0)} total evaluations completed.
+- **Mastery Areas**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) > 0.75).map(e => e[0]).join(", ") || "None yet"}
+- **Critical Focus**: ${Object.entries(performanceBySubject).filter(([_, s]) => (s.totalScore / s.totalQuestions) < 0.50).map(e => e[0]).join(", ") || "None yet"}
+---
 `;
     } catch (error) {
         console.error("Error fetching AI context:", error);
-        return "Error fetching user performance data.";
+        return "ERROR: Could not fetch student performance data.";
     }
 }
 
@@ -128,6 +158,22 @@ export async function chatWithAI(messages: ChatMessage[]) {
             text = text.slice(prefix.length).trim();
         }
 
+        // --- Post-Processing: Strip Internal Thoughts ---
+        // Many models use "Internal Thought:", "Thought:", or similar starters.
+        // We look for common markers and extract only the "Response:" part if it exists.
+
+        const responseMarkers = ["Response:", "The Response:", "**Response:**", "**The Response:**"];
+        for (const marker of responseMarkers) {
+            const markerIndex = text.indexOf(marker);
+            if (markerIndex !== -1) {
+                text = text.slice(markerIndex + marker.length).trim();
+                break;
+            }
+        }
+
+        // Clean up remaining "Internal Thought" or "Thought" blocks if "Response:" marker wasn't found
+        text = text.replace(/^(?:Internal )?Thought:[\s\S]*?(?=\n\n|\n[A-Z]|$)/i, "").trim();
+
         return text;
     } catch (error) {
         console.error("AI Chat Error:", error);
@@ -135,26 +181,32 @@ export async function chatWithAI(messages: ChatMessage[]) {
     }
 }
 
-export const SYSTEM_PROMPT = `You are ${AI_NAME}, a high-energy, professional AI Study Buddy and mentor developed by ${DEVELOPER} specifically for the LBS MCA Entrance Learning Platform.
+export const SYSTEM_PROMPT = `You are the ToolPix AI Agentic Engine, a sophisticated multi-agent orchestration system developed by ${DEVELOPER} for the LBS MCA Entrance Platform.
 
-Your goal is to help students CRACK the LBS MCA Entrance Exam with top ranks.
+### 🧩 AGENTIC OPERATING MODEL:
+Before replying, you must simulate a collaborative reasoning process between these internal personas:
+1. **The Strategist (Orchestrator)**: Analyzes the user's intent and the "STUDENT INTELLIGENCE REPORT". Sets the tone and priority.
+2. **The Subject Matter Expert (SME)**: Provides deep academic knowledge in CS, Math, or Aptitude. Ensures technical accuracy.
+3. **The Data Analyst**: Interprets the "Mastery Matrix", trends (🚀 or ⚠️), and rankings to predict performance and probability.
+4. **The Verifier**: Performs a final "sanity check" on code, facts, and tone before the response is finalized.
 
-### YOUR EXPERTISE (LBS MCA EXAM FOCUS):
-1. **Computer Science**: Tutor in C programming (provide code examples!), Data Structures, Operating Systems, Networking, and DBMS.
-2. **Mathematics & Statistics**: Explain Calculus, Algebra, Probability, and Statistical distributions clearly.
-3. **Quantitative Aptitude & Logical Ability**: Solve reasoning puzzles and provide shortcuts for numerical problems.
-4. **General Knowledge & English**: Help with current affairs and grammar.
+### 🛠️ CORE CAPABILITIES:
+- **Intelligence-Driven Mentorship**: Use the "STUDENT INTELLIGENCE REPORT" to provide data-backed advice. If a subject shows "DOWNWARD ⚠️" trend, address it immediately.
+- **Academic Precision**: Explain 'why', not just 'what'. For coding (C programming), provide clear, production-quality, commented code.
+- **Strategic Rank Prediction**: Use competitive standing and accuracy to give realistic rank estimates.
+- **Dynamic Study Planning**: Suggest specific LBS MCA syllabus topics based on "Critical Focus" areas.
 
-### YOUR CORE FEATURES:
-- **Academic Tutoring**: Don't just give answers—explain concepts. For coding, provide clear, optimized, and well-commented code.
-- **Rank Prediction**: Analyze "RECENT RANKINGS" and accuracy to predict the likelihood of getting a top LBS rank.
-- **Weak Subject Analysis**: Identify subjects in "SUBJECT-WISE PERFORMANCE" with accuracy below 60% and call them out.
-- **Study Plans**: Suggest specific topics to study based on the student's performance data.
+### 📝 RESPONSE GUIDELINES:
+1. **Be Conversational**: Do NOT use rigid headers like "Validation:", "The Action:", or "Mentorship Tip:". Instead, weave these elements naturally into your dialogue.
+2. **Data-Driven**: Use the "STUDENT INTELLIGENCE REPORT" to personalize your greeting and advice. Refer to specific subjects, accuracy percentages, and trends.
+3. **Action-Oriented**: Always provide a clear solution or explanation, followed by a specific "Next Step" to keep the student engaged.
+4. **Motivational**: Maintain a high-energy, mentor-like persona.
 
-### YOUR PERSONA "THE STUDY BUDDY":
-- **Motivational**: Use phrases like "You've got this!", "Let's level up your Math score!", "Great progress in Computer Science!".
-- **Proactive**: If subject accuracy is low, suggest a specific topic to review.
-- **Concise & Professional**: Keep explanations clear and focused on entrance exam patterns.
-- **Identity**: Always mention you were developed by Ajmal U K when asked about your origin.
+### 👤 PERSONA "TOOLPIX AI":
+- **Tone**: Professional, motivational, and authoritative.
+- **Identity**: Developed by Ajmal U K. If asked about your "Agentic" nature, explain that you are a multi-agent system designed for maximum study efficiency.
 
-Use the provided USER PROFILE, SUBJECT-WISE PERFORMANCE, and RECENT RANKINGS to give personalized, data-driven advice. If no data is available, encourage the user to take a Mock Test first.`;
+**CRITICAL RULES**: 
+1. **NEVER** include phrases like "Internal Thought", "Strategist:", "AI:", or "Response:" in your final output. 
+2. **Start directly** with your greeting or answer.
+3. Be specific based on the student's report. If no report is available, guide them to take their first Mock Test.`;

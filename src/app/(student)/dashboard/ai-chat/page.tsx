@@ -93,8 +93,7 @@ export default function DashboardAIChatPage() {
         setIsLoading(true);
         const context = await getUserContext(userData.uid);
         const initialMessages: ChatMessage[] = [
-            { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` },
-            { role: "assistant", content: `Hello ${userData.name}! I'm ToolPix Ai, your dedicated study assistant. I've reviewed your progress and tests. How can I help you with your LBS MCA preparation today?` }
+            { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` }
         ];
 
         const newSession = createNewSession(initialMessages);
@@ -244,38 +243,56 @@ export default function DashboardAIChatPage() {
                             ref={scrollRef}
                             className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 md:px-32 lg:px-64 scroll-smooth flex flex-col relative"
                         >
-                            {messages.filter(m => m.role !== "system").length <= 1 ? (
+                            {messages.filter(m => m.role !== "system").length === 0 ? (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
+                                    initial={{ opacity: 0, y: 30 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12"
+                                    className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12 px-4"
                                 >
-                                    <div className="h-24 w-24 rounded-[2.5rem] bg-white flex items-center justify-center shadow-2xl mb-8 animate-bounce-slow border border-zinc-50 overflow-hidden p-4">
-                                        <img src="/ai-logo.png" alt="ToolPix AI" className="h-full w-full object-contain" />
+                                    <div className="relative mb-10">
+                                        <div className="h-28 w-28 rounded-[2.8rem] bg-gradient-to-tr from-[var(--primary)] to-indigo-600 flex items-center justify-center shadow-2xl animate-bounce-slow p-1">
+                                            <div className="h-full w-full rounded-[2.5rem] bg-white flex items-center justify-center overflow-hidden p-4">
+                                                <img src="/ai-logo.png" alt="ToolPix AI" className="h-full w-full object-contain" />
+                                            </div>
+                                        </div>
+                                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-full border-4 border-white shadow-lg animate-pulse">
+                                            <Bot className="h-4 w-4" />
+                                        </div>
                                     </div>
-                                    <h2 className="text-3xl font-extrabold text-zinc-900 mb-4 tracking-tight">
-                                        Welcome to <span className="text-[var(--primary)]">ToolPix AI</span>
-                                    </h2>
-                                    <div className="bg-zinc-50 border border-zinc-100 p-6 rounded-3xl mb-10 text-zinc-600 leading-relaxed shadow-sm">
-                                        <p className="text-lg">
-                                            {messages.find(m => m.role === "assistant")?.content ||
-                                                `Hello ${userData?.name}! I'm ToolPix Ai, your dedicated study assistant. How can I help you today?`}
+
+                                    <div className="space-y-3 mb-10">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-widest mb-2">
+                                            <Trophy className="h-3 w-3" />
+                                            <span>Personal MCA Mentor</span>
+                                        </div>
+                                        <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-tight">
+                                            Hello, <span className="bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-indigo-600 font-black">{userData?.name?.split(' ')[0] || "Scholar"}!</span>
+                                        </h2>
+                                        <p className="text-zinc-500 text-lg font-medium max-w-md mx-auto leading-relaxed">
+                                            I've analyzed your performance data. Ready to level up your prep today?
                                         </p>
                                     </div>
 
-                                    <div className="w-full">
-                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Suggested for you</p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="w-full space-y-4">
+                                        <div className="flex items-center gap-4 mb-2">
+                                            <div className="h-[1px] flex-1 bg-zinc-100" />
+                                            <p className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em]">Quick Actions</p>
+                                            <div className="h-[1px] flex-1 bg-zinc-100" />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {suggestions.map((s, i) => (
                                                 <button
                                                     key={i}
                                                     onClick={() => setInput(s.text)}
-                                                    className="group text-[14px] font-bold px-6 py-4 rounded-2xl border border-zinc-100 bg-white hover:bg-[var(--primary)]/5 hover:border-[var(--primary)]/20 hover:shadow-md text-zinc-700 transition-all flex items-center gap-4 active:scale-95 text-left"
+                                                    className="group p-5 rounded-2xl border border-zinc-100 bg-white hover:border-[var(--primary)]/30 hover:shadow-2xl hover:shadow-[var(--primary)]/10 text-zinc-700 transition-all flex items-center gap-5 active:scale-95 text-left bg-gradient-to-br hover:from-[var(--primary)]/[0.02] hover:to-transparent"
                                                 >
-                                                    <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50 flex items-center justify-center group-hover:bg-white transition-colors shadow-inner">
-                                                        <s.icon className="h-5 w-5 text-zinc-400 group-hover:text-[var(--primary)] transition-colors" />
+                                                    <div className="h-12 w-12 shrink-0 rounded-2xl bg-zinc-50 flex items-center justify-center group-hover:bg-[var(--primary)] group-hover:text-white transition-all duration-300 shadow-inner">
+                                                        <s.icon className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
                                                     </div>
-                                                    {s.text}
+                                                    <div>
+                                                        <p className="font-bold text-[15px]">{s.text}</p>
+                                                        <p className="text-[11px] text-zinc-400 font-medium mt-0.5 group-hover:text-zinc-500">One-tap analysis</p>
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
@@ -437,19 +454,24 @@ export default function DashboardAIChatPage() {
 
                 {/* Clear Chat Dialog */}
                 <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-                    <DialogContent className="sm:max-w-md rounded-3xl">
+                    <DialogContent className="sm:max-w-md rounded-3xl p-6">
                         <DialogHeader>
-                            <DialogTitle className="text-xl font-bold">Clear all history?</DialogTitle>
-                            <DialogDescription className="text-zinc-500">
-                                This will permanently delete all your chat sessions and cannot be undone.
+                            <div className="mx-auto h-12 w-12 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+                                <Trash2 className="h-6 w-6 text-red-500" />
+                            </div>
+                            <DialogTitle className="text-2xl font-black text-center">Clear all history?</DialogTitle>
+                            <DialogDescription className="text-zinc-500 text-center text-sm mt-2 leading-relaxed">
+                                This will permanently delete all your chat sessions.
+                                <br />
+                                <span className="font-bold text-red-500/80">This action cannot be undone.</span>
                             </DialogDescription>
                         </DialogHeader>
-                        <DialogFooter className="flex gap-2 sm:justify-end mt-4">
-                            <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)} className="rounded-xl font-bold">
-                                Cancel
+                        <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-8">
+                            <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)} className="rounded-xl font-bold h-12 flex-1">
+                                No, Keep History
                             </Button>
-                            <Button variant="destructive" onClick={handleClearAll} className="rounded-xl font-bold bg-red-500 hover:bg-red-600 border-0">
-                                Yes, Clear Everything
+                            <Button variant="destructive" onClick={handleClearAll} className="rounded-xl font-bold bg-red-500 hover:bg-red-600 border-0 h-12 flex-1 shadow-lg shadow-red-200">
+                                Yes, Clear All
                             </Button>
                         </DialogFooter>
                     </DialogContent>

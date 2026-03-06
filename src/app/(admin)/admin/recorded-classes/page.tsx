@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
@@ -107,29 +107,60 @@ export default function AdminRecordedClassesPage() {
                 </div>
             )}
 
-            <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogHeader><DialogTitle className="text-xl">{editing ? "Update" : "Add New"} Recorded Class</DialogTitle></DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Introduction to Database Systems" /></div>
+            <Dialog open={showForm} onOpenChange={setShowForm} className="max-w-2xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">{editing ? "Update" : "Add New"} Recorded Class</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Title *</Label>
+                            <Input
+                                value={form.title}
+                                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                                placeholder="e.g. Introduction to Database Systems"
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label>Subject *</Label>
-                        <Select
-                            value={form.subject}
-                            onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                            options={SUBJECTS.map(s => ({ value: s, label: s }))}
-                            placeholder="Select subject category"
-                        />
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Subject *</Label>
+                            <Select
+                                value={form.subject}
+                                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                                options={SUBJECTS.map(s => ({ value: s, label: s }))}
+                                placeholder="Select subject category"
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Section / Topic</Label>
+                            <Input
+                                value={form.section}
+                                onChange={(e) => setForm({ ...form, section: e.target.value })}
+                                placeholder="e.g. Unit 1: Computer Basics"
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">YouTube URL *</Label>
+                            <Input
+                                value={form.youtubeUrl}
+                                onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-3 sm:gap-0 mt-4">
+                            <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-violet-500/20">
+                                {saving ? "Saving..." : editing ? "Update" : "Add Content"}
+                            </Button>
+                        </DialogFooter>
                     </div>
-
-                    <div className="space-y-2"><Label>Section / Topic</Label><Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} placeholder="e.g. Unit 1: Computer Basics" /></div>
-                    <div className="space-y-2"><Label>YouTube URL *</Label><Input value={form.youtubeUrl} onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." /></div>
-
-                    <DialogFooter className="pt-4">
-                        <Button variant="outline" onClick={() => setShowForm(false)} className="rounded-xl">Cancel</Button>
-                        <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 rounded-xl px-8">{saving ? "Saving..." : editing ? "Update" : "Add Content"}</Button>
-                    </DialogFooter>
-                </div>
+                </DialogContent>
             </Dialog>
         </div>
     );

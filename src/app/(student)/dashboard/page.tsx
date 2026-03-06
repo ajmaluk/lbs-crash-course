@@ -207,7 +207,7 @@ export default function StudentDashboard() {
         : quickActions;
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="animate-fade-in space-y-6">
             {/* Top Row: Welcome & Leaderboard */}
             <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">

@@ -73,6 +73,10 @@
   --warning: #fbbf24;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* ===== Base Styles ===== */
 * {
   border-color: var(--border);

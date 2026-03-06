@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
@@ -178,34 +178,85 @@ export default function AdminLiveClassesPage() {
                 </div>
             )}
 
-            <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogHeader>
-                    <DialogTitle>{editing ? "Edit" : "Create"} Live Class</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Class title" /></div>
-                    <div className="space-y-2">
-                        <Label>Subject *</Label>
-                        <Select
-                            value={form.subject}
-                            onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                            options={SUBJECTS.map(s => ({ value: s, label: s }))}
-                            placeholder="Select subject category"
-                        />
+            <Dialog open={showForm} onOpenChange={setShowForm} className="max-w-2xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editing ? "Edit" : "Create"} Live Class</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Title *</Label>
+                            <Input
+                                value={form.title}
+                                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                                placeholder="e.g., Intro to Computer Science"
+                                className="h-11 rounded-xl border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)]/20"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Subject *</Label>
+                                <Select
+                                    value={form.subject}
+                                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                                    options={SUBJECTS.map(s => ({ value: s, label: s }))}
+                                    placeholder="Select subject category"
+                                    className="h-11 rounded-xl border-[var(--border)]"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Date & Time *</Label>
+                                <Input
+                                    type="datetime-local"
+                                    value={form.scheduledAt}
+                                    onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
+                                    className="h-11 rounded-xl border-[var(--border)]"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Google Meet Link</Label>
+                            <Input
+                                value={form.meetLink}
+                                onChange={(e) => setForm({ ...form, meetLink: e.target.value })}
+                                placeholder="https://meet.google.com/..."
+                                className="h-11 rounded-xl border-[var(--border)]"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Status</Label>
+                            <Select
+                                value={form.status}
+                                onChange={(e) => setForm({ ...form, status: e.target.value as LiveClassStatus })}
+                                options={statusOptions}
+                                className="h-11 rounded-xl border-[var(--border)]"
+                            />
+                        </div>
+                        {form.status === "completed" && (
+                            <div className="space-y-2 animate-fade-in">
+                                <Label className="text-sm font-semibold">Recording URL</Label>
+                                <Input
+                                    value={form.recordingUrl}
+                                    onChange={(e) => setForm({ ...form, recordingUrl: e.target.value })}
+                                    placeholder="YouTube recording URL (will store only ID)"
+                                    className="h-11 rounded-xl border-[var(--border)]"
+                                />
+                            </div>
+                        )}
                     </div>
-                    <div className="space-y-2"><Label>Date & Time *</Label><Input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} /></div>
-                    <div className="space-y-2"><Label>Google Meet Link</Label><Input value={form.meetLink} onChange={(e) => setForm({ ...form, meetLink: e.target.value })} placeholder="https://meet.google.com/..." /></div>
-                    <div className="space-y-2"><Label>Status</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as LiveClassStatus })} options={statusOptions} /></div>
-                    {form.status === "completed" && (
-                        <div className="space-y-2"><Label>Recording URL</Label><Input value={form.recordingUrl} onChange={(e) => setForm({ ...form, recordingUrl: e.target.value })} placeholder="YouTube recording URL (will store only ID)" /></div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0">
-                            {saving ? "Saving..." : editing ? "Update" : "Create"}
+                    <DialogFooter className="gap-3 sm:gap-0">
+                        <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-blue-500/20"
+                        >
+                            {saving ? "Saving..." : editing ? "Update Class" : "Create Class"}
                         </Button>
                     </DialogFooter>
-                </div>
+                </DialogContent>
             </Dialog>
         </div>
     );

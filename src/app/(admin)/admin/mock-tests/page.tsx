@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
-import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove, get } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
@@ -191,78 +191,189 @@ export default function AdminMockTestsPage() {
                 ))}</div>
             )}
 
-            <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogHeader><DialogTitle>{editing ? "Edit" : "Create"} Mock Test</DialogTitle></DialogHeader>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-                        <div className="space-y-2"><Label>Subject</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-1.5">
-                                <Clock className="h-4 w-4 text-amber-500" /> Duration (min)
-                            </Label>
-                            <Input type="number" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="e.g. 60" />
-                        </div>
-                        <div className="space-y-2"><Label>Status</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as QuizStatus })} options={statusOptions} /></div>
-                    </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold">Questions ({questions.length})</h3>
-                            <Button variant="outline" size="sm" onClick={() => { setEditingQ(null); setQForm({ question: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" }); setShowQForm(true); }}><Plus className="h-3 w-3 mr-1" />Add</Button>
-                        </div>
-                        {questions.map((q, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-[var(--muted)]/50 mb-2">
-                                <span className="text-xs font-bold text-[var(--muted-foreground)]">Q{i + 1}</span>
-                                <span className="flex-1 truncate">{q.question}</span>
-                                <button onClick={() => { setQForm({ question: q.question, options: [...q.options], correctAnswer: q.correctAnswer, explanation: q.explanation || "" }); setEditingQ(i); setShowQForm(true); }} className="text-[var(--primary)] cursor-pointer"><Edit className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => setQuestions(questions.filter((_, j) => j !== i))} className="text-[var(--destructive)] cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+            <Dialog open={showForm} onOpenChange={setShowForm} className="max-w-3xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editing ? "Edit" : "Create"} Mock Test</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 py-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Title *</Label>
+                                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Final Mock Test 1" className="h-11 rounded-xl" />
                             </div>
-                        ))}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Subject</Label>
+                                <Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="All Subjects" className="h-11 rounded-xl" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                                    <Clock className="h-4 w-4 text-amber-500" /> Duration (min)
+                                </Label>
+                                <Input type="number" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="e.g. 60" className="h-11 rounded-xl" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Status</Label>
+                                <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as QuizStatus })} options={statusOptions} className="h-11 rounded-xl" />
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[var(--border)]">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold flex items-center gap-2">
+                                    <FileText className="h-5 w-5 text-[var(--primary)]" />
+                                    Questions ({questions.length})
+                                </h3>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => { setEditingQ(null); setQForm({ question: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" }); setShowQForm(true); }}
+                                    className="rounded-xl border-[var(--primary)]/20 text-[var(--primary)] hover:bg-[var(--primary)]/5 h-9"
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Question
+                                </Button>
+                            </div>
+
+                            <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1 CustomScrollbar">
+                                {questions.length === 0 ? (
+                                    <div className="text-center py-8 bg-[var(--muted)]/30 rounded-2xl border border-dashed border-[var(--border)]">
+                                        <p className="text-sm text-[var(--muted-foreground)]">No questions added yet.</p>
+                                    </div>
+                                ) : (
+                                    questions.map((q, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-[var(--border)] hover:border-[var(--primary)]/30 transition-all group/q">
+                                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--muted)] text-[10px] font-bold text-[var(--muted-foreground)] shrink-0">Q{i + 1}</span>
+                                            <span className="flex-1 text-sm font-medium truncate">{q.question}</span>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover/q:opacity-100 transition-opacity">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => { setQForm({ question: q.question, options: [...q.options], correctAnswer: q.correctAnswer, explanation: q.explanation || "" }); setEditingQ(i); setShowQForm(true); }}
+                                                    className="h-8 w-8 rounded-lg text-[var(--primary)]"
+                                                >
+                                                    <Edit className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => setQuestions(questions.filter((_, j) => j !== i))}
+                                                    className="h-8 w-8 rounded-lg text-[var(--destructive)]"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-3 sm:gap-0 mt-6 pt-4 border-t border-[var(--border)]">
+                            <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-10 shadow-lg shadow-blue-500/20">
+                                {saving ? "Saving..." : "Save Test"}
+                            </Button>
+                        </DialogFooter>
                     </div>
-                </div>
-                <DialogFooter><Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving} className="gradient-primary border-0">{saving ? "Saving..." : "Save"}</Button></DialogFooter>
+                </DialogContent>
             </Dialog>
 
-            <Dialog open={showQForm} onOpenChange={setShowQForm}>
-                <DialogHeader><DialogTitle>{editingQ !== null ? "Edit" : "Add"} Question</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2"><Label>Question</Label><Textarea value={qForm.question} onChange={(e) => setQForm({ ...qForm, question: e.target.value })} rows={2} /></div>
-                    {qForm.options.map((opt, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <button type="button" onClick={() => setQForm({ ...qForm, correctAnswer: i })} className={`h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer ${qForm.correctAnswer === i ? "border-[var(--success)] bg-[var(--success)] text-white" : "border-[var(--border)]"}`}>{qForm.correctAnswer === i && <CheckCircle className="h-4 w-4" />}</button>
-                            <Input value={opt} onChange={(e) => { const opts = [...qForm.options]; opts[i] = e.target.value; setQForm({ ...qForm, options: opts }); }} placeholder={`Option ${String.fromCharCode(65 + i)}`} />
+            <Dialog open={showQForm} onOpenChange={setShowQForm} className="max-w-xl">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editingQ !== null ? "Edit" : "Add"} Question</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5 py-2">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Question Text</Label>
+                            <Textarea
+                                value={qForm.question}
+                                onChange={(e) => setQForm({ ...qForm, question: e.target.value })}
+                                placeholder="What is the time complexity of..."
+                                rows={3}
+                                className="rounded-xl"
+                            />
                         </div>
-                    ))}
-                    <DialogFooter><Button variant="outline" onClick={() => setShowQForm(false)}>Cancel</Button><Button onClick={addQuestion} className="gradient-primary border-0">{editingQ !== null ? "Update" : "Add"}</Button></DialogFooter>
-                </div>
+                        <div className="space-y-3">
+                            <Label className="text-xs font-black uppercase tracking-widest text-[var(--muted-foreground)]">Options (Select the correct one)</Label>
+                            {qForm.options.map((opt, i) => (
+                                <div key={i} className="flex items-center gap-3 group">
+                                    <button
+                                        type="button"
+                                        onClick={() => setQForm({ ...qForm, correctAnswer: i })}
+                                        className={`h-9 w-9 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${qForm.correctAnswer === i ? "border-green-500 bg-green-500 text-white shadow-lg shadow-green-200" : "border-[var(--border)] hover:border-zinc-300"}`}
+                                    >
+                                        {qForm.correctAnswer === i ? <CheckCircle className="h-5 w-5" /> : <span className="text-xs font-bold text-zinc-400">{String.fromCharCode(65 + i)}</span>}
+                                    </button>
+                                    <Input
+                                        value={opt}
+                                        onChange={(e) => { const opts = [...qForm.options]; opts[i] = e.target.value; setQForm({ ...qForm, options: opts }); }}
+                                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                        className={`h-11 rounded-xl transition-all ${qForm.correctAnswer === i ? "border-green-200 bg-green-50/30" : ""}`}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Explanation (Optional)</Label>
+                            <Textarea
+                                value={qForm.explanation}
+                                onChange={(e) => setQForm({ ...qForm, explanation: e.target.value })}
+                                placeholder="Why is this the correct answer?"
+                                rows={2}
+                                className="rounded-xl"
+                            />
+                        </div>
+                        <DialogFooter className="gap-3 sm:gap-0 mt-2">
+                            <Button variant="outline" onClick={() => setShowQForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
+                            <Button onClick={addQuestion} className="gradient-primary border-0 h-11 rounded-xl px-8 shadow-lg shadow-blue-500/20">
+                                {editingQ !== null ? "Update Question" : "Add Question"}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
             </Dialog>
             {/* Rankings View Dialog */}
-            <Dialog open={!!viewingRanking} onOpenChange={(open) => !open && setViewingRanking(null)}>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-yellow-500" />
-                        Rankings: {viewingRanking?.quizTitle}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-2 max-h-[60vh] overflow-y-auto mt-4 pr-1">
-                    {!viewingRanking?.entries || viewingRanking.entries.length === 0 ? (
-                        <div className="text-center py-6 text-[var(--muted-foreground)]">
-                            <p className="text-sm">No participants yet for this mock test.</p>
-                        </div>
-                    ) : (
-                        viewingRanking.entries.map((entry) => (
-                            <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-[var(--muted)]/50 border border-[var(--border)]">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-bold w-6">{entry.rank}.</span>
-                                    <span className="text-sm font-medium">{entry.userName}</span>
-                                </div>
-                                <div className="text-sm font-bold">{entry.score} / {entry.totalQuestions}</div>
+            <Dialog open={!!viewingRanking} onOpenChange={(open) => !open && setViewingRanking(null)} className="max-w-md">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Trophy className="h-6 w-6 text-yellow-500" />
+                            Rankings: {viewingRanking?.quizTitle}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto mt-6 pr-1 CustomScrollbar">
+                        {!viewingRanking?.entries || viewingRanking.entries.length === 0 ? (
+                            <div className="text-center py-12 bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                                <Trophy className="h-10 w-10 mx-auto mb-3 text-zinc-300" />
+                                <p className="text-sm text-zinc-500">No participants yet for this mock test.</p>
                             </div>
-                        ))
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button onClick={() => setViewingRanking(null)}>Close</Button>
-                </DialogFooter>
+                        ) : (
+                            viewingRanking.entries.map((entry) => (
+                                <div key={entry.userId} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-zinc-100 hover:border-yellow-200 hover:bg-yellow-50/30 transition-all shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl font-black text-sm ${entry.rank === 1 ? "bg-yellow-500 text-white shadow-lg shadow-yellow-200" : entry.rank === 2 ? "bg-zinc-400 text-white shadow-lg shadow-zinc-200" : entry.rank === 3 ? "bg-amber-600 text-white shadow-lg shadow-amber-200" : "bg-zinc-100 text-zinc-500"}`}>
+                                            {entry.rank}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-[var(--foreground)]">{entry.userName}</p>
+                                            <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-black flex items-center gap-1">
+                                                <Clock className="h-2.5 w-2.5" /> {new Date(entry.submittedAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-lg font-black text-[var(--primary)]">{entry.score}</span>
+                                        <span className="text-xs text-zinc-400 font-bold"> / {entry.totalQuestions}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <DialogFooter className="mt-6">
+                        <Button onClick={() => setViewingRanking(null)} className="h-11 rounded-xl w-full sm:w-auto px-8">Close Rankings</Button>
+                    </DialogFooter>
+                </DialogContent>
             </Dialog>
         </div>
     );

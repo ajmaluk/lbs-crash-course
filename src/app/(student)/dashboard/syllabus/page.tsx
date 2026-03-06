@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ref, onValue, query, orderByChild } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Image as ImageIcon, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -73,11 +73,28 @@ export default function SyllabusPage() {
       )}
 
       <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
-        {open ? (
-          <div className="bg-black p-2 flex items-center justify-center min-h-[60vh]">
-            <div className="relative w-full h-[85vh]"><Image src={open.url} alt={open.title || "Syllabus"} fill className="object-contain" unoptimized /></div>
-          </div>
-        ) : null}
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 overflow-hidden border-none bg-black ring-0">
+          {open ? (
+            <div className="flex flex-col h-full">
+              <div className="px-6 py-4 flex items-center justify-between bg-zinc-900 border-b border-white/5 z-20">
+                <div className="flex-1">
+                  <DialogHeader className="p-0">
+                    <DialogTitle className="text-white font-bold text-lg line-clamp-1 flex items-center gap-2">
+                      <ImageIcon className="h-5 w-5 text-blue-400" />
+                      {open.title || "Syllabus Page"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-black mt-0.5">LBS MCA Official Syllabus</p>
+                </div>
+              </div>
+              <div className="bg-black p-4 flex items-center justify-center min-h-[60vh]">
+                <div className="relative w-full h-[80vh]">
+                  <Image src={open.url} alt={open.title || "Syllabus"} fill className="object-contain" unoptimized />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
       </Dialog>
     </div>
   );
