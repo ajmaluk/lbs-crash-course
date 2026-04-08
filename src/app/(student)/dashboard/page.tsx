@@ -66,7 +66,7 @@ function LeaderboardSummary() {
     const top3 = latestRanking.entries.slice(0, 3);
 
     return (
-        <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-[#254852] to-[#4b6f76] text-white">
+        <Card className="overflow-hidden border-0 shadow-lg bg-linear-to-br from-[#254852] to-[#4b6f76] text-white">
             <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-yellow-400" />
@@ -87,7 +87,7 @@ function LeaderboardSummary() {
                     ))}
 
                     {myEntry && myEntry.rank > 3 && (
-                        <div className="flex items-center gap-3 bg-[var(--primary)]/30 rounded-lg p-2 border border-white/20 mt-4">
+                        <div className="flex items-center gap-3 bg-(--primary)/30 rounded-lg p-2 border border-white/20 mt-4">
                             <div className="h-6 w-6 rounded-full bg-white/20 text-white flex items-center justify-center text-xs font-bold">
                                 {myEntry.rank}
                             </div>
@@ -210,13 +210,13 @@ export default function StudentDashboard() {
         <div className="animate-fade-in space-y-6">
             {/* Top Row: Welcome & Leaderboard */}
             <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[var(--primary)]/10 via-transparent to-transparent rounded-full blur-2xl" />
+                <div className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-bl from-(--primary)/10 via-transparent to-transparent rounded-full blur-2xl" />
                     <div className="relative">
                         <h1 className="text-2xl sm:text-3xl font-bold">
                             Welcome back, <span className="gradient-text">{userData?.name?.split(" ")[0]}</span> 👋
                         </h1>
-                        <p className="mt-2 text-[var(--muted-foreground)] max-w-lg">
+                        <p className="mt-2 text-muted-foreground max-w-lg">
                             Continue your MCA entrance preparation. Stay consistent and track your progress.
                         </p>
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -246,15 +246,15 @@ export default function StudentDashboard() {
                         .filter((a) => a.show)
                         .map((action) => (
                             <Link key={action.href} href={action.href}>
-                                <Card className="hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-[var(--primary)]/5 transition-all duration-300 cursor-pointer group h-full">
+                                <Card className="hover:border-(--primary)/40 hover:shadow-lg hover:shadow-(--primary)/5 transition-all duration-300 cursor-pointer group h-full">
                                     <CardContent className="p-4 text-center">
                                         <div
-                                            className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${action.color} transition-transform duration-300 group-hover:scale-110`}
+                                            className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br ${action.color} transition-transform duration-300 group-hover:scale-110`}
                                         >
                                             <action.icon className="h-5 w-5 text-white" />
                                         </div>
                                         <p className="text-sm font-medium">{action.label}</p>
-                                        <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 hidden sm:block">{action.description}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">{action.description}</p>
                                     </CardContent>
                                 </Card>
                             </Link>
@@ -280,19 +280,19 @@ export default function StudentDashboard() {
                         <CardContent>
                             {upcomingClasses.length === 0 ? (
                                 <div className="text-center py-8">
-                                    <Video className="h-8 w-8 mx-auto mb-2 text-[var(--muted-foreground)] opacity-50" />
-                                    <p className="text-sm text-[var(--muted-foreground)]">No upcoming classes</p>
+                                    <Video className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                                    <p className="text-sm text-muted-foreground">No upcoming classes</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {upcomingClasses.map((cls) => (
                                         <div
                                             key={cls.id}
-                                            className="flex items-center justify-between rounded-xl border border-[var(--border)] p-3.5 transition-colors hover:bg-[var(--muted)]/30"
+                                            className="flex items-center justify-between rounded-xl border border-border p-3.5 transition-colors hover:bg-(--muted)/30"
                                         >
                                             <div className="space-y-1 min-w-0 flex-1">
                                                 <p className="text-sm font-medium truncate">{cls.title}</p>
-                                                <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                                     <span className="flex items-center gap-1">
                                                         <Calendar className="h-3 w-3" />
                                                         {format(new Date(cls.scheduledAt), "MMM d")}
@@ -322,11 +322,11 @@ export default function StudentDashboard() {
                                 <MonitorPlay className="h-4 w-4 text-violet-500" />
                                 Recorded Progress
                             </CardTitle>
-                            <span className="text-xs text-[var(--muted-foreground)]">Overall {overallPct}%</span>
+                            <span className="text-xs text-muted-foreground">Overall {overallPct}%</span>
                         </CardHeader>
                         <CardContent>
                             {Object.keys(progressBySubject).length === 0 ? (
-                                <div className="text-center py-8 text-[var(--muted-foreground)]">
+                                <div className="text-center py-8 text-muted-foreground">
                                     <AlertCircle className="h-6 w-6 mx-auto mb-1" />
                                     No recorded classes yet
                                 </div>
@@ -337,10 +337,10 @@ export default function StudentDashboard() {
                                         return (
                                             <div key={subj} className="flex items-center gap-3">
                                                 <div className="w-40 text-sm font-medium truncate">{subj}</div>
-                                                <div className="flex-1 h-2 rounded-full bg-[var(--muted)]/30 overflow-hidden">
-                                                    <div className="h-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
+                                                <div className="flex-1 h-2 rounded-full bg-(--muted)/30 overflow-hidden">
+                                                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                                                 </div>
-                                                <div className="w-28 text-right text-xs text-[var(--muted-foreground)]">{v.done}/{v.total} • {pct}%</div>
+                                                <div className="w-28 text-right text-xs text-muted-foreground">{v.done}/{v.total} • {pct}%</div>
                                             </div>
                                         );
                                     })}
@@ -366,16 +366,16 @@ export default function StudentDashboard() {
                     <CardContent>
                         {announcements.length === 0 ? (
                             <div className="text-center py-8">
-                                <Megaphone className="h-8 w-8 mx-auto mb-2 text-[var(--muted-foreground)] opacity-50" />
-                                <p className="text-sm text-[var(--muted-foreground)]">No announcements yet</p>
+                                <Megaphone className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                                <p className="text-sm text-muted-foreground">No announcements yet</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {announcements.map((ann) => (
-                                    <div key={ann.id} className="rounded-xl border border-[var(--border)] p-3.5 hover:bg-[var(--muted)]/30 transition-colors">
+                                    <div key={ann.id} className="rounded-xl border border-border p-3.5 hover:bg-(--muted)/30 transition-colors">
                                         <p className="text-sm font-medium">{ann.title}</p>
-                                        <p className="mt-1 text-xs text-[var(--muted-foreground)] line-clamp-2">{ann.content}</p>
-                                        <p className="mt-2 text-[10px] text-[var(--muted-foreground)]">
+                                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{ann.content}</p>
+                                        <p className="mt-2 text-[10px] text-muted-foreground">
                                             {format(new Date(ann.createdAt), "MMM d, yyyy · h:mm a")}
                                         </p>
                                     </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Loader2, Clock, Plus, ChevronDown, Trash2, Copy as CopyIcon, ThumbsUp, ThumbsDown, Menu, Check, RotateCcw, Bookmark, BookmarkCheck, BookOpen, Download } from "lucide-react";
+import { ArrowUp, Loader2, Clock, Plus, ChevronDown, Trash2, Copy as CopyIcon, ThumbsUp, ThumbsDown, Menu, Check, RotateCcw, Bookmark, BookmarkCheck, BookOpen, Download, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { chatWithAI, getUserContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai
 import { cn } from "@/lib/utils";
 import FormattedMessage from "@/components/ai/FormattedMessage";
 import HistoryOverlay from "@/components/ai/HistoryOverlay";
+import StudyLabPanel from "@/components/ai/StudyLabPanel";
 import { toast } from "sonner";
 import {
     ChatSession,
@@ -84,6 +85,7 @@ export default function DashboardAIChatPage() {
     const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isStudyNotesOpen, setIsStudyNotesOpen] = useState(false);
+    const [isStudyLabOpen, setIsStudyLabOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
     const [input, setInput] = useState("");
@@ -111,6 +113,10 @@ export default function DashboardAIChatPage() {
     const sessionStudyNotes = useMemo(
         () => (activeSessionId ? studyNotes.filter((note) => note.sessionId === activeSessionId).sort((a, b) => b.createdAt - a.createdAt) : []),
         [activeSessionId, studyNotes]
+    );
+    const sessionAssistantMessages = useMemo(
+        () => messages.filter((message) => message.role === "assistant").map((message) => message.content),
+        [messages]
     );
 
     useEffect(() => {
@@ -534,6 +540,16 @@ export default function DashboardAIChatPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsStudyLabOpen(true)}
+                        className="h-9 gap-1.5 rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted"
+                    >
+                        <Brain className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Study Lab</span>
+                    </Button>
+                    <div className="mx-0.5 h-4 w-px bg-border" />
                     <Button
                         variant="ghost"
                         size="sm"
@@ -1003,6 +1019,24 @@ export default function DashboardAIChatPage() {
                         </div>
                     </DialogContent>
                 </Dialog>
+
+                <StudyLabPanel
+                    open={isStudyLabOpen}
+                    onOpenChange={setIsStudyLabOpen}
+                    activeSessionId={activeSessionId}
+                    userId={userData?.uid}
+                    userName={userData?.name}
+                    studyNotes={sessionStudyNotes.map((note) => ({
+                        id: note.id,
+                        content: note.content,
+                        createdAt: note.createdAt
+                    }))}
+                    assistantMessages={sessionAssistantMessages}
+                    onUsePrompt={(prompt) => {
+                        setIsStudyLabOpen(false);
+                        void sendMessage(prompt);
+                    }}
+                />
             </div>
         </div>
     );

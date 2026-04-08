@@ -11,6 +11,7 @@ import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, M
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import { toast } from "sonner";
 
 import { Dialog } from "@/components/ui/dialog";
 

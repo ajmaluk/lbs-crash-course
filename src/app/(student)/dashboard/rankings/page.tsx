@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, startTransition } from "react";
+import React, { useEffect, useMemo, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
@@ -27,6 +28,11 @@ export default function RankingsPage() {
     const [loadingQuizzes, setLoadingQuizzes] = useState(false);
     const [loadingMocks, setLoadingMocks] = useState(false);
     const [selectedId, setSelectedId] = useState<string>("");
+    const [requestedAiPracticeId] = useState<string>(() => {
+        if (typeof window === "undefined") return "";
+        const params = new URLSearchParams(window.location.search);
+        return params.get("aiPracticeId") || "";
+    });
 
     useEffect(() => {
         startTransition(() => {
@@ -78,6 +84,13 @@ export default function RankingsPage() {
                     setSelectedId(quizRankings[0].quizId);
                 }
             } else if (tab === "mockTests" && mockRankings.length > 0) {
+                if (requestedAiPracticeId) {
+                    const requested = mockRankings.find((ranking) => ranking.quizId === requestedAiPracticeId);
+                    if (requested && selectedId !== requested.quizId) {
+                        setSelectedId(requested.quizId);
+                        return;
+                    }
+                }
                 if (!selectedId || !mockRankings.find(r => r.quizId === selectedId)) {
                     setSelectedId(mockRankings[0].quizId);
                 }
@@ -85,20 +98,41 @@ export default function RankingsPage() {
                 setSelectedId("");
             }
         });
-    }, [tab, quizRankings, mockRankings, selectedId]);
+    }, [tab, quizRankings, mockRankings, requestedAiPracticeId, selectedId]);
+
+    const aiPracticeRankings = useMemo(
+        () => mockRankings.filter((item) => item.quizId.startsWith("ai-practice-")),
+        [mockRankings]
+    );
+
+    const jumpToAiPractice = () => {
+        if (aiPracticeRankings.length === 0) {
+            toast.error("AI Practice leaderboard not available yet.");
+            return;
+        }
+
+        const withMe = aiPracticeRankings.find((ranking) =>
+            ranking.entries?.some((entry) => entry.userId === userData?.uid)
+        );
+
+        const target = withMe || aiPracticeRankings[0];
+        setTab("mockTests");
+        setSelectedId(target.quizId);
+        toast.success("Opened AI Practice leaderboard");
+    };
 
     const getRankStyles = (rank: number) => {
         if (rank === 1) return { icon: <Crown className="h-5 w-5 text-yellow-500" />, bg: "bg-yellow-500/10 border-yellow-500/20" };
         if (rank === 2) return { icon: <Medal className="h-5 w-5 text-slate-400" />, bg: "bg-slate-400/10 border-slate-400/20" };
         if (rank === 3) return { icon: <Medal className="h-5 w-5 text-amber-600" />, bg: "bg-amber-600/10 border-amber-600/20" };
         if (rank <= 5) return { icon: <Award className="h-5 w-5 text-blue-400" />, bg: "bg-blue-400/10 border-blue-400/20" };
-        return { icon: <span className="text-xs font-bold text-[var(--muted-foreground)]">#{rank}</span>, bg: "" };
+        return { icon: <span className="text-xs font-bold text-muted-foreground">#{rank}</span>, bg: "" };
     };
 
     const renderRankingContent = (rankData: RankData) => {
         if (!rankData.entries || rankData.entries.length === 0) {
             return (
-                <div className="p-12 text-center text-[var(--muted-foreground)] bg-[var(--card)] rounded-xl border border-dashed border-[var(--border)]">
+                <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
                     <p className="text-sm font-medium">No participants yet</p>
                     <p className="text-xs mt-1">Check back later once members complete this test.</p>
                 </div>
@@ -106,22 +140,22 @@ export default function RankingsPage() {
         }
 
         return (
-            <Card className="overflow-hidden border-t-2 border-t-[var(--primary)] shadow-sm">
-                <CardHeader className="bg-[var(--muted)]/20 py-4">
+            <Card className="overflow-hidden border-t-2 border-t-primary shadow-sm">
+                <CardHeader className="bg-muted/20 py-4">
                     <CardTitle className="text-base flex items-center justify-between">
                         <span className="truncate">{rankData.quizTitle}</span>
                         <Badge variant="outline" className="text-[10px] font-normal shrink-0">Official Results</Badge>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="divide-y divide-[var(--border)]/30">
+                    <div className="divide-y divide-(--border)/30">
                         {rankData.entries.map((entry) => {
                             const styles = getRankStyles(entry.rank);
                             const isMe = entry.userId === userData?.uid;
                             return (
                                 <div
                                     key={entry.userId}
-                                    className={`flex items-center gap-4 p-4 transition-colors ${isMe ? "bg-[var(--primary)]/15 font-bold" : styles.bg} ${entry.rank <= 5 ? "bg-[var(--primary)]/5" : ""}`}
+                                    className={`flex items-center gap-4 p-4 transition-colors ${isMe ? "bg-primary/15 font-bold" : styles.bg} ${entry.rank <= 5 ? "bg-(--primary)/5" : ""}`}
                                 >
                                     <div className="flex h-10 w-10 items-center justify-center shrink-0">
                                         {styles.icon}
@@ -129,13 +163,13 @@ export default function RankingsPage() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm truncate">
                                             {entry.userName}
-                                            {isMe && <Badge className="ml-2 bg-[var(--primary)] text-white border-0 text-[10px] py-0 h-4">YOU</Badge>}
+                                            {isMe && <Badge className="ml-2 bg-primary text-white border-0 text-[10px] py-0 h-4">YOU</Badge>}
                                             {entry.rank === 1 && <span className="ml-2 text-[10px] uppercase tracking-wider text-yellow-500 font-bold hidden sm:inline-block">Winner</span>}
                                         </p>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-sm font-bold">{entry.score} / {entry.totalQuestions}</div>
-                                        <div className="text-[10px] text-[var(--muted-foreground)] lowercase tracking-wider">Points</div>
+                                        <div className="text-[10px] text-muted-foreground lowercase tracking-wider">Points</div>
                                     </div>
                                 </div>
                             );
@@ -163,35 +197,48 @@ export default function RankingsPage() {
                         <Trophy className="h-6 w-6 text-yellow-500" />
                         Leaderboard & Rankings
                     </h1>
-                    <p className="text-[var(--muted-foreground)] mt-1">Official performance rankings for all members</p>
+                    <p className="text-muted-foreground mt-1">Official performance rankings for all members</p>
                 </div>
             </div>
 
             <Tabs value={tab} onValueChange={setTab} className="w-full">
-                <TabsList className="p-1 h-auto bg-[var(--muted)]/50 border gap-1 rounded-xl w-full max-w-sm mb-6">
+                <TabsList className="p-1 h-auto bg-muted/50 border gap-1 rounded-xl w-full max-w-sm mb-6">
                     <TabsTrigger value="mockTests" className="flex-1 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Mock Tests</TabsTrigger>
                     <TabsTrigger value="quizzes" className="flex-1 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Quizzes</TabsTrigger>
                 </TabsList>
 
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
-                        <p className="text-sm text-[var(--muted-foreground)]">Fetching rankings...</p>
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Fetching rankings...</p>
                     </div>
                 ) : currentRankings.length === 0 ? (
-                    <div className="text-center py-20 bg-[var(--card)] rounded-2xl border border-dashed border-[var(--border)]">
+                    <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
                         <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
                         <h3 className="text-lg font-semibold">No results published</h3>
-                        <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                             Leaderboard is visible once admin publishes the results.
                         </p>
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="bg-[var(--card)] p-4 rounded-xl border border-[var(--border)] shadow-sm">
-                            <label className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-2 block">
-                                Select Test/Quiz Result
-                            </label>
+                        <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                                    Select Test/Quiz Result
+                                </label>
+                                {tab === "mockTests" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={jumpToAiPractice}
+                                        className="h-8 rounded-lg border-primary/30 text-primary hover:bg-primary/5"
+                                    >
+                                        <Trophy className="mr-1.5 h-3.5 w-3.5" />
+                                        AI Practice Leaderboard
+                                    </Button>
+                                )}
+                            </div>
                             <Select
                                 value={selectedId}
                                 onChange={(e) => setSelectedId(e.target.value)}
@@ -205,7 +252,7 @@ export default function RankingsPage() {
                                 {renderRankingContent(activeRanking)}
                             </div>
                         ) : (
-                            <div className="py-20 text-center text-[var(--muted-foreground)]">
+                            <div className="py-20 text-center text-muted-foreground">
                                 <p>Please select a result from the dropdown above.</p>
                             </div>
                         )}
