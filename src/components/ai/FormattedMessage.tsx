@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import katex from "katex";
 import { cn } from "@/lib/utils";
 import CodeBlock from "./CodeBlock";
 
@@ -10,14 +11,14 @@ interface FormattedMessageProps {
     role?: "user" | "assistant";
 }
 
-export default function FormattedMessage({ content, className, role }: FormattedMessageProps) {
+export default function FormattedMessage({ content, className, role = "assistant" }: FormattedMessageProps) {
     if (!content) return null;
 
     // Split content into blocks by triple backticks
     const parts = content.split(/(```[\s\S]*?```)/g);
 
     return (
-        <div className={cn("space-y-3", className)}>
+        <div className={cn("ai-markdown space-y-3", role === "assistant" ? "ai-markdown-assistant" : "ai-markdown-user", className)}>
             {parts.map((part, index) => {
                 if (part.startsWith("```")) {
                     const match = part.match(/```(\w+)?\n?([\s\S]*?)```/);
@@ -26,13 +27,44 @@ export default function FormattedMessage({ content, className, role }: Formatted
                     return <CodeBlock key={index} code={code} language={language} />;
                 }
                 return (
-                    <div key={index} className="message-content overflow-x-auto">
+                    <div key={index} className="message-content">
                         {renderMarkdown(part)}
                     </div>
                 );
             })}
         </div>
     );
+}
+
+function renderMath(expression: string, key: string, displayMode = false) {
+    try {
+        const html = katex.renderToString(expression, {
+            displayMode,
+            throwOnError: false,
+            strict: "ignore",
+            output: "htmlAndMathml"
+        });
+
+        if (displayMode) {
+            return (
+                <div
+                    key={key}
+                    className="ai-math-block my-4 overflow-x-auto rounded-xl border border-border bg-muted/35 px-4 py-3"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                />
+            );
+        }
+
+        return (
+            <span
+                key={key}
+                className="ai-math-inline"
+                dangerouslySetInnerHTML={{ __html: html }}
+            />
+        );
+    } catch {
+        return <code key={key} className="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground">{expression}</code>;
+    }
 }
 
 function renderMarkdown(text: string) {
@@ -45,13 +77,16 @@ function renderMarkdown(text: string) {
 
     let currentTableRows: string[][] = [];
     let isTable = false;
+    let isMathBlock = false;
+    let currentMathLines: string[] = [];
+    let mathDelimiter: "$$" | "\\[" | null = null;
 
     const flushList = (key: number) => {
         if (isList) {
             renderedElements.push(
                 listType === 'ul'
-                    ? <ul key={`ul-${key}`} className="list-disc mb-4 ml-6 space-y-1">{currentList}</ul>
-                    : <ol key={`ol-${key}`} className="list-decimal mb-4 ml-6 space-y-1">{currentList}</ol>
+                    ? <ul key={`ul-${key}`} className="mb-5 ml-6 list-disc space-y-2">{currentList}</ul>
+                    : <ol key={`ol-${key}`} className="mb-5 ml-6 list-decimal space-y-2">{currentList}</ol>
             );
             currentList = [];
             isList = false;
@@ -60,23 +95,37 @@ function renderMarkdown(text: string) {
 
     const flushTable = (key: number) => {
         if (isTable) {
+            const hasRows = currentTableRows.length > 0;
+            if (!hasRows) {
+                currentTableRows = [];
+                isTable = false;
+                return;
+            }
+
+            const headerRow = currentTableRows[0] || [];
+            const secondRow = currentTableRows[1] || [];
+            const isSeparatorRow =
+                secondRow.length > 0 &&
+                secondRow.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+            const bodyRows = currentTableRows.slice(isSeparatorRow ? 2 : 1);
+
             renderedElements.push(
-                <div key={`table-wrapper-${key}`} className="my-4 overflow-x-auto rounded-xl border border-zinc-100 shadow-sm">
-                    <table className="w-full text-left border-collapse min-w-[300px]">
+                <div key={`table-wrapper-${key}`} className="ai-table-wrap my-5 overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-zinc-50 border-b border-zinc-100">
-                                {currentTableRows[0].map((cell, i) => (
-                                    <th key={i} className="px-4 py-2.5 text-[11px] font-black text-zinc-400 uppercase tracking-widest leading-none">
+                            <tr className="border-b border-border bg-muted/55">
+                                {headerRow.map((cell, i) => (
+                                    <th key={i} className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                                         {parseInlineStyles(cell.trim())}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-50">
-                            {currentTableRows.slice(2).map((row, i) => (
-                                <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
+                        <tbody className="divide-y divide-border/70">
+                            {bodyRows.map((row, i) => (
+                                <tr key={i} className="transition-colors hover:bg-muted/35">
                                     {row.map((cell, j) => (
-                                        <td key={j} className="px-4 py-2.5 text-xs font-medium text-zinc-600">
+                                        <td key={j} className="px-4 py-2.5 text-sm text-foreground/90">
                                             {parseInlineStyles(cell.trim())}
                                         </td>
                                     ))}
@@ -91,25 +140,94 @@ function renderMarkdown(text: string) {
         }
     };
 
+    const flushMathBlock = (key: number) => {
+        if (!isMathBlock) return;
+        const expression = currentMathLines.join("\n").trim();
+        if (expression) {
+            renderedElements.push(renderMath(expression, `math-${key}`, true));
+        }
+        isMathBlock = false;
+        currentMathLines = [];
+        mathDelimiter = null;
+    };
+
     lines.forEach((line, i) => {
         const trimmed = line.trim();
+
+        if (isMathBlock) {
+            if (mathDelimiter === "$$") {
+                if (trimmed.endsWith("$$")) {
+                    const before = line.replace(/\$\$\s*$/, "").trimEnd();
+                    if (before) currentMathLines.push(before);
+                    flushMathBlock(i);
+                } else {
+                    currentMathLines.push(line);
+                }
+                return;
+            }
+
+            if (mathDelimiter === "\\[") {
+                if (trimmed.endsWith("\\]")) {
+                    const before = line.replace(/\\\]\s*$/, "").trimEnd();
+                    if (before) currentMathLines.push(before);
+                    flushMathBlock(i);
+                } else {
+                    currentMathLines.push(line);
+                }
+                return;
+            }
+        }
+
+        if (trimmed.startsWith("$$")) {
+            flushList(i);
+            flushTable(i);
+
+            if (trimmed.endsWith("$$") && trimmed.length > 4) {
+                const expression = trimmed.replace(/^\$\$\s*/, "").replace(/\s*\$\$$/, "");
+                renderedElements.push(renderMath(expression, `math-${i}`, true));
+            } else {
+                isMathBlock = true;
+                mathDelimiter = "$$";
+                const after = line.replace(/^\s*\$\$\s*/, "").trimEnd();
+                if (after) currentMathLines.push(after);
+            }
+            return;
+        }
+
+        if (trimmed.startsWith("\\[")) {
+            flushList(i);
+            flushTable(i);
+
+            if (trimmed.endsWith("\\]") && trimmed.length > 4) {
+                const expression = trimmed.replace(/^\\\[\s*/, "").replace(/\s*\\\]$/, "");
+                renderedElements.push(renderMath(expression, `math-${i}`, true));
+            } else {
+                isMathBlock = true;
+                mathDelimiter = "\\[";
+                const after = line.replace(/^\s*\\\[\s*/, "").trimEnd();
+                if (after) currentMathLines.push(after);
+            }
+            return;
+        }
 
         // 1. Handle Headers
         const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
         if (headerMatch) {
             flushList(i);
             flushTable(i);
+            flushMathBlock(i);
             const level = headerMatch[1].length;
             const content = parseInlineStyles(headerMatch[2]);
-            if (level === 1) renderedElements.push(<h1 key={i} className="text-xl font-black text-zinc-900 mb-4 tracking-tight border-b border-zinc-100 pb-2 mt-4">{content}</h1>);
-            else if (level === 2) renderedElements.push(<h2 key={i} className="text-lg font-black text-zinc-900 mb-3 tracking-tight mt-4">{content}</h2>);
-            else renderedElements.push(<h3 key={i} className="text-base font-black text-zinc-800 mb-2 tracking-tight mt-3">{content}</h3>);
+            if (level === 1) renderedElements.push(<h1 key={i} className="mb-4 mt-4 border-b border-border pb-2 text-xl font-semibold tracking-tight text-foreground">{content}</h1>);
+            else if (level === 2) renderedElements.push(<h2 key={i} className="mb-3 mt-4 text-lg font-semibold tracking-tight text-foreground">{content}</h2>);
+            else renderedElements.push(<h3 key={i} className="mb-2 mt-3 text-base font-semibold tracking-tight text-foreground">{content}</h3>);
             return;
         }
 
         // 2. Handle Tables
         if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
             flushList(i);
+            flushMathBlock(i);
             isTable = true;
             const cells = trimmed.split("|").filter((_, i, arr) => i > 0 && i < arr.length - 1);
             currentTableRows.push(cells);
@@ -118,11 +236,25 @@ function renderMarkdown(text: string) {
             flushTable(i);
         }
 
+        if (trimmed.startsWith(">")) {
+            flushList(i);
+            flushTable(i);
+            flushMathBlock(i);
+            const quoteText = trimmed.replace(/^>\s?/, "");
+            renderedElements.push(
+                <blockquote key={`quote-${i}`} className="my-3 rounded-xl border-l-4 border-primary/40 bg-muted/50 px-4 py-3 text-sm text-foreground/90">
+                    {parseInlineStyles(quoteText)}
+                </blockquote>
+            );
+            return;
+        }
+
         // 3. Handle Horizontal Rules
         if (trimmed === "---" || trimmed === "***") {
             flushList(i);
             flushTable(i);
-            renderedElements.push(<hr key={i} className="my-6 border-zinc-100" />);
+            flushMathBlock(i);
+            renderedElements.push(<hr key={i} className="my-6 border-border" />);
             return;
         }
 
@@ -132,6 +264,7 @@ function renderMarkdown(text: string) {
 
         if (bulletMatch || numberedMatch) {
             flushTable(i);
+            flushMathBlock(i);
             const type = bulletMatch ? 'ul' : 'ol';
             const content = bulletMatch ? bulletMatch[3] : numberedMatch![3];
 
@@ -142,7 +275,7 @@ function renderMarkdown(text: string) {
             isList = true;
             listType = type;
             currentList.push(
-                <li key={`li-${i}`} className="pl-1 text-zinc-700 leading-relaxed list-item">
+                <li key={`li-${i}`} className="list-item pl-1 leading-7 text-foreground/90">
                     {parseInlineStyles(content)}
                 </li>
             );
@@ -153,10 +286,11 @@ function renderMarkdown(text: string) {
 
         // 5. Handle Regular Paragraphs
         if (trimmed === "") {
+            flushMathBlock(i);
             renderedElements.push(<div key={`br-${i}`} className="h-2" />);
         } else {
             renderedElements.push(
-                <p key={i} className="text-zinc-700 leading-[1.6] mb-3 last:mb-0">
+                <p key={i} className="mb-4 text-sm leading-7 text-foreground/90 last:mb-0 sm:text-[15px]">
                     {parseInlineStyles(line)}
                 </p>
             );
@@ -166,24 +300,47 @@ function renderMarkdown(text: string) {
     // Final flushes
     flushList(lines.length);
     flushTable(lines.length);
+    flushMathBlock(lines.length);
 
     return renderedElements;
 }
 
 function parseInlineStyles(text: string) {
-    // Handle Bold, Inline Code, and Italic
-    // Regex matches: **bold**, `code`, *italic*
-    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+    const parts = text.split(/(`[^`]+`|\\\((?:\\.|[^\\])+?\\\)|\$(?:\\.|[^$])+?\$|\*\*.*?\*\*|\*[^*]+\*|\[[^\]]+\]\((?:https?:\/\/|mailto:)[^)]+\))/g);
 
     return parts.map((part, i) => {
+        const linkMatch = part.match(/^\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)]+)\)$/);
+        if (linkMatch) {
+            const [, label, href] = linkMatch;
+            return (
+                <a
+                    key={i}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1"
+                >
+                    {label}
+                </a>
+            );
+        }
+
+        if (part.startsWith("\\(") && part.endsWith("\\)")) {
+            return renderMath(part.slice(2, -2), `math-inline-${i}`);
+        }
+
+        if (part.startsWith("$") && part.endsWith("$")) {
+            return renderMath(part.slice(1, -1), `math-inline-${i}`);
+        }
+
         if (part.startsWith("**") && part.endsWith("**")) {
-            return <strong key={i} className="font-black text-zinc-900">{part.slice(2, -2)}</strong>;
+            return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
         }
         if (part.startsWith("`") && part.endsWith("`")) {
-            return <code key={i} className="px-1.5 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-[var(--primary)] font-mono text-[11px] font-bold">{part.slice(1, -1)}</code>;
+            return <code key={i} className="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground">{part.slice(1, -1)}</code>;
         }
         if (part.startsWith("*") && part.endsWith("*")) {
-            return <em key={i} className="italic text-zinc-600 font-medium">{part.slice(1, -1)}</em>;
+            return <em key={i} className="font-medium italic text-foreground/80">{part.slice(1, -1)}</em>;
         }
         return part;
     });

@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState, startTransition } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { createMediaToken } from "@/lib/media";
 import { ref, onValue, query, orderByChild, get, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { RecordedClass } from "@/lib/types";
-import { MonitorPlay, Play, Pause, AlertCircle, Search, X, SkipBack, SkipForward, Maximize2, Minimize2, ArrowLeft } from "lucide-react";
+import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, Maximize2, Minimize2, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -26,16 +27,6 @@ const SUBJECTS = [
 
 
 function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass | null, open: boolean, onOpenChange: (open: boolean) => void }) {
-    type YTPlayer = {
-        getAvailablePlaybackRates?: () => number[];
-        getAvailableQualityLevels?: () => string[];
-        setPlaybackRate?: (rate: number) => void;
-        setPlaybackQuality?: (quality: string) => void;
-        destroy?: () => void;
-        mute?: () => void;
-        playVideo?: () => void;
-        pauseVideo?: () => void;
-    };
     const { userData } = useAuth();
     const [isReady, setIsReady] = useState(false);
     const containerRef = useRef<HTMLIFrameElement | null>(null);
@@ -52,6 +43,8 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
     const [coverVisible, setCoverVisible] = useState<boolean>(false);
     const [resumeTime, setResumeTime] = useState<number>(0);
     const lastPersistRef = useRef<number>(0);
+    const currentTimeRef = useRef<number>(0);
+    const durationRef = useRef<number>(0);
     const [hudMask, setHudMask] = useState<boolean>(false);
     const hudTimerRef = useRef<number | null>(null);
     const [fsOverlayVisible, setFsOverlayVisible] = useState<boolean>(false);
@@ -97,22 +90,33 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
 
     useEffect(() => {
         const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
-        document.addEventListener("fullscreenchange", onFs);
-        const onMsg = (e: MessageEvent) => {
+        const handleMessage = (e: MessageEvent) => {
             if (e.origin !== window.location.origin) return;
             const d = e.data as { type?: string; duration?: number; rates?: number[]; qualities?: string[]; current?: number; state?: number } | null;
             if (!d || typeof d !== "object") return;
             if (d.type === "yt:ready") {
                 onReady();
-                if (typeof d.duration === "number" && Number.isFinite(d.duration)) setDuration(Number(d.duration));
+                if (typeof d.duration === "number" && Number.isFinite(d.duration)) {
+                    const nextDuration = Number(d.duration);
+                    durationRef.current = nextDuration;
+                    setDuration(nextDuration);
+                }
                 if (Array.isArray(d.rates) && d.rates.length) setRates(d.rates);
                 if (Array.isArray(d.qualities) && d.qualities.length) {
                     const qs = Array.from(new Set<string>(d.qualities as string[]));
                     setQualities([...qs, "auto"]);
                 }
             } else if (d.type === "yt:time") {
-                if (typeof d.current === "number" && Number.isFinite(d.current)) setCurrentTime(Number(d.current));
-                if (typeof d.duration === "number" && Number.isFinite(d.duration) && d.duration !== duration) setDuration(Number(d.duration));
+                if (typeof d.current === "number" && Number.isFinite(d.current)) {
+                    const nextCurrent = Math.max(0, Number(d.current));
+                    currentTimeRef.current = nextCurrent;
+                    setCurrentTime(nextCurrent);
+                }
+                if (typeof d.duration === "number" && Number.isFinite(d.duration) && d.duration !== durationRef.current) {
+                    const nextDuration = Math.max(0, Number(d.duration));
+                    durationRef.current = nextDuration;
+                    setDuration(nextDuration);
+                }
             } else if (d.type === "yt:state") {
                 const st = d.state;
                 setIsPaused(st === 2);
@@ -124,10 +128,13 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 }
             }
         };
-        window.addEventListener("message", onMsg);
+
+        document.addEventListener("fullscreenchange", onFs);
+        window.addEventListener("message", handleMessage);
+
         return () => {
             document.removeEventListener("fullscreenchange", onFs);
-            window.removeEventListener("message", onMsg);
+            window.removeEventListener("message", handleMessage);
             if (hudTimerRef.current) { window.clearTimeout(hudTimerRef.current); hudTimerRef.current = null; }
             if (fsOverlayTimerRef.current) { window.clearTimeout(fsOverlayTimerRef.current); fsOverlayTimerRef.current = null; }
         };
@@ -140,20 +147,24 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             if (!open || !video || !userData?.uid) return;
             try {
                 const snap = await get(ref(db, `users/${userData.uid}/video_progress/${video.id}`));
-                const val = snap.val() as { timestamp?: number } | null;
-                if (active && val?.timestamp && Number.isFinite(val.timestamp)) {
-                    setResumeTime(val.timestamp);
-                    setCurrentTime(val.timestamp);
+                const val = snap.val() as { timestamp?: number; duration?: number } | null;
+                if (active && val?.timestamp && Number.isFinite(val.timestamp) && val.timestamp > 0) {
+                    // Validate timestamp doesn't exceed the saved duration first, then the live duration.
+                    const referenceDuration = Number.isFinite(val.duration || NaN) && (val.duration || 0) > 0 ? (val.duration || 0) : durationRef.current || duration || 0;
+                    const safeTimestamp = Math.min(val.timestamp, Math.max(0, referenceDuration * 0.95));
+                    setResumeTime(safeTimestamp);
+                    setCurrentTime(safeTimestamp);
+                    currentTimeRef.current = safeTimestamp;
                 } else {
                     setResumeTime(0);
                 }
             } catch {
-                /* ignore */
+                /* ignore errors quietly to not block video start */
             }
         };
         loadProgress();
         return () => { active = false; };
-    }, [open, video, userData?.uid]);
+    }, [open, video, userData?.uid, duration]);
 
     // rendering handles null video below
 
@@ -226,11 +237,14 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             if (!force && now - lastPersistRef.current < 10000) return;
             lastPersistRef.current = now;
             try {
-                const d = duration || 0;
-                const completed = d > 0 ? currentTime / d >= 0.9 : false;
+                const d = durationRef.current || duration || 0;
+                const t = currentTimeRef.current || currentTime || 0;
+                const completed = d > 0 ? t / d >= 0.9 : false;
+                const progressPercent = d > 0 ? Math.min(100, Math.max(0, Math.round((t / d) * 100))) : 0;
                 await update(ref(db, `users/${userData.uid}/video_progress/${video.id}`), {
-                    timestamp: Math.floor(currentTime),
+                    timestamp: Math.floor(t),
                     duration: Math.floor(d || 0),
+                    progressPercent,
                     completed: !!completed,
                     updatedAt: now
                 });
@@ -265,11 +279,11 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                         <div className="flex-1">
                             <h3 className="text-white font-bold text-lg flex items-center gap-2">
                                 <MonitorPlay className="h-5 w-5 text-violet-400" />
-                                <span className="break-words">{video?.title || ""}</span>
+                                <span className="wrap-break-word">{video?.title || ""}</span>
                             </h3>
                             <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{video?.subject || ""} • {video?.section || ""}</p>
                         </div>
-                        <div className="flex items-center gap-3 mr-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
                             <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md text-white rounded-lg border border-white/10 px-2.5 py-1.5">
                                 <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
                                 <select
@@ -300,13 +314,6 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                     ))}
                                 </select>
                             </div>
-                            <button
-                                aria-label="Close"
-                                onClick={() => onOpenChange(false)}
-                                className="ml-auto sm:ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -354,7 +361,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     />
                     {isFullscreen && hudMask && (
                         <>
-                            <div className="absolute top-0 left-0 right-0 h-12 z-25 pointer-events-none bg-gradient-to-b from-black/60 to-transparent" />
+                            <div className="absolute top-0 left-0 right-0 h-12 z-25 pointer-events-none bg-linear-to-b from-black/60 to-transparent" />
                             <div
                                 className="absolute inset-0 z-25 pointer-events-none"
                                 style={{ background: "radial-gradient(circle at 95% 95%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 55%)" }}
@@ -441,7 +448,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 </div>
 
                 {/* Controls outside the video area */}
-                <div className="px-6 py-3 bg-zinc-950 border-t border-white/5 relative z-30 sticky bottom-0">
+                <div className="px-6 py-3 bg-zinc-950 border-t border-white/5 z-30 sticky bottom-0">
                     <div className="max-w-4xl mx-auto space-y-2">
                         <input
                             type="range"
@@ -495,13 +502,14 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
 
 export default function RecordedClassesPage() {
     const { userData } = useAuth();
+    const router = useRouter();
     const [classes, setClasses] = useState<RecordedClass[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedVideo, setSelectedVideo] = useState<RecordedClass | null>(null);
     const [openSubjects, setOpenSubjects] = useState<Record<string, boolean>>({});
-    const [videoProgressMap, setVideoProgressMap] = useState<Record<string, { timestamp?: number; duration?: number; completed?: boolean }>>({});
+    const [videoProgressMap, setVideoProgressMap] = useState<Record<string, { timestamp?: number; duration?: number; progressPercent?: number; completed?: boolean }>>({});
+    const [openingNoteId, setOpeningNoteId] = useState<string | null>(null);
     const searchParams = useSearchParams();
-    const router = useRouter();
     useEffect(() => {
         const t = window.setTimeout(() => {
             try {
@@ -531,17 +539,19 @@ export default function RecordedClassesPage() {
         return () => unsub();
     }, []);
 
+    const processedVideoIdRef = useRef<string | null>(null);
+
     useEffect(() => {
         const id = searchParams.get("videoId");
-        if (!id || classes.length === 0) return;
+        if (!id || classes.length === 0 || processedVideoIdRef.current === id) return;
+        
         const match = classes.find(c => c.id === id);
         if (match) {
-            startTransition(() => {
-                setSelectedVideo(match);
-            });
-            setTimeout(() => {
-                router.replace("/dashboard/recorded-classes");
-            }, 0);
+            processedVideoIdRef.current = id;
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setSelectedVideo(match);
+            // Clean up the query param to prevent re-opening
+            router.replace("/dashboard/recorded-classes");
         }
     }, [searchParams, classes, router]);
 
@@ -549,7 +559,7 @@ export default function RecordedClassesPage() {
         if (!userData?.uid) return;
         const progRef = ref(db, `users/${userData.uid}/video_progress`);
         const unsub = onValue(progRef, (snap) => {
-            const map: Record<string, { timestamp?: number; duration?: number; completed?: boolean }> = {};
+            const map: Record<string, { timestamp?: number; duration?: number; progressPercent?: number; completed?: boolean }> = {};
             snap.forEach((c) => { map[c.key as string] = c.val(); });
             setVideoProgressMap(map);
         });
@@ -567,9 +577,9 @@ export default function RecordedClassesPage() {
     if (!userData?.is_record_class) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-                <AlertCircle className="h-12 w-12 text-[var(--muted-foreground)] mb-4" />
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-                <p className="text-[var(--muted-foreground)]">
+                <p className="text-muted-foreground">
                     Your current package does not include recorded classes.
                     <br />
                     Upgrade your package to access the video library.
@@ -608,17 +618,17 @@ export default function RecordedClassesPage() {
                         <MonitorPlay className="h-8 w-8 text-violet-500" />
                         <span className="gradient-text">Video Lectures</span>
                     </h1>
-                    <p className="text-[var(--muted-foreground)] mt-1 ml-11">
+                    <p className="text-muted-foreground mt-1 ml-11">
                         Comprehensive recorded classes organized by syllabus
                     </p>
                 </div>
                 <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--muted-foreground)]" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                         placeholder="Search for topics, units..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 h-11 rounded-xl bg-[var(--card)] shadow-sm focus:ring-2 focus:ring-violet-500/20"
+                        className="pl-10 h-11 rounded-xl bg-card shadow-sm focus:ring-2 focus:ring-violet-500/20"
                     />
                 </div>
             </div>
@@ -630,10 +640,10 @@ export default function RecordedClassesPage() {
             />
 
             {filtered.length === 0 ? (
-                <div className="text-center py-20 bg-[var(--card)] rounded-3xl border border-dashed border-[var(--border)]">
+                <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-border">
                     <MonitorPlay className="h-16 w-16 mx-auto mb-4 opacity-10" />
-                    <p className="text-xl font-medium text-[var(--muted-foreground)]">No video lectures found</p>
-                    <p className="text-sm text-[var(--muted-foreground)]/60">Try adjusting your search terms</p>
+                    <p className="text-xl font-medium text-muted-foreground">No video lectures found</p>
+                    <p className="text-sm text-muted-foreground/60">Try adjusting your search terms</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -645,15 +655,16 @@ export default function RecordedClassesPage() {
                             acc[key].push(c);
                             return acc;
                         }, {});
-                        const subjectProgress = subjectClasses.reduce((acc2: { total: number; done: number }, rc) => {
+                        const subjectProgress = subjectClasses.reduce((acc2: { total: number; done: number; percentSum: number }, rc) => {
                             const prog = videoProgressMap[rc.id] || {};
                             acc2.total += 1;
                             if (prog.completed) acc2.done += 1;
+                            acc2.percentSum += typeof prog.progressPercent === "number" ? prog.progressPercent : (prog.completed ? 100 : prog.timestamp && prog.duration ? Math.min(100, Math.round((prog.timestamp / prog.duration) * 100)) : 0);
                             return acc2;
-                        }, { total: 0, done: 0 });
-                        const subjectPct = subjectProgress.total > 0 ? Math.round((subjectProgress.done / subjectProgress.total) * 100) : 0;
+                        }, { total: 0, done: 0, percentSum: 0 });
+                        const subjectPct = subjectProgress.total > 0 ? Math.round(subjectProgress.percentSum / subjectProgress.total) : 0;
                         return (
-                            <details key={subject} open={!!openSubjects[subject]} className="border border-[var(--border)] rounded-2xl bg-[var(--card)]/40 overflow-hidden">
+                            <details key={subject} open={!!openSubjects[subject]} className="border border-border rounded-2xl bg-card/40 overflow-hidden">
                                 <summary
                                     className="list-none px-4 py-3 flex items-center gap-3 cursor-pointer select-none"
                                     onClick={(e) => { e.preventDefault(); toggleSubject(subject); }}
@@ -661,8 +672,8 @@ export default function RecordedClassesPage() {
                                     <span className="h-7 w-1.5 rounded-full gradient-primary" />
                                     <span className="flex-1 text-left text-sm font-semibold">{subject}</span>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-28 h-1.5 rounded-full bg-[var(--muted)]/40 overflow-hidden">
-                                            <div className="h-full bg-[var(--primary)]" style={{ width: `${subjectPct}%` }} />
+                                        <div className="w-28 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                            <div className="h-full bg-primary" style={{ width: `${subjectPct}%` }} />
                                         </div>
                                         <span className="text-[10px] font-mono text-zinc-500">{subjectPct}%</span>
                                     </div>
@@ -675,7 +686,7 @@ export default function RecordedClassesPage() {
                                                 <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{section}</h3>
                                                 <span className="text-[10px] font-mono text-zinc-500">{items.length} Lectures</span>
                                             </div>
-                                            <div className="rounded-2xl border border-[var(--border)] overflow-hidden bg-[var(--card)]/40 divide-y">
+                                            <div className="rounded-2xl border border-border overflow-hidden bg-card/40 divide-y">
                                                 {items.map((cls) => {
                                                     const raw = cls.youtubeUrl;
                                                     const id = raw.includes("http") ? (raw.split("v=")[1]?.split("&")[0] || raw.split("/").pop() || raw) : raw;
@@ -690,7 +701,7 @@ export default function RecordedClassesPage() {
                                                             onClick={() => setSelectedVideo(cls)}
                                                             className="flex flex-row items-center gap-3 p-2 sm:flex-row sm:items-center sm:gap-4 sm:p-4 hover:bg-white/5 cursor-pointer transition"
                                                         >
-                                                            <div className="relative h-12 w-20 sm:h-16 sm:w-28 rounded-md overflow-hidden bg-[var(--muted)]/30 shrink-0">
+                                                            <div className="relative h-12 w-20 sm:h-16 sm:w-28 rounded-md overflow-hidden bg-muted/30 shrink-0">
                                                                 <Image
                                                                     src={thumb}
                                                                     alt={cls.title}
@@ -715,12 +726,38 @@ export default function RecordedClassesPage() {
                                                                     {cls.section}
                                                                 </p>
                                                                 {dur > 0 && (
-                                                                    <div className="mt-2 h-1.5 rounded-full bg-[var(--muted)]/30 overflow-hidden">
-                                                                        <div className="h-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
+                                                                    <div className="mt-2 h-1.5 rounded-full bg-muted/30 overflow-hidden">
+                                                                        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                                                                     </div>
                                                                 )}
+                                                                {cls.notesUrl && (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={openingNoteId === cls.id}
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            try {
+                                                                                setOpeningNoteId(cls.id);
+                                                                                const token = await createMediaToken(cls.notesUrl || "", "note");
+                                                                                router.push(`/player/note?token=${encodeURIComponent(token)}`);
+                                                                            } catch {
+                                                                                toast.error("Could not open notes content");
+                                                                            } finally {
+                                                                                setOpeningNoteId(null);
+                                                                            }
+                                                                        }}
+                                                                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                                                                    >
+                                                                        {openingNoteId === cls.id ? (
+                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                        ) : (
+                                                                            <FileText className="h-3.5 w-3.5" />
+                                                                        )}
+                                                                        Open Notes
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            <div className="hidden sm:flex items-center justify-center h-10 w-10 rounded-full bg-white/90 text-[var(--primary)]">
+                                                            <div className="hidden sm:flex items-center justify-center h-10 w-10 rounded-full bg-white/90 text-primary">
                                                                 <Play className="h-5 w-5" />
                                                             </div>
                                                         </div>

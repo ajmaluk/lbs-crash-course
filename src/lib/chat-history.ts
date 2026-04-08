@@ -14,7 +14,16 @@ export function loadSessions(): ChatSession[] {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (!stored) return [];
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.filter((item): item is ChatSession => (
+            !!item &&
+            typeof item.id === "string" &&
+            typeof item.title === "string" &&
+            typeof item.updatedAt === "number" &&
+            Array.isArray(item.messages)
+        ));
     } catch (e) {
         console.error("Failed to load sessions:", e);
         return [];
@@ -61,6 +70,25 @@ export function updateSession(sessionId: string, messages: ChatMessage[], title?
 
 export function deleteSession(sessionId: string) {
     const sessions = loadSessions();
-    const filtered = sessions.filter(s => s.id !== sessionId);
+    const filtered = sessionId === "all" ? [] : sessions.filter(s => s.id !== sessionId);
     saveSessions(filtered);
+
+    // Clean up orphaned feedback for this session
+    try {
+        if (typeof window !== "undefined") {
+            const feedbackKey = "toolpix_message_feedback";
+            const storedFeedback = localStorage.getItem(feedbackKey);
+            if (storedFeedback) {
+                const feedback = JSON.parse(storedFeedback) as Record<string, Record<string, string>>;
+                if (sessionId === "all") {
+                    localStorage.removeItem(feedbackKey);
+                } else if (feedback[sessionId]) {
+                    delete feedback[sessionId];
+                    localStorage.setItem(feedbackKey, JSON.stringify(feedback));
+                }
+            }
+        }
+    } catch {
+        // Silently ignore feedback cleanup errors
+    }
 }

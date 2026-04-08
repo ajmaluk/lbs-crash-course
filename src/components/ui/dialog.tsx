@@ -37,7 +37,7 @@ function Dialog({ open, onOpenChange, children, className }: DialogProps) {
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-200 overflow-y-auto" role="dialog" aria-modal="true">
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -63,7 +63,7 @@ function Dialog({ open, onOpenChange, children, className }: DialogProps) {
 
 function DialogContent({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
-        <div className={cn("animate-scale-in relative w-full overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl", className)}>
+        <div className={cn("animate-scale-in relative w-full overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl", className)}>
             {children}
         </div>
     );
@@ -74,11 +74,11 @@ function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-    return <h2 className={cn("text-lg font-semibold text-[var(--foreground)]", className)} {...props} />;
+    return <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props} />;
 }
 
 function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-    return <p className={cn("text-sm text-[var(--muted-foreground)]", className)} {...props} />;
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

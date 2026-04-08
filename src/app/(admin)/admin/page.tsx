@@ -90,20 +90,20 @@ export default function AdminOverview() {
         <div className="space-y-8 animate-fade-in">
             <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">Admin <span className="gradient-text">Dashboard</span></h1>
-                <p className="mt-1 text-[var(--muted-foreground)]">Platform management overview</p>
+                <p className="mt-1 text-muted-foreground">Platform management overview</p>
             </div>
 
             {/* Stat Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {cards.map((card) => (
                     <Link key={card.label} href={card.href}>
-                        <Card className="hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-[var(--primary)]/5 transition-all duration-300 cursor-pointer group h-full">
+                        <Card className="cursor-pointer group h-full transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
                             <CardContent className="p-5">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${card.color} mb-3 transition-transform duration-300 group-hover:scale-110`}>
+                                <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br ${card.color} transition-transform duration-300 group-hover:scale-110`}>
                                     <card.icon className="h-5 w-5 text-white" />
                                 </div>
                                 <p className="text-2xl font-bold">{card.value}</p>
-                                <p className="text-xs text-[var(--muted-foreground)] mt-1">{card.label}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{card.label}</p>
                             </CardContent>
                         </Card>
                     </Link>
@@ -119,25 +119,25 @@ export default function AdminOverview() {
                             <Activity className="h-4 w-4 text-amber-500" />
                             Recent Registrations
                         </CardTitle>
-                        <Link href="/admin/registrations" className="text-xs text-[var(--primary)] hover:underline">
+                        <Link href="/admin/registrations" className="text-xs text-primary hover:underline">
                             View all →
                         </Link>
                     </CardHeader>
                     <CardContent>
                         {recentRegistrations.length === 0 ? (
-                            <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No pending registrations</p>
+                            <p className="py-6 text-center text-sm text-muted-foreground">No pending registrations</p>
                         ) : (
                             <div className="space-y-3">
                                 {recentRegistrations.map((reg) => (
-                                    <div key={reg.id} className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-[var(--muted)]/50 transition-colors">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shrink-0">
+                                    <div key={reg.id} className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted/50">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-amber-500 to-orange-500 text-xs font-bold text-white">
                                             {reg.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate">{reg.name}</p>
-                                            <p className="text-xs text-[var(--muted-foreground)] truncate">{reg.email}</p>
+                                            <p className="truncate text-xs text-muted-foreground">{reg.email}</p>
                                         </div>
-                                        <span className="text-[10px] text-[var(--muted-foreground)] shrink-0">
+                                        <span className="shrink-0 text-[10px] text-muted-foreground">
                                             {format(new Date(reg.submittedAt), "MMM d")}
                                         </span>
                                     </div>
@@ -154,20 +154,20 @@ export default function AdminOverview() {
                             <Megaphone className="h-4 w-4 text-green-500" />
                             Recent Announcements
                         </CardTitle>
-                        <Link href="/admin/announcements" className="text-xs text-[var(--primary)] hover:underline">
+                        <Link href="/admin/announcements" className="text-xs text-primary hover:underline">
                             View all →
                         </Link>
                     </CardHeader>
                     <CardContent>
                         {recentAnnouncements.length === 0 ? (
-                            <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No announcements yet</p>
+                            <p className="py-6 text-center text-sm text-muted-foreground">No announcements yet</p>
                         ) : (
                             <div className="space-y-3">
                                 {recentAnnouncements.map((ann) => (
-                                    <div key={ann.id} className="rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--muted)]/30 transition-colors">
+                                    <div key={ann.id} className="rounded-lg border border-border p-3 transition-colors hover:bg-muted/30">
                                         <p className="text-sm font-medium">{ann.title}</p>
-                                        <p className="text-xs text-[var(--muted-foreground)] mt-1 line-clamp-1">{ann.content}</p>
-                                        <p className="text-[10px] text-[var(--muted-foreground)] mt-1.5">
+                                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{ann.content}</p>
+                                        <p className="mt-1.5 text-[10px] text-muted-foreground">
                                             {format(new Date(ann.createdAt), "MMM d, yyyy · h:mm a")}
                                         </p>
                                     </div>

@@ -15,6 +15,8 @@ import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
 import { FileText, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { QuestionJsonImport } from "@/components/admin/QuestionJsonImport";
+import { dedupeQuestions } from "@/lib/question-json";
 
 const statusOptions = [
     { value: "draft", label: "Draft" },
@@ -62,12 +64,13 @@ export default function AdminMockTestsPage() {
         if (!form.title || !form.subject) { toast.error("Title and subject required"); return; }
         setSaving(true);
         try {
+            const { questions: cleanedQuestions, removed } = dedupeQuestions(questions);
             const data: Partial<Quiz> = {
                 title: form.title,
                 subject: form.subject,
                 status: form.status,
                 duration: parseInt(form.duration) || 60,
-                questions,
+                questions: cleanedQuestions,
                 createdBy: userData?.uid || "",
                 ...(editing ? {} : { createdAt: Date.now() }),
                 ...(form.status === "closed" && !editing?.closedAt ? { closedAt: Date.now() } : {}),
@@ -127,10 +130,10 @@ export default function AdminMockTestsPage() {
 
             if (editing) {
                 await update(ref(db, `mockTests/${editing.id}`), data);
-                toast.success("Updated");
+                toast.success(removed > 0 ? `Updated. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Updated");
             } else {
                 await set(ref(db, `mockTests/${testId}`), data);
-                toast.success("Created");
+                toast.success(removed > 0 ? `Created. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Created");
             }
             setShowForm(false);
         } catch (error) {
@@ -154,14 +157,14 @@ export default function AdminMockTestsPage() {
             </div>
 
             {mockTests.length === 0 ? (
-                <Card><CardContent className="py-12 text-center text-[var(--muted-foreground)]"><FileText className="h-10 w-10 mx-auto mb-2" /><p>No mock tests</p></CardContent></Card>
+                <Card><CardContent className="py-12 text-center text-muted-foreground"><FileText className="h-10 w-10 mx-auto mb-2" /><p>No mock tests</p></CardContent></Card>
             ) : (
                 <div className="space-y-3">{mockTests.map((test) => (
-                    <Card key={test.id} className="hover:border-[var(--primary)]/20 transition-all">
+                    <Card key={test.id} className="hover:border-(--primary)/20 transition-all">
                         <CardContent className="p-4 flex items-center justify-between gap-3">
                             <div>
                                 <div className="flex items-center gap-2"><p className="font-semibold">{test.title}</p><Badge variant={test.status === "published" ? "success" : "secondary"}>{test.status}</Badge></div>
-                                <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-1.5">
+                                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                                     {test.subject} · {test.questions?.length || 0} questions ·
                                     <span className="flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md font-medium">
                                         <Clock className="h-3 w-3" /> {test.duration || 60} min
@@ -184,7 +187,7 @@ export default function AdminMockTestsPage() {
                                     </Button>
                                 )}
                                 <Button variant="outline" size="sm" onClick={() => openEdit(test)}><Edit className="h-3.5 w-3.5" /></Button>
-                                <Button variant="outline" size="sm" onClick={() => handleDelete(test.id)} className="text-[var(--destructive)]"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button variant="outline" size="sm" onClick={() => handleDelete(test.id)} className="text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -218,38 +221,48 @@ export default function AdminMockTestsPage() {
                             </div>
                         </div>
 
-                        <div className="pt-2 border-t border-[var(--border)]">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base font-bold flex items-center gap-2">
-                                    <FileText className="h-5 w-5 text-[var(--primary)]" />
-                                    Questions ({questions.length})
-                                </h3>
+                        <div className="pt-2 border-t border-border">
+                            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-primary" />
+                                        Questions ({questions.length})
+                                    </h3>
+                                    <p className="mt-1 text-xs text-muted-foreground">Upload a JSON file or add questions manually.</p>
+                                </div>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => { setEditingQ(null); setQForm({ question: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" }); setShowQForm(true); }}
-                                    className="rounded-xl border-[var(--primary)]/20 text-[var(--primary)] hover:bg-[var(--primary)]/5 h-9"
+                                    className="h-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
                                 >
                                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Question
                                 </Button>
                             </div>
 
+                            <QuestionJsonImport
+                                questions={questions}
+                                setQuestions={setQuestions}
+                                exportFilePrefix={form.title?.trim() ? `${form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-mock-test-questions` : "mock-test-questions"}
+                                className="mb-4"
+                            />
+
                             <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1 CustomScrollbar">
                                 {questions.length === 0 ? (
-                                    <div className="text-center py-8 bg-[var(--muted)]/30 rounded-2xl border border-dashed border-[var(--border)]">
-                                        <p className="text-sm text-[var(--muted-foreground)]">No questions added yet.</p>
+                                    <div className="text-center py-8 bg-muted/30 rounded-2xl border border-dashed border-border">
+                                        <p className="text-sm text-muted-foreground">No questions added yet.</p>
                                     </div>
                                 ) : (
                                     questions.map((q, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-[var(--border)] hover:border-[var(--primary)]/30 transition-all group/q">
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--muted)] text-[10px] font-bold text-[var(--muted-foreground)] shrink-0">Q{i + 1}</span>
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-border hover:border-primary/30 transition-all group/q">
+                                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] font-bold text-muted-foreground">Q{i + 1}</span>
                                             <span className="flex-1 text-sm font-medium truncate">{q.question}</span>
                                             <div className="flex items-center gap-1 opacity-0 group-hover/q:opacity-100 transition-opacity">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => { setQForm({ question: q.question, options: [...q.options], correctAnswer: q.correctAnswer, explanation: q.explanation || "" }); setEditingQ(i); setShowQForm(true); }}
-                                                    className="h-8 w-8 rounded-lg text-[var(--primary)]"
+                                                    className="h-8 w-8 rounded-lg text-primary"
                                                 >
                                                     <Edit className="h-3.5 w-3.5" />
                                                 </Button>
@@ -257,7 +270,7 @@ export default function AdminMockTestsPage() {
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => setQuestions(questions.filter((_, j) => j !== i))}
-                                                    className="h-8 w-8 rounded-lg text-[var(--destructive)]"
+                                                    className="h-8 w-8 rounded-lg text-destructive"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </Button>
@@ -268,7 +281,7 @@ export default function AdminMockTestsPage() {
                             </div>
                         </div>
 
-                        <DialogFooter className="gap-3 sm:gap-0 mt-6 pt-4 border-t border-[var(--border)]">
+                        <DialogFooter className="gap-3 sm:gap-0 mt-6 pt-4 border-t border-border">
                             <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
                             <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-10 shadow-lg shadow-blue-500/20">
                                 {saving ? "Saving..." : "Save Test"}
@@ -295,13 +308,13 @@ export default function AdminMockTestsPage() {
                             />
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-xs font-black uppercase tracking-widest text-[var(--muted-foreground)]">Options (Select the correct one)</Label>
+                            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Options (Select the correct one)</Label>
                             {qForm.options.map((opt, i) => (
                                 <div key={i} className="flex items-center gap-3 group">
                                     <button
                                         type="button"
                                         onClick={() => setQForm({ ...qForm, correctAnswer: i })}
-                                        className={`h-9 w-9 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${qForm.correctAnswer === i ? "border-green-500 bg-green-500 text-white shadow-lg shadow-green-200" : "border-[var(--border)] hover:border-zinc-300"}`}
+                                        className={`h-9 w-9 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${qForm.correctAnswer === i ? "border-green-500 bg-green-500 text-white shadow-lg shadow-green-200" : "border-border hover:border-zinc-300"}`}
                                     >
                                         {qForm.correctAnswer === i ? <CheckCircle className="h-5 w-5" /> : <span className="text-xs font-bold text-zinc-400">{String.fromCharCode(65 + i)}</span>}
                                     </button>
@@ -356,14 +369,14 @@ export default function AdminMockTestsPage() {
                                             {entry.rank}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-[var(--foreground)]">{entry.userName}</p>
+                                            <p className="font-bold text-foreground">{entry.userName}</p>
                                             <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-black flex items-center gap-1">
                                                 <Clock className="h-2.5 w-2.5" /> {entry.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : "N/A"}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-lg font-black text-[var(--primary)]">{entry.score}</span>
+                                        <span className="text-lg font-black text-primary">{entry.score}</span>
                                         <span className="text-xs text-zinc-400 font-bold"> / {entry.totalQuestions}</span>
                                     </div>
                                 </div>

@@ -66,6 +66,8 @@ export interface LiveClass {
     meetLink: string;
     status: LiveClassStatus;
     recordingUrl: string;
+    notesUrl?: string;
+    notesToken?: string;
     createdBy: string;
     createdAt: number;
 }
@@ -76,6 +78,8 @@ export interface RecordedClass {
     subject: string;
     section: string;
     youtubeUrl: string;
+    notesUrl?: string;
+    notesToken?: string;
     createdAt: number;
     createdBy: string;
 }

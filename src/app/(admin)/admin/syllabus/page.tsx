@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 
@@ -59,7 +59,7 @@ export default function AdminSyllabusPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Syllabus</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">Upload and manage LBS MCA syllabus images</p>
+          <p className="mt-1" style={{ color: "var(--muted-foreground)" }}>Upload and manage LBS MCA syllabus images</p>
         </div>
         <Button onClick={() => setShowForm(true)} className="rounded-xl">
           <Plus className="h-4 w-4 mr-1" /> Add Image
@@ -67,19 +67,19 @@ export default function AdminSyllabusPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="text-center py-16 border border-dashed rounded-2xl bg-[var(--card)]/40">
-          <ImageIcon className="h-12 w-12 mx-auto mb-3 text-[var(--muted-foreground)]" />
-          <p className="text-[var(--muted-foreground)]">No syllabus images uploaded yet</p>
+        <div className="text-center py-16 border border-dashed rounded-2xl bg-muted/20">
+          <ImageIcon className="h-12 w-12 mx-auto mb-3" style={{ color: "var(--muted-foreground)" }} />
+          <p style={{ color: "var(--muted-foreground)" }}>No syllabus images uploaded yet</p>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((it) => (
             <Card key={it.id} className="overflow-hidden group">
               <CardContent className="p-0">
-                <div className="aspect-[3/4] bg-[var(--muted)]/20 relative">
+                <div className="relative" style={{ aspectRatio: "3 / 4", backgroundColor: "color-mix(in srgb, var(--muted) 20%, transparent)" }}>
                   <Image src={it.url} alt={it.title || "Syllabus"} fill className="object-cover" unoptimized />
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="outline" size="icon" onClick={() => handleDelete(it.id)} className="h-9 w-9 rounded-xl text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/20">
+                    <Button variant="outline" size="icon" onClick={() => handleDelete(it.id)} className="h-9 w-9 rounded-xl text-red-600 hover:bg-red-500/10 border-red-500/20">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

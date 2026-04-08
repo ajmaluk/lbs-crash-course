@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-type Payload = { id: string; kind: "yt"; exp: number; t: number };
+type Payload = { id: string; kind: "yt" | "note"; exp: number; t: number };
 
 function sign(payload: Payload, secret: string): string {
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const secret = process.env.MEDIA_TOKEN_SECRET || (process.env.NODE_ENV !== "production" ? "dev-media-secret" : "");
     if (!secret) return NextResponse.json({ message: "Server not configured" }, { status: 500 });
-    const body = await req.json().catch(() => null) as { id?: string; kind?: "yt" } | null;
+    const body = await req.json().catch(() => null) as { id?: string; kind?: "yt" | "note" } | null;
     const id = (body?.id || "").trim();
     const kind = body?.kind || "yt";
     if (!id) {

@@ -13,6 +13,7 @@ import { User, Lock, Upload, Loader2, Package, ArrowUpRight } from "lucide-react
 import Image from "next/image";
 import { toast } from "sonner";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
+import ThemeSelector from "@/components/theme/ThemeSelector";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
@@ -115,61 +116,78 @@ export default function ProfilePage() {
     const canUpgrade = !(userData?.is_live && userData?.is_record_class);
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-2xl">
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <User className="h-6 w-6 text-[var(--primary)]" />
-                    Profile
-                </h1>
-                <p className="text-[var(--muted-foreground)] mt-1">Manage your account</p>
-            </div>
-
-            {/* Profile Info */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Personal Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Login ID</p>
-                            <p className="font-mono font-medium text-[var(--primary)]">{userData?.loginId || "N/A"}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Full Name</p>
-                            <p className="font-medium">{userData?.name}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Email</p>
-                            <p className="font-medium">{userData?.email}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Phone</p>
-                            <p className="font-medium">{userData?.phone}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">WhatsApp</p>
-                            <p className="font-medium">{userData?.whatsapp}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Graduation Year</p>
-                            <p className="font-medium">{userData?.graduationYear}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-[var(--muted-foreground)]">Current Package</p>
-                            <Badge variant="default" className="mt-1">{currentPackage}</Badge>
+        <div className="mx-auto max-w-5xl space-y-6 animate-fade-in">
+            <Card className="overflow-hidden border-border/70 bg-card/70 backdrop-blur-sm">
+                <CardContent className="p-6 sm:p-7">
+                    <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                                <User className="h-7 w-7" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+                                <p className="mt-1 text-sm text-muted-foreground">Manage your account and security settings</p>
+                                <div className="mt-3 flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono">{userData?.loginId || "N/A"}</Badge>
+                                    <Badge variant="default">{currentPackage}</Badge>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Change Password */}
+            <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Personal Information</CardTitle>
+                        <CardDescription>Your profile and contact details</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                                <p className="text-xs text-muted-foreground">Full Name</p>
+                                <p className="mt-1 font-semibold">{userData?.name || "-"}</p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                                <p className="text-xs text-muted-foreground">Graduation Year</p>
+                                <p className="mt-1 font-semibold">{userData?.graduationYear || "-"}</p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:col-span-2">
+                                <p className="text-xs text-muted-foreground">Email</p>
+                                <p className="mt-1 font-semibold break-all">{userData?.email || "-"}</p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                                <p className="text-xs text-muted-foreground">Phone</p>
+                                <p className="mt-1 font-semibold">{userData?.phone || "-"}</p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                                <p className="text-xs text-muted-foreground">WhatsApp</p>
+                                <p className="mt-1 font-semibold">{userData?.whatsapp || "-"}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Appearance</CardTitle>
+                        <CardDescription>Choose your preferred theme mode</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <Label htmlFor="theme-select">Theme</Label>
+                        <ThemeSelector id="theme-select" className="w-full" />
+                    </CardContent>
+                </Card>
+            </div>
+
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Lock className="h-5 w-5" />
                         Change Password
                     </CardTitle>
+                    <CardDescription>Use a strong password with at least 6 characters</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -177,7 +195,7 @@ export default function ProfilePage() {
                             <Label htmlFor="currentPw">Current Password</Label>
                             <Input id="currentPw" type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required />
                         </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="newPw">New Password</Label>
                                 <Input id="newPw" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
@@ -188,13 +206,12 @@ export default function ProfilePage() {
                             </div>
                         </div>
                         <Button type="submit" disabled={changingPw}>
-                            {changingPw ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Updating...</> : "Update Password"}
+                            {changingPw ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : "Update Password"}
                         </Button>
                     </form>
                 </CardContent>
             </Card>
 
-            {/* Upgrade Package */}
             {canUpgrade && (
                 <Card>
                     <CardHeader>
@@ -219,14 +236,14 @@ export default function ProfilePage() {
                             </div>
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--muted)]/50 p-6 text-center transition-colors hover:border-[var(--primary)]/50"
+                                className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/40 p-6 text-center transition-colors hover:border-primary/50"
                             >
                                 {upgradePreview ? (
-                                    <Image src={upgradePreview} alt="Payment" width={300} height={300} className="mx-auto max-h-32 rounded-lg object-contain w-auto h-auto" />
+                                    <Image src={upgradePreview} alt="Payment" width={300} height={300} className="mx-auto h-auto max-h-32 w-auto rounded-lg object-contain" />
                                 ) : (
                                     <div className="space-y-2">
-                                        <Upload className="h-8 w-8 mx-auto text-[var(--muted-foreground)]" />
-                                        <p className="text-sm">Upload new payment screenshot</p>
+                                        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                                        <p className="text-sm">Upload payment screenshot</p>
                                     </div>
                                 )}
                             </div>
@@ -244,8 +261,9 @@ export default function ProfilePage() {
                                 }}
                             />
                             <Button type="submit" disabled={submittingUpgrade} className="w-full gradient-primary border-0">
-                                {submittingUpgrade ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Submitting...</> :
-                                    <><ArrowUpRight className="h-4 w-4 mr-2" />Request Upgrade</>}
+                                {submittingUpgrade
+                                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
+                                    : <><ArrowUpRight className="mr-2 h-4 w-4" />Request Upgrade</>}
                             </Button>
                         </form>
                     </CardContent>

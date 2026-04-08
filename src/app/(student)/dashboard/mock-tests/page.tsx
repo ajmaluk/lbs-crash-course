@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export default function MockTestsPage() {
     const [pendingTest, setPendingTest] = useState<Quiz | null>(null);
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
     const [reviewMode, setReviewMode] = useState(false);
+    const [showHonestSelfEvalOverlay, setShowHonestSelfEvalOverlay] = useState(false);
 
     useEffect(() => {
         const mtRef = query(ref(db, "mockTests"), orderByChild("createdAt"));
@@ -64,7 +65,7 @@ export default function MockTestsPage() {
         setShowStartScreen(true);
     };
 
-    const startTest = (test: Quiz) => {
+    const proceedWithTestStart = (test: Quiz) => {
         setActiveTest(test);
         setAnswers(new Array(test.questions.length).fill(-1));
         setCurrentQ(0);
@@ -72,9 +73,14 @@ export default function MockTestsPage() {
         setReviewMode(false);
         setTimeLeft((test.duration || 60) * 60);
         setShowStartScreen(false);
+        setShowHonestSelfEvalOverlay(false);
     };
 
-    const unansweredCount = answers.filter(a => a === -1).length;
+    const handleStartTestClick = () => {
+        setShowHonestSelfEvalOverlay(true);
+    };
+
+    const unansweredCount = useMemo(() => answers.filter(a => a === -1).length, [answers]);
 
     const selectAnswer = (optIndex: number) => {
         const newAnswers = [...answers];
@@ -145,7 +151,7 @@ export default function MockTestsPage() {
                                 <ChevronLeft className="h-4 w-4 mr-1" /> Back
                             </Button>
                         )}
-                        <h2 className="text-xl font-bold truncate max-w-[200px] sm:max-w-xs">{activeTest.title}</h2>
+                        <h2 className="text-xl font-bold truncate max-w-50 sm:max-w-xs">{activeTest.title}</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <Badge variant="outline" className="font-mono">Q {currentQ + 1}/{activeTest.questions.length}</Badge>
@@ -164,7 +170,7 @@ export default function MockTestsPage() {
                     </div>
                 </div>
 
-                <div className="h-2 rounded-full bg-[var(--muted)] overflow-hidden shadow-inner">
+                <div className="h-2 rounded-full bg-muted overflow-hidden shadow-inner">
                     <div
                         className={`h-full transition-all duration-300 rounded-full ${reviewMode ? (isCorrect ? "bg-green-500" : "bg-red-500") : "gradient-primary"
                             }`}
@@ -293,7 +299,7 @@ export default function MockTestsPage() {
 
                 {/* Submit Confirmation Modal */}
                 {showConfirmSubmit && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <Card className="w-full max-w-md shadow-2xl">
                             <CardHeader className="text-center pb-2">
                                 <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
@@ -400,11 +406,11 @@ export default function MockTestsPage() {
                     <FileText className="h-6 w-6 text-amber-500" />
                     Mock Tests
                 </h1>
-                <p className="text-[var(--muted-foreground)] mt-1">Full-length mock tests with timer</p>
+                <p className="text-muted-foreground mt-1">Full-length mock tests with timer</p>
             </div>
 
             {mockTests.length === 0 ? (
-                <div className="text-center py-12 text-[var(--muted-foreground)]">
+                <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-10 w-10 mx-auto mb-2" />
                     <p className="font-medium">No mock tests available</p>
                 </div>
@@ -413,7 +419,7 @@ export default function MockTestsPage() {
                     {mockTests.map((test) => {
                         const attempted = myAttempts[test.id];
                         return (
-                            <Card key={test.id} className="hover:border-[var(--primary)]/30 transition-all">
+                            <Card key={test.id} className="hover:border-primary/30 transition-all">
                                 <CardHeader>
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -424,15 +430,15 @@ export default function MockTestsPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex items-center gap-4 text-sm text-[var(--muted-foreground)] mb-4">
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                                         <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{test.questions?.length || 0} questions</span>
                                         <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{test.duration || 60} min</span>
                                     </div>
                                     <div className="space-y-4">
                                         {attempted && (
-                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-[var(--success)]/5">
-                                                <CheckCircle className="h-4 w-4 text-[var(--success)]" />
-                                                <span className="text-sm font-medium text-[var(--success)]">
+                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-(--success)/5">
+                                                <CheckCircle className="h-4 w-4 text-success" />
+                                                <span className="text-sm font-medium text-success">
                                                     Score: {attempted.score}/{attempted.totalQuestions}
                                                 </span>
                                             </div>
@@ -446,7 +452,7 @@ export default function MockTestsPage() {
 
                                         {test.status === "closed" && (
                                             <div className="space-y-2">
-                                                {!attempted && <p className="text-sm text-[var(--muted-foreground)]">Test closed</p>}
+                                                {!attempted && <p className="text-sm text-muted-foreground">Test closed</p>}
                                                 <Link href="/dashboard/rankings">
                                                     <Button variant="outline" size="sm" className="w-full">
                                                         View Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
@@ -494,7 +500,7 @@ export default function MockTestsPage() {
                                 <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
                                     <li>This is a full-length mock test.</li>
                                     <li>The clock will run continuously once started.</li>
-                                    <li>The test will auto-submit when the timer reaching zero.</li>
+                                    <li>The test will auto-submit when the timer reaches zero.</li>
                                     <li>Ensure you have a stable internet connection.</li>
                                 </ul>
                             </div>
@@ -503,8 +509,80 @@ export default function MockTestsPage() {
                                 <Button variant="outline" className="flex-1" onClick={() => setShowStartScreen(false)}>
                                     Cancel
                                 </Button>
-                                <Button className="flex-1 gradient-primary border-0" onClick={() => startTest(pendingTest)}>
+                                <Button className="flex-1 gradient-primary border-0" onClick={handleStartTestClick}>
                                     Start Test
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+            {/* Honest Self-Evaluation Overlay */}
+            {showHonestSelfEvalOverlay && pendingTest && (
+                <div className="fixed inset-0 z-51 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+                    <Card className="w-full max-w-2xl shadow-2xl relative overflow-hidden transform transition-all">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />
+                        <CardContent className="p-8 sm:p-10 space-y-6">
+                            <div className="text-center space-y-4">
+                                <div className="flex justify-center gap-2 text-4xl mb-2">
+                                    <span>🧠</span>
+                                    <span>💪</span>
+                                    <span>✨</span>
+                                </div>
+                                <h2 className="text-3xl font-bold text-gray-900">Ready for Your Full Mock Test? 🎯</h2>
+                                <p className="text-lg text-gray-600 font-medium">Before the clock starts ticking, remember this...</p>
+                            </div>
+
+                            {/* Wonderful Quote */}
+                            <div className="p-6 sm:p-7 rounded-2xl bg-linear-to-br from-amber-50 to-orange-50 border-2 border-amber-200 relative">
+                                <div className="absolute top-3 left-4 text-4xl opacity-20">&quot;</div>
+                                <div className="relative z-10 space-y-3">
+                                    <p className="text-xl sm:text-2xl font-semibold text-gray-800 italic leading-relaxed">
+                                        The real test isn&apos;t about having all the right answers—it&apos;s about discovering what you truly know through your own honest effort. That&apos;s the path to real mastery! 🎓
+                                    </p>
+                                    <p className="text-sm font-medium text-amber-700 text-right">— Your Greatest Strength is Your Authenticity</p>
+                                </div>
+                            </div>
+
+                            {/* Message */}
+                            <div className="space-y-4">
+                                <div className="space-y-3 text-gray-700">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">✅</span>
+                                        <p className="pt-0.5"><strong>This is YOUR exam:</strong> No ChatGPT, no AI shortcuts, no copy-paste tricks. Just you, your knowledge, and your honest answers. That&apos;s what makes this real! 🎖️</p>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">🚀</span>
+                                        <p className="pt-0.5"><strong>Pressure is a privilege:</strong> 60 minutes, multiple questions, ticking clock—this is where you get to prove your prep was worth it. Channel that nervous energy into focus! ⚡</p>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">🌟</span>
+                                        <p className="pt-0.5"><strong>Every question is a teacher:</strong> Whether you get it right or wrong, YOUR attempt teaches you something. That&apos;s infinitely more valuable than a copy-pasted answer. 📚</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Confirmation Message */}
+                            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+                                <p className="text-sm text-amber-800 text-center font-medium">
+                                    💡 <strong>Mindset Shift:</strong> You&apos;re not just taking a test—you&apos;re investing in yourself. Make it count with your authentic effort! 💎
+                                </p>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                                <Button 
+                                    variant="outline" 
+                                    className="flex-1 rounded-xl h-11 text-base font-semibold" 
+                                    onClick={() => setShowHonestSelfEvalOverlay(false)}
+                                >
+                                    Let Me Reconsider
+                                </Button>
+                                <Button 
+                                    className="flex-1 gradient-primary border-0 rounded-xl h-11 text-base font-semibold shadow-lg hover:shadow-xl transition-all" 
+                                    onClick={() => pendingTest && proceedWithTestStart(pendingTest)}
+                                >
+                                    I&apos;m All-In! Let&apos;s Go 💪
                                 </Button>
                             </div>
                         </CardContent>

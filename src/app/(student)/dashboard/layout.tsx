@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
@@ -48,11 +48,17 @@ export default function StudentDashboardLayout({
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    useEffect(() => {
+        const openSidebar = () => setSidebarOpen(true);
+        window.addEventListener("student-sidebar:open", openSidebar);
+        return () => window.removeEventListener("student-sidebar:open", openSidebar);
+    }, []);
+
     if (loading) return <PageLoader />;
     if (!userData) return <PageLoader />;
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[var(--background)]">
+        <div className="flex h-screen overflow-hidden bg-background">
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div
@@ -64,13 +70,13 @@ export default function StudentDashboardLayout({
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 w-72 transform border-r border-[var(--border)] bg-[var(--card)] transition-transform duration-300 lg:static lg:translate-x-0",
+                    "fixed inset-y-0 left-0 z-50 w-72 transform border-r border-border bg-card transition-transform duration-300 lg:static lg:translate-x-0",
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}
             >
                 <div className="flex h-full flex-col">
                     {/* Logo */}
-                    <div className="flex h-16 items-center justify-between border-b border-[var(--border)] px-4">
+                    <div className="flex h-16 items-center justify-between border-b border-border px-4">
                         <Link href="/dashboard" className="flex items-center gap-2">
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary">
                                 <GraduationCap className="h-5 w-5 text-white" />
@@ -79,7 +85,7 @@ export default function StudentDashboardLayout({
                         </Link>
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="lg:hidden rounded-lg p-1 hover:bg-[var(--muted)] cursor-pointer"
+                            className="lg:hidden rounded-lg p-1 hover:bg-muted cursor-pointer"
                         >
                             <X className="h-5 w-5" />
                         </button>
@@ -102,8 +108,8 @@ export default function StudentDashboardLayout({
                                     className={cn(
                                         "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                                         isActive
-                                            ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                                            ? "bg-primary/10 text-primary"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                     )}
                                 >
                                     <item.icon className="h-5 w-5 shrink-0" />
@@ -115,10 +121,10 @@ export default function StudentDashboardLayout({
                     </nav>
 
                     {/* Logout */}
-                    <div className="border-t border-[var(--border)] p-3">
+                    <div className="border-t border-border p-3">
                         <button
                             onClick={logout}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--destructive)] hover:bg-[var(--destructive)]/10 transition-colors cursor-pointer"
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                         >
                             <LogOut className="h-5 w-5" />
                             Logout
@@ -130,20 +136,22 @@ export default function StudentDashboardLayout({
             {/* Main content */}
             <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Mobile header */}
-                <header className="flex h-16 items-center gap-4 border-b border-[var(--border)] bg-[var(--card)] px-4 lg:hidden">
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="rounded-lg p-2 hover:bg-[var(--muted)] cursor-pointer"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </button>
-                    <span className="font-semibold">LBS MCA</span>
-                </header>
+                {pathname !== "/dashboard/ai-chat" && (
+                    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:hidden">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="rounded-lg p-2 hover:bg-muted cursor-pointer"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        <span className="font-semibold">LBS MCA</span>
+                    </header>
+                )}
 
                 {/* Page content */}
                 <main className={cn("flex-1 overflow-y-auto", pathname === "/dashboard/ai-chat" && "overflow-hidden")}>
                     <div className={cn(
-                        pathname !== "/dashboard/ai-chat" && "mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"
+                        pathname === "/dashboard/ai-chat" ? "h-full" : "mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"
                     )}>
                         {children}
                     </div>

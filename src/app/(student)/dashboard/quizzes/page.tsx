@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ export default function QuizzesPage() {
     const [pendingQuiz, setPendingQuiz] = useState<Quiz | null>(null);
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
     const [reviewMode, setReviewMode] = useState(false);
+    const [showHonestSelfEvalOverlay, setShowHonestSelfEvalOverlay] = useState(false);
 
     useEffect(() => {
         const qRef = query(ref(db, "quizzes"), orderByChild("createdAt"));
@@ -63,7 +64,7 @@ export default function QuizzesPage() {
         setShowStartScreen(true);
     };
 
-    const startQuiz = (quiz: Quiz) => {
+    const proceedWithQuizStart = (quiz: Quiz) => {
         setActiveQuiz(quiz);
         setAnswers(new Array(quiz.questions.length).fill(-1));
         setCurrentQ(0);
@@ -71,9 +72,14 @@ export default function QuizzesPage() {
         setReviewMode(false);
         setTimeLeft((quiz.duration || 30) * 60);
         setShowStartScreen(false);
+        setShowHonestSelfEvalOverlay(false);
     };
 
-    const unansweredCount = answers.filter(a => a === -1).length;
+    const handleStartQuizClick = () => {
+        setShowHonestSelfEvalOverlay(true);
+    };
+
+    const unansweredCount = useMemo(() => answers.filter(a => a === -1).length, [answers]);
 
     const selectAnswer = (optIndex: number) => {
         const newAnswers = [...answers];
@@ -143,12 +149,12 @@ export default function QuizzesPage() {
                                 <ChevronLeft className="h-4 w-4 mr-1" /> Back
                             </Button>
                         )}
-                        <h2 className="text-xl font-bold truncate max-w-[200px] sm:max-w-xs">{activeQuiz.title}</h2>
+                        <h2 className="text-xl font-bold truncate max-w-50 sm:max-w-xs">{activeQuiz.title}</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <Badge variant="outline" className="font-mono">Q {currentQ + 1}/{activeQuiz.questions.length}</Badge>
                         {!reviewMode && (
-                            <div className={`flex items-center gap-1.5 font-mono text-sm font-bold px-3 py-1 rounded-full border transition-all ${timeLeft < 60 ? "text-red-500 border-red-200 bg-red-50 animate-pulse" : "text-[var(--primary)] border-[var(--primary)]/20 bg-[var(--primary)]/5"
+                            <div className={`flex items-center gap-1.5 font-mono text-sm font-bold px-3 py-1 rounded-full border transition-all ${timeLeft < 60 ? "text-red-500 border-red-200 bg-red-50 animate-pulse" : "text-primary border-primary/20 bg-primary/5"
                                 }`}>
                                 <Timer className="h-4 w-4" />
                                 {formatTime(timeLeft)}
@@ -162,7 +168,7 @@ export default function QuizzesPage() {
                     </div>
                 </div>
 
-                <div className="h-2 rounded-full bg-[var(--muted)] overflow-hidden shadow-inner">
+                <div className="h-2 rounded-full bg-muted overflow-hidden shadow-inner">
                     <div
                         className={`h-full transition-all duration-300 rounded-full ${reviewMode ? (isCorrect ? "bg-green-500" : "bg-red-500") : "gradient-primary"
                             }`}
@@ -174,7 +180,7 @@ export default function QuizzesPage() {
                     <div className={`h-1.5 w-full ${reviewMode ? (isCorrect ? "bg-green-500" : userAnswer === -1 ? "bg-gray-300" : "bg-red-500") : "bg-transparent"}`} />
                     <CardContent className="p-6 sm:p-8">
                         <div className="flex items-start gap-4 mb-8">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] font-bold">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">
                                 {currentQ + 1}
                             </span>
                             <p className="text-xl font-medium leading-relaxed">{question.question}</p>
@@ -197,7 +203,7 @@ export default function QuizzesPage() {
                                     }
                                 } else {
                                     if (userAnswer === idx) {
-                                        style = "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-semibold shadow-sm scale-[1.01]";
+                                        style = "border-[var(--primary)] bg-primary/10 text-primary font-semibold shadow-sm scale-[1.01]";
                                     }
                                 }
 
@@ -209,7 +215,7 @@ export default function QuizzesPage() {
                                         className={`w-full text-left rounded-xl border-2 p-5 transition-all flex items-center justify-between gap-4 ${style} ${!reviewMode && "cursor-pointer active:scale-95"}`}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${userAnswer === idx ? "bg-[var(--primary)] text-white" : "bg-gray-100 text-gray-500"}`}>
+                                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${userAnswer === idx ? "bg-primary text-white" : "bg-gray-100 text-gray-500"}`}>
                                                 {String.fromCharCode(65 + idx)}
                                             </span>
                                             <span className="text-base">{opt}</span>
@@ -274,7 +280,7 @@ export default function QuizzesPage() {
                             const isQCorrect = answers[idx] === activeQuiz.questions[idx].correctAnswer;
                             style = isQCorrect ? "bg-green-100 text-green-700 border-green-200" : answers[idx] === -1 ? "bg-gray-100 text-gray-500 border-gray-200" : "bg-red-100 text-red-700 border-red-200";
                         } else if (answers[idx] >= 0) {
-                            style = "bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/20";
+                            style = "bg-primary/20 text-primary border-(--primary)/20";
                         }
 
                         return (
@@ -291,7 +297,7 @@ export default function QuizzesPage() {
 
                 {/* Submit Confirmation Modal */}
                 {showConfirmSubmit && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <Card className="w-full max-w-md shadow-2xl">
                             <CardHeader className="text-center pb-2">
                                 <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
@@ -381,7 +387,7 @@ export default function QuizzesPage() {
 
                     <div className="mt-6">
                         <Link href="/dashboard/rankings" className="inline-block w-full">
-                            <Button variant="ghost" className="w-full text-[var(--primary)] hover:bg-[var(--primary)]/5 rounded-xl h-12 font-medium">
+                            <Button variant="ghost" className="w-full text-primary hover:bg-primary/5 rounded-xl h-12 font-medium">
                                 <Trophy className="h-4 w-4 mr-2" /> View Global Leaderboard
                             </Button>
                         </Link>
@@ -399,11 +405,11 @@ export default function QuizzesPage() {
                     <BookOpen className="h-6 w-6 text-pink-500" />
                     Quizzes
                 </h1>
-                <p className="text-[var(--muted-foreground)] mt-1">Test your knowledge with weekly quizzes</p>
+                <p className="text-muted-foreground mt-1">Test your knowledge with weekly quizzes</p>
             </div>
 
             {quizzes.length === 0 ? (
-                <div className="text-center py-12 text-[var(--muted-foreground)]">
+                <div className="text-center py-12 text-muted-foreground">
                     <BookOpen className="h-10 w-10 mx-auto mb-2" />
                     <p className="font-medium">No quizzes available</p>
                     <p className="text-sm">Quizzes will appear here when published.</p>
@@ -413,7 +419,7 @@ export default function QuizzesPage() {
                     {quizzes.map((quiz) => {
                         const attempted = myAttempts[quiz.id];
                         return (
-                            <Card key={quiz.id} className="hover:border-[var(--primary)]/30 transition-all">
+                            <Card key={quiz.id} className="hover:border-primary/30 transition-all">
                                 <CardHeader>
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -426,7 +432,7 @@ export default function QuizzesPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex items-center gap-4 text-sm text-[var(--muted-foreground)] mb-4">
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                                         <span className="flex items-center gap-1">
                                             <BookOpen className="h-3.5 w-3.5" />
                                             {quiz.questions?.length || 0} questions
@@ -440,9 +446,9 @@ export default function QuizzesPage() {
                                     </div>
                                     <div className="space-y-4">
                                         {attempted && (
-                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-[var(--success)]/5">
-                                                <CheckCircle className="h-4 w-4 text-[var(--success)]" />
-                                                <span className="text-sm font-medium text-[var(--success)]">
+                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-success/5">
+                                                <CheckCircle className="h-4 w-4 text-success" />
+                                                <span className="text-sm font-medium text-success">
                                                     Score: {attempted.score}/{attempted.totalQuestions}
                                                 </span>
                                             </div>
@@ -456,7 +462,7 @@ export default function QuizzesPage() {
 
                                         {quiz.status === "closed" && (
                                             <div className="space-y-2">
-                                                {!attempted && <p className="text-sm text-[var(--muted-foreground)]">Quiz closed</p>}
+                                                {!attempted && <p className="text-sm text-muted-foreground">Quiz closed</p>}
                                                 <Link href="/dashboard/rankings">
                                                     <Button variant="outline" size="sm" className="w-full">
                                                         View Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
@@ -513,8 +519,80 @@ export default function QuizzesPage() {
                                 <Button variant="outline" className="flex-1" onClick={() => setShowStartScreen(false)}>
                                     Cancel
                                 </Button>
-                                <Button className="flex-1 gradient-primary border-0" onClick={() => startQuiz(pendingQuiz)}>
+                                <Button className="flex-1 gradient-primary border-0" onClick={handleStartQuizClick}>
                                     Start Test
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+            {/* Honest Self-Evaluation Overlay */}
+            {showHonestSelfEvalOverlay && pendingQuiz && (
+                <div className="fixed inset-0 z-51 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+                    <Card className="w-full max-w-2xl shadow-2xl relative overflow-hidden transform transition-all">
+                        <div className="absolute top-0 left-0 w-full h-1 gradient-primary" />
+                        <CardContent className="p-8 sm:p-10 space-y-6">
+                            <div className="text-center space-y-4">
+                                <div className="flex justify-center gap-2 text-4xl mb-2">
+                                    <span>🧠</span>
+                                    <span>💪</span>
+                                    <span>✨</span>
+                                </div>
+                                <h2 className="text-3xl font-bold text-gray-900">You&apos;ve Got This! 🏅</h2>
+                                <p className="text-lg text-gray-600 font-medium">Before you dive in, here&apos;s a gentle reminder...</p>
+                            </div>
+
+                            {/* Wonderful Quote */}
+                            <div className="p-6 sm:p-7 rounded-2xl bg-linear-to-br from-purple-50 to-blue-50 border-2 border-purple-200 relative">
+                                <div className="absolute top-3 left-4 text-4xl opacity-20">&quot;</div>
+                                <div className="relative z-10 space-y-3">
+                                    <p className="text-xl sm:text-2xl font-semibold text-gray-800 italic leading-relaxed">
+                                        Success is not about reaching the finish line perfectly—it&apos;s about becoming a better version of yourself through honest effort. 💭
+                                    </p>
+                                    <p className="text-sm font-medium text-purple-700 text-right">— Every Expert Started As A Beginner</p>
+                                </div>
+                            </div>
+
+                            {/* Message */}
+                            <div className="space-y-4">
+                                <div className="space-y-3 text-gray-700">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">✅</span>
+                                        <p className="pt-0.5"><strong>Answer with your own brain:</strong> This quiz measures YOUR understanding, not ChatGPT&apos;s knowledge. The more honest you are, the more you learn! 🧠</p>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">🚀</span>
+                                        <p className="pt-0.5"><strong>Challenge yourself:</strong> It&apos;s okay to struggle! Getting questions wrong is how learning happens. No AI shortcuts allowed—just you, the questions, and your potential. 💪</p>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl shrink-0">🌟</span>
+                                        <p className="pt-0.5"><strong>Be proud of the effort:</strong> Whether you score high or low, if it&apos;s your honest work, it means something real. That&apos;s what true success looks like! ✨</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Confirmation Message */}
+                            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+                                <p className="text-sm text-blue-800 text-center font-medium">
+                                    💡 <strong>Pro Tip:</strong> You have your brain, your knowledge, and your determination—that&apos;s everything you need. Let&apos;s do this! 🎉
+                                </p>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                                <Button 
+                                    variant="outline" 
+                                    className="flex-1 rounded-xl h-11 text-base font-semibold" 
+                                    onClick={() => setShowHonestSelfEvalOverlay(false)}
+                                >
+                                    Actually, Let Me Cancel
+                                </Button>
+                                <Button 
+                                    className="flex-1 gradient-primary border-0 rounded-xl h-11 text-base font-semibold shadow-lg hover:shadow-xl transition-all" 
+                                    onClick={() => pendingQuiz && proceedWithQuizStart(pendingQuiz)}
+                                >
+                                    I&apos;m Ready! Let&apos;s Start 🚀
                                 </Button>
                             </div>
                         </CardContent>

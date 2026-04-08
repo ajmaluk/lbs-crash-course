@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, Suspense } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
     Download,
     ImageIcon,
     ArrowLeft,
+    ArrowRight,
     Loader2,
 } from "lucide-react";
 import { ref, push, set } from "firebase/database";
@@ -65,7 +66,9 @@ function RegisterForm() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [mobileStep, setMobileStep] = useState<"details" | "payment">("details");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const paymentSectionRef = useRef<HTMLDivElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -78,6 +81,29 @@ function RegisterForm() {
             const url = URL.createObjectURL(file);
             setPreviewUrl(url);
         }
+    };
+
+    useEffect(() => {
+        if (mobileStep !== "payment") return;
+        const id = window.setTimeout(() => {
+            paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+        return () => window.clearTimeout(id);
+    }, [mobileStep]);
+
+    const selectedPackageLabel = packageOptions.find((option) => option.value === formData.selectedPackage)?.label || "—";
+
+    const canContinueToPayment = () => {
+        if (!formData.name || !formData.email || !formData.phone || !formData.whatsapp || !formData.graduationYear || !formData.selectedPackage) {
+            toast.error("Please fill in all required fields");
+            return false;
+        }
+        return true;
+    };
+
+    const handleNextStep = () => {
+        if (!canContinueToPayment()) return;
+        setMobileStep("payment");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -157,14 +183,14 @@ function RegisterForm() {
 
     if (!registrationOpen) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
                 <Card className="w-full max-w-md text-center">
                     <CardContent className="pt-8 pb-8">
                         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
                             <Upload className="h-8 w-8 text-red-500" />
                         </div>
                         <h2 className="text-2xl font-bold mb-2">Registration Closed</h2>
-                        <p className="text-[var(--muted-foreground)] mb-6">
+                        <p className="text-muted-foreground mb-6">
                             Registration is currently closed. Please check back later or contact admin for more information.
                         </p>
                         <Link href="/login">
@@ -181,14 +207,14 @@ function RegisterForm() {
 
     if (submitted) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
                 <Card className="w-full max-w-md text-center">
                     <CardContent className="pt-8 pb-8">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--success)]/10">
-                            <CheckCircle className="h-8 w-8 text-[var(--success)]" />
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+                            <CheckCircle className="h-8 w-8 text-success" />
                         </div>
                         <h2 className="text-2xl font-bold mb-2">Registration Submitted!</h2>
-                        <p className="text-[var(--muted-foreground)] mb-6">
+                        <p className="text-muted-foreground mb-6">
                             Your registration has been submitted successfully. Please wait for admin verification.
                             You will receive an email with your login credentials once approved.
                         </p>
@@ -205,13 +231,13 @@ function RegisterForm() {
     }
 
     return (
-        <div className="min-h-screen bg-[var(--background)]">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <nav className="border-b border-white/10 bg-[var(--primary)] text-white">
+            <nav className="border-b border-white/10 bg-primary text-white">
                 <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                     <Link href="/" className="flex items-center gap-2">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm transition-transform hover:scale-105">
-                            <GraduationCap className="h-5 w-5 text-[var(--primary)]" />
+                            <GraduationCap className="h-5 w-5 text-primary" />
                         </div>
                         <span className="text-lg font-bold">LBS MCA</span>
                     </Link>
@@ -225,20 +251,32 @@ function RegisterForm() {
             </nav>
 
             <div className="mx-auto max-w-5xl px-4 py-10">
-                <div className="grid lg:grid-cols-5 gap-8">
+                <div className="mb-5 flex items-center gap-3 lg:hidden">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${mobileStep === "details" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                        1
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Step 1</p>
+                        <p className="text-sm font-medium text-foreground">Registration details</p>
+                    </div>
+                    <div className={`ml-auto flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${mobileStep === "payment" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                        2
+                    </div>
+                </div>
+
+                <div className="grid gap-8 lg:grid-cols-5">
                     {/* Payment Info + QR */}
-                    <div className="lg:col-span-2">
-                        <Card className="sticky top-24">
+                    <div ref={paymentSectionRef} className={`${mobileStep === "payment" ? "block" : "hidden"} lg:block lg:col-span-2 lg:order-1`}>
+                        <Card className="lg:sticky lg:top-24">
                             <CardHeader>
-                                <CardTitle>Payment Instructions</CardTitle>
+                                <CardTitle>Payment Setup</CardTitle>
                                 <CardDescription>
-                                    Complete the payment and upload the screenshot
+                                    Scan the QR, complete payment, then upload the proof
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* Dynamic QR Code based on selected package */}
-                                <div className="rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--muted)] p-6 text-center">
-                                    <div className="mx-auto mb-3 flex h-48 w-48 items-center justify-center rounded-xl bg-white overflow-hidden">
+                            <CardContent className="space-y-5">
+                                <div className="rounded-xl border-2 border-dashed border-border bg-muted p-6 text-center">
+                                    <div className="mx-auto mb-3 flex h-48 w-48 items-center justify-center overflow-hidden rounded-xl bg-white">
                                         {formData.selectedPackage ? (
                                             <Image
                                                 src={
@@ -248,16 +286,16 @@ function RegisterForm() {
                                                             ? "/qr/record-only-qr.png"
                                                             : "/qr/combo-qr.png"
                                                 }
-                                                alt={`QR Code for ${packageOptions.find(o => o.value === formData.selectedPackage)?.label || "payment"}`}
+                                                alt={`QR Code for ${selectedPackageLabel}`}
                                                 width={192}
                                                 height={192}
-                                                className="object-contain w-full h-full"
+                                                className="h-full w-full object-contain"
                                             />
                                         ) : (
-                                            <p className="text-xs text-gray-500 px-2">
-                                                Select a package to
+                                            <p className="px-2 text-xs text-gray-500">
+                                                Select a package in the first step to
                                                 <br />
-                                                view payment QR
+                                                view the payment QR
                                             </p>
                                         )}
                                     </div>
@@ -273,45 +311,142 @@ function RegisterForm() {
                                             download
                                         >
                                             <Button variant="outline" size="sm" className="mt-2">
-                                                <Download className="h-4 w-4 mr-1" />
+                                                <Download className="mr-1 h-4 w-4" />
                                                 Download QR
                                             </Button>
                                         </a>
                                     )}
                                 </div>
 
-                                <div className="space-y-2 text-sm text-[var(--muted-foreground)]">
-                                    <p className="font-medium text-[var(--foreground)]">Steps:</p>
-                                    <ol className="list-decimal list-inside space-y-1">
+                                <div className="space-y-2 text-sm text-muted-foreground">
+                                    <p className="font-medium text-foreground">Steps:</p>
+                                    <ol className="list-inside list-decimal space-y-1">
                                         <li>Scan the QR code above</li>
                                         <li>Complete the payment</li>
                                         <li>Take a screenshot of the transaction</li>
-                                        <li>Upload the screenshot in the form</li>
+                                        <li>Upload the screenshot below</li>
                                         <li>Submit the registration form</li>
                                     </ol>
-                                    <div className="mt-3 rounded-xl border border-[var(--border)] p-3 bg-white/50 dark:bg-white/5">
-                                        <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-[var(--muted-foreground)]">Selected Package</p>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium">{packageOptions.find(o => o.value === formData.selectedPackage)?.label || "—"}</span>
+                                    <div className="mt-3 rounded-xl border border-border bg-white/50 p-3 dark:bg-white/5">
+                                        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Selected Package</p>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-sm font-medium">{selectedPackageLabel}</span>
                                             <span className="text-base font-bold">{formData.selectedPackage ? `₹${PACKAGE_PRICES[formData.selectedPackage]}` : ""}</span>
                                         </div>
                                     </div>
                                 </div>
+
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
+                                        <Input
+                                            id="transactionId"
+                                            name="transactionId"
+                                            placeholder="Enter payment transaction ID"
+                                            value={formData.transactionId}
+                                            onChange={handleInputChange}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Payment Screenshot *</Label>
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/50 p-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
+                                        >
+                                            {previewUrl ? (
+                                                <div className="space-y-3">
+                                                    <Image
+                                                        src={previewUrl}
+                                                        alt="Payment screenshot"
+                                                        width={300}
+                                                        height={300}
+                                                        className="mx-auto h-auto max-h-48 w-auto rounded-lg object-contain"
+                                                    />
+                                                    <p className="text-sm text-muted-foreground">Click to change</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                                                        <ImageIcon className="h-6 w-6 text-primary" />
+                                                    </div>
+                                                    <p className="text-sm font-medium">Click to upload screenshot</p>
+                                                    <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 lg:hidden">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => setMobileStep("details")}
+                                        >
+                                            <ArrowLeft className="mr-2 h-4 w-4" />
+                                            Back
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            disabled={submitting}
+                                            className="flex-1 gradient-primary border-0"
+                                        >
+                                            {submitting ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Submitting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="mr-2 h-4 w-4" />
+                                                    Submit
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+
+                                    <Button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="hidden w-full gradient-primary border-0 lg:inline-flex"
+                                        size="lg"
+                                    >
+                                        {submitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Submitting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Submit Registration
+                                            </>
+                                        )}
+                                    </Button>
+                                </form>
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Registration Form */}
-                    <div className="lg:col-span-3">
+                    <div className="lg:col-span-3 lg:order-2">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-2xl">Student Registration</CardTitle>
                                 <CardDescription>
-                                    Fill in your details and upload payment proof to register
+                                    Fill in your details first, then continue to payment setup on mobile
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="space-y-5">
                                     <div className="space-y-2">
                                         <Label htmlFor="name">Full Name *</Label>
                                         <Input
@@ -337,7 +472,7 @@ function RegisterForm() {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="phone">Phone Number *</Label>
                                             <Input
@@ -364,7 +499,7 @@ function RegisterForm() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="graduationYear">Graduation Year *</Label>
                                             <Input
@@ -388,93 +523,30 @@ function RegisterForm() {
                                                 required
                                             />
                                             {formData.selectedPackage ? (
-                                                <p className="text-sm text-[var(--muted-foreground)]">
-                                                    Price: <span className="font-semibold text-[var(--foreground)]">₹{PACKAGE_PRICES[formData.selectedPackage]}</span>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Price: <span className="font-semibold text-foreground">₹{PACKAGE_PRICES[formData.selectedPackage]}</span>
                                                 </p>
                                             ) : null}
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
-                                        <Input
-                                            id="transactionId"
-                                            name="transactionId"
-                                            placeholder="Enter payment transaction ID"
-                                            value={formData.transactionId}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
-
-                                    {/* Screenshot Upload */}
-                                    <div className="space-y-2">
-                                        <Label>Payment Screenshot *</Label>
-                                        <div
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--muted)]/50 p-6 text-center transition-colors hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/5"
-                                        >
-                                            {previewUrl ? (
-                                                <div className="space-y-3">
-                                                    <Image
-                                                        src={previewUrl}
-                                                        alt="Payment screenshot"
-                                                        width={300}
-                                                        height={300}
-                                                        className="mx-auto max-h-48 rounded-lg object-contain w-auto h-auto"
-                                                    />
-                                                    <p className="text-sm text-[var(--muted-foreground)]">
-                                                        Click to change
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)]/10">
-                                                        <ImageIcon className="h-6 w-6 text-[var(--primary)]" />
-                                                    </div>
-                                                    <p className="text-sm font-medium">
-                                                        Click to upload screenshot
-                                                    </p>
-                                                    <p className="text-xs text-[var(--muted-foreground)]">
-                                                        PNG, JPG up to 5MB
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={handleFileChange}
-                                        />
-                                    </div>
-
                                     <Button
-                                        type="submit"
-                                        disabled={submitting}
-                                        className="w-full gradient-primary border-0"
+                                        type="button"
+                                        onClick={handleNextStep}
+                                        className="w-full gradient-primary border-0 lg:hidden"
                                         size="lg"
                                     >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                Submitting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload className="h-4 w-4 mr-2" />
-                                                Submit Registration
-                                            </>
-                                        )}
+                                        Next: Payment Setup
+                                        <ArrowRight className="ml-2 h-4 w-4" />
                                     </Button>
 
-                                    <p className="text-center text-sm text-[var(--muted-foreground)]">
+                                    <p className="text-center text-sm text-muted-foreground">
                                         Already registered?{" "}
-                                        <Link href="/login" className="text-[var(--primary)] hover:underline font-medium">
+                                        <Link href="/login" className="font-medium text-primary hover:underline">
                                             Login here
                                         </Link>
                                     </p>
-                                </form>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
@@ -488,7 +560,7 @@ export default function RegisterPage() {
     return (
         <Suspense fallback={
             <div className="flex h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         }>
             <RegisterForm />

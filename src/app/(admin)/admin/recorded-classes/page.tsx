@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
+import { createMediaToken } from "@/lib/media";
 import { useAuth } from "@/contexts/auth-context";
 import type { RecordedClass } from "@/lib/types";
 import { MonitorPlay, Plus, Edit, Trash2, Play } from "lucide-react";
@@ -23,12 +24,53 @@ const SUBJECTS = [
     "General Knowledge"
 ];
 
+const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/;
+
+function extractYouTubeId(input: string) {
+    const value = input.trim();
+    if (!value) return "";
+    if (YOUTUBE_ID_REGEX.test(value)) return value;
+
+    try {
+        const url = new URL(value);
+        const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+        if (host === "youtu.be") {
+            const id = url.pathname.split("/").filter(Boolean)[0] || "";
+            return YOUTUBE_ID_REGEX.test(id) ? id : "";
+        }
+
+        if (host === "youtube.com" || host === "m.youtube.com") {
+            if (url.pathname === "/watch") {
+                const v = url.searchParams.get("v") || "";
+                return YOUTUBE_ID_REGEX.test(v) ? v : "";
+            }
+
+            const parts = url.pathname.split("/").filter(Boolean);
+            if (["embed", "shorts", "live"].includes(parts[0] || "")) {
+                const id = parts[1] || "";
+                return YOUTUBE_ID_REGEX.test(id) ? id : "";
+            }
+        }
+    } catch {
+        // Fall back to regex extraction below.
+    }
+
+    const match = value.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+    return match?.[1] || "";
+}
+
+function toYoutubeDisplayUrl(input: string) {
+    const id = extractYouTubeId(input);
+    return id ? `https://youtu.be/${id}` : input.trim();
+}
+
 export default function AdminRecordedClassesPage() {
     const { userData } = useAuth();
     const [classes, setClasses] = useState<RecordedClass[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<RecordedClass | null>(null);
-    const [form, setForm] = useState({ title: "", subject: "", section: "", youtubeUrl: "" });
+    const [form, setForm] = useState({ title: "", subject: "", section: "", youtubeUrl: "", notesUrl: "" });
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -42,22 +84,38 @@ export default function AdminRecordedClassesPage() {
         return () => unsub();
     }, []);
 
-    const openCreate = () => { setEditing(null); setForm({ title: "", subject: "", section: "", youtubeUrl: "" }); setShowForm(true); };
-    const openEdit = (cls: RecordedClass) => { setEditing(cls); setForm({ title: cls.title, subject: cls.subject, section: cls.section, youtubeUrl: cls.youtubeUrl }); setShowForm(true); };
+    const openCreate = () => { setEditing(null); setForm({ title: "", subject: "", section: "", youtubeUrl: "", notesUrl: "" }); setShowForm(true); };
+    const openEdit = (cls: RecordedClass) => {
+        setEditing(cls);
+        setForm({
+            title: cls.title,
+            subject: cls.subject,
+            section: cls.section,
+            youtubeUrl: toYoutubeDisplayUrl(cls.youtubeUrl),
+            notesUrl: cls.notesUrl || ""
+        });
+        setShowForm(true);
+    };
 
     const handleSave = async () => {
         if (!form.title || !form.subject || !form.youtubeUrl) { toast.error("Title, subject, and YouTube URL required"); return; }
         setSaving(true);
         try {
-            const extractYouTubeId = (url: string) => {
-                if (!url) return "";
-                const v = url.split("v=")[1]?.split("&")[0];
-                if (v) return v;
-                const parts = url.split("/");
-                return parts[parts.length - 1] || url;
-            };
             const idOnly = extractYouTubeId(form.youtubeUrl.trim());
-            const data = { ...form, youtubeUrl: idOnly, createdBy: userData?.uid || "", ...(editing ? {} : { createdAt: Date.now() }) };
+            if (!idOnly) {
+                toast.error("Please enter a valid YouTube URL (example: https://youtu.be/Z-ub5E9yn6o?si=...) or video ID.");
+                return;
+            }
+            const notesUrl = form.notesUrl.trim();
+            const notesToken = notesUrl ? await createMediaToken(notesUrl, "note") : "";
+            const data = {
+                ...form,
+                youtubeUrl: idOnly,
+                notesUrl,
+                notesToken,
+                createdBy: userData?.uid || "",
+                ...(editing ? {} : { createdAt: Date.now() })
+            };
             if (editing) { await update(ref(db, `recordedClasses/${editing.id}`), data); toast.success("Updated"); }
             else { await set(push(ref(db, "recordedClasses")), data); toast.success("Created"); }
             setShowForm(false);
@@ -74,32 +132,38 @@ export default function AdminRecordedClassesPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2"><MonitorPlay className="h-6 w-6 text-violet-500" />Recorded Classes</h1>
-                    <p className="text-[var(--muted-foreground)] mt-1">{classes.length} classes available</p>
+                    <p className="text-muted-foreground mt-1">{classes.length} classes available</p>
                 </div>
                 <Button onClick={openCreate} className="gradient-primary border-0 shadow-lg shadow-violet-500/20"><Plus className="h-4 w-4 mr-1" /> Add Class</Button>
             </div>
 
             {classes.length === 0 ? (
-                <Card className="border-dashed"><CardContent className="py-12 text-center text-[var(--muted-foreground)]"><MonitorPlay className="h-12 w-12 mx-auto mb-4 opacity-20" /><p className="text-lg font-medium">No recorded classes yet</p><p className="text-sm">Click &quot;Add Class&quot; to upload your first lecture.</p></CardContent></Card>
+                <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground"><MonitorPlay className="h-12 w-12 mx-auto mb-4 opacity-20" /><p className="text-lg font-medium">No recorded classes yet</p><p className="text-sm">Click &quot;Add Class&quot; to upload your first lecture.</p></CardContent></Card>
             ) : (
                 <div className="grid gap-3">
                     {classes.map((cls) => (
-                        <Card key={cls.id} className="hover:border-[var(--primary)]/20 transition-all group">
+                        <Card key={cls.id} className="hover:border-primary/20 transition-all group">
                             <CardContent className="p-4 flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-4">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors shrink-0"><Play className="h-6 w-6 text-violet-500" /></div>
                                     <div>
                                         <p className="font-semibold text-lg">{cls.title}</p>
-                                        <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                                            <span className="bg-[var(--muted)] px-2 py-0.5 rounded-full font-medium">{cls.subject}</span>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span className="bg-muted px-2 py-0.5 rounded-full font-medium">{cls.subject}</span>
                                             <span>·</span>
                                             <span>{cls.section}</span>
+                                            {cls.notesUrl && (
+                                                <>
+                                                    <span>·</span>
+                                                    <span className="text-emerald-600 font-semibold">Notes linked</span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="outline" size="icon" onClick={() => openEdit(cls)} className="h-9 w-9 rounded-xl"><Edit className="h-4 w-4" /></Button>
-                                    <Button variant="outline" size="icon" onClick={() => handleDelete(cls.id)} className="h-9 w-9 rounded-xl text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/20"><Trash2 className="h-4 w-4" /></Button>
+                                    <Button variant="outline" size="icon" onClick={() => handleDelete(cls.id)} className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10 border-destructive/20"><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -148,7 +212,16 @@ export default function AdminRecordedClassesPage() {
                             <Input
                                 value={form.youtubeUrl}
                                 onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
-                                placeholder="https://www.youtube.com/watch?v=..."
+                                placeholder="https://youtu.be/Z-ub5E9yn6o?si=Zvg4ArFZN5lx0ONE"
+                                className="h-11 rounded-xl"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Notes PDF / Drive Link</Label>
+                            <Input
+                                value={form.notesUrl}
+                                onChange={(e) => setForm({ ...form, notesUrl: e.target.value })}
+                                placeholder="https://drive.google.com/..."
                                 className="h-11 rounded-xl"
                             />
                         </div>

@@ -32,6 +32,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+const SESSION_KEY = "sessionId";
 
 export function useAuth() {
     const context = useContext(AuthContext);
@@ -47,8 +48,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Generate unique session ID fallback
     const generateSessionId = () => {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+            return crypto.randomUUID();
+        }
         return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     };
+
+    const getStoredSessionId = useCallback(() => {
+        if (typeof window === "undefined") return null;
+        const fromSession = sessionStorage.getItem(SESSION_KEY);
+        if (fromSession) return fromSession;
+        return localStorage.getItem(SESSION_KEY);
+    }, []);
+
+    const persistSessionId = useCallback((sessionId: string) => {
+        if (typeof window === "undefined") return;
+        sessionStorage.setItem(SESSION_KEY, sessionId);
+        localStorage.setItem(SESSION_KEY, sessionId);
+    }, []);
+
+    const clearStoredSessionId = useCallback(() => {
+        if (typeof window === "undefined") return;
+        sessionStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SESSION_KEY);
+    }, []);
+
+    const forceLogoutWithReason = useCallback(async (reason: "banned" | "session_expired") => {
+        clearStoredSessionId();
+        await signOut(auth);
+        if (typeof window !== "undefined") {
+            window.location.href = `/login?reason=${reason}`;
+        }
+    }, [clearStoredSessionId]);
 
     // Get OneSignal ID
     const getOneSignalId = async () => {
@@ -81,8 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const userRef = ref(db, `users/${firebaseUser.uid}`);
                 const snapshot = await get(userRef);
                 if (snapshot.exists()) {
-                    const data = snapshot.val() as UserData;
-                    setUserData({ ...data, uid: firebaseUser.uid });
+                    const data = snapshot.val() as Partial<UserData>;
+                    setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
                 }
             } else {
                 setUserData(null);
@@ -100,65 +131,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userRef = ref(db, `users/${user.uid}`);
         const unsubscribe = onValue(userRef, (snapshot) => {
             if (suppressSessionCheckRef.current) return;
-            const data = snapshot.val();
+            const data = snapshot.val() as Partial<UserData> | null;
             if (!data) return;
+
+            setUserData((prev) => ({ ...(prev ?? {}), ...data, uid: user.uid, activeSessionId: data.activeSessionId ?? "" } as UserData));
 
             // 1. Check Ban status
             if (data.banned === true) {
-                signOut(auth);
-                sessionStorage.removeItem("sessionId");
-                if (typeof window !== "undefined") {
-                    window.location.href = "/login?reason=banned";
-                }
+                void forceLogoutWithReason("banned");
                 return;
             }
 
-            // 2. Check Session status (single-device)
-            const currentSessionId = sessionStorage.getItem("sessionId");
-            if (currentSessionId && data.activeSessionId && data.activeSessionId !== currentSessionId) {
-                signOut(auth);
-                sessionStorage.removeItem("sessionId");
-                if (typeof window !== "undefined") {
-                    window.location.href = "/login?reason=session_expired";
-                }
+            // 2. Check Session status (single-device, students only)
+            if (data.role === "admin") {
+                return;
+            }
+
+            const currentSessionId = getStoredSessionId();
+            const activeSessionId = data.activeSessionId;
+
+            // Enforce strict match; missing local token is treated as invalid session.
+            if (activeSessionId && currentSessionId !== activeSessionId) {
+                void forceLogoutWithReason("session_expired");
             }
         });
 
         return () => unsubscribe();
-    }, [user]);
+    }, [forceLogoutWithReason, getStoredSessionId, user]);
 
     const login = useCallback(async (email: string, password: string) => {
         suppressSessionCheckRef.current = true;
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
 
-            // Try getting OneSignal Player ID, fallback to generated ID
-            const oneSignalId = await getOneSignalId();
-            const sessionId = oneSignalId || generateSessionId();
-            sessionStorage.setItem("sessionId", sessionId);
-
-            // Update session in DB
-            await update(ref(db, `users/${result.user.uid}`), {
-                activeSessionId: sessionId,
-            });
-
-            // Fetch user data
+            // Fetch role first so admins can bypass single-device enforcement.
             const userRef = ref(db, `users/${result.user.uid}`);
             const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                const data = snapshot.val() as UserData;
-                setUserData({ ...data, uid: result.user.uid });
+            const data = snapshot.exists() ? (snapshot.val() as Partial<UserData>) : null;
+
+            let nextSessionId = data?.activeSessionId ?? "";
+
+            if (data?.role === "admin") {
+                clearStoredSessionId();
+                await set(ref(db, `users/${result.user.uid}/activeSessionId`), null);
+                nextSessionId = "";
+            } else {
+                // Students stay on strict single-device policy.
+                const oneSignalId = await getOneSignalId();
+                // Validate OneSignal ID is non-empty string before using as session ID
+                const sessionId = (oneSignalId && typeof oneSignalId === "string" && oneSignalId.trim().length > 0) 
+                    ? oneSignalId 
+                    : generateSessionId();
+                persistSessionId(sessionId);
+
+                await update(ref(db, `users/${result.user.uid}`), {
+                    activeSessionId: sessionId,
+                });
+
+                nextSessionId = sessionId;
+            }
+
+            if (data) {
+                setUserData({ ...data, uid: result.user.uid, activeSessionId: nextSessionId } as UserData);
             }
         } finally {
-            // Re-enable checks after DB is updated and initial sync completes
             suppressSessionCheckRef.current = false;
         }
-    }, []);
+    }, [clearStoredSessionId, persistSessionId]);
 
     const logout = useCallback(async () => {
-        if (typeof window !== "undefined") {
-            sessionStorage.removeItem("sessionId");
-        }
+        clearStoredSessionId();
 
         if (user) {
             // Clear session ID in DB for real users
@@ -167,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         await signOut(auth);
         setUserData(null);
-    }, [user]);
+    }, [clearStoredSessionId, user]);
 
     const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
         if (!user || !user.email) throw new Error("No user logged in");

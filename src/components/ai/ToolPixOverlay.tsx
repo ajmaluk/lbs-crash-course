@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Send, Loader2, Sparkles, User, Bot } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, Sparkles, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chatWithAI, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
@@ -23,7 +23,9 @@ export default function ToolPixOverlay() {
         setMounted(true);
     }, []);
 
-    const isPublicPage = !pathname?.startsWith("/dashboard") && !pathname?.startsWith("/admin");
+    const isPrivateAppPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/admin");
+    const isPlayerPage = pathname?.startsWith("/player");
+    const isPublicPage = !isPrivateAppPage && !isPlayerPage;
 
     useEffect(() => {
         if (!isPublicPage) return;
@@ -48,7 +50,10 @@ export default function ToolPixOverlay() {
             ]);
             setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
         } catch {
-            setMessages(prev => [...prev, { role: "assistant", content: "I'm sorry, I'm having trouble connecting right now. Please try again later." }]);
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: "I cannot fetch live analytics right now, but I can still help. Ask for a quick revision plan, a topic checklist, or a mock strategy and I will generate it immediately."
+            }]);
         } finally {
             setIsLoading(false);
         }
@@ -57,14 +62,14 @@ export default function ToolPixOverlay() {
     if (!mounted || !isPublicPage) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">
+        <div className="fixed bottom-6 right-6 z-9999 flex flex-col items-end gap-4">
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="w-[350px] sm:w-[400px] h-[500px] bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl"
+                        className="h-125 w-87.5 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-xl sm:w-100"
                     >
                         {/* Header */}
                         <div className="p-4 gradient-primary text-white flex items-center justify-between shadow-lg">
@@ -89,16 +94,16 @@ export default function ToolPixOverlay() {
                         {/* Messages */}
                         <div
                             ref={scrollRef}
-                            className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-transparent to-[var(--muted)]/20"
+                            className="flex-1 space-y-4 overflow-y-auto bg-linear-to-b from-transparent to-muted/20 p-4"
                         >
                             {messages.length === 0 && (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-                                    <div className="h-16 w-16 rounded-full bg-[var(--primary)]/10 flex items-center justify-center animate-pulse">
-                                        <Bot className="h-8 w-8 text-[var(--primary)]" />
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 animate-pulse">
+                                        <Bot className="h-8 w-8 text-primary" />
                                     </div>
                                     <div>
                                         <p className="font-bold text-lg">Hello! I&apos;m ToolPix Ai</p>
-                                        <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             How can I help you with your LBS MCA entrance preparation today?
                                         </p>
                                     </div>
@@ -110,24 +115,24 @@ export default function ToolPixOverlay() {
                                     className={cn(
                                         "max-w-[85%] p-3 rounded-[1.2rem] text-[13px] leading-relaxed shadow-sm",
                                         msg.role === "user"
-                                            ? "bg-[var(--primary)] text-white rounded-tr-none ml-auto"
-                                            : "bg-white border border-[var(--border)] rounded-tl-none text-[var(--foreground)]"
+                                            ? "ml-auto rounded-tr-none bg-primary text-white"
+                                            : "rounded-tl-none border border-border bg-white text-foreground"
                                     )}
                                 >
-                                    <FormattedMessage content={msg.content} role={msg.role as any} />
+                                    <FormattedMessage content={msg.content} role={msg.role === "user" ? "user" : "assistant"} />
                                 </div>
                             ))}
                             {isLoading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-white border border-[var(--border)] p-3 rounded-[1.2rem] rounded-tl-none shadow-sm min-w-[60px] flex items-center justify-center">
-                                        <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
+                                    <div className="flex min-w-15 items-center justify-center rounded-[1.2rem] rounded-tl-none border border-border bg-white p-3 shadow-sm">
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                     </div>
                                 </div>
                             )}
                         </div>
 
                         {/* Input */}
-                        <div className="p-4 border-t border-[var(--border)] bg-[var(--card)]">
+                        <div className="border-t border-border bg-card p-4">
                             <form
                                 onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                                 className="flex gap-2"
@@ -136,7 +141,7 @@ export default function ToolPixOverlay() {
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     placeholder="Type your message..."
-                                    className="rounded-xl border-[var(--border)] focus:ring-[var(--primary)]"
+                                    className="rounded-xl border-border focus:border-border focus-visible:ring-0 focus-visible:ring-offset-0"
                                     disabled={isLoading}
                                 />
                                 <Button
@@ -158,7 +163,7 @@ export default function ToolPixOverlay() {
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     "h-14 w-14 rounded-full flex items-center justify-center shadow-2xl relative transition-all duration-300",
-                    isOpen ? "bg-[var(--destructive)] rotate-90" : "gradient-primary"
+                    isOpen ? "bg-destructive rotate-90" : "gradient-primary"
                 )}
             >
                 {isOpen ? <X className="h-6 w-6 text-white" /> : <MessageSquare className="h-6 w-6 text-white" />}

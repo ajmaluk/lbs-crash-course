@@ -90,6 +90,55 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== Toast System ===== */
+.app-toast {
+  border-radius: 14px;
+  border-width: 1px;
+  padding: 14px 14px 14px 16px;
+  max-width: min(92vw, 420px);
+}
+
+.app-toast-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.app-toast-description {
+  margin-top: 3px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--foreground) 72%, transparent);
+}
+
+.app-toast-error {
+  border-color: color-mix(in srgb, var(--destructive) 48%, var(--border));
+  background:
+    linear-gradient(
+      102deg,
+      color-mix(in srgb, var(--destructive) 18%, var(--card)) 0%,
+      var(--card) 58%
+    );
+  box-shadow:
+    0 16px 34px -18px color-mix(in srgb, var(--destructive) 48%, transparent),
+    inset 4px 0 0 color-mix(in srgb, var(--destructive) 82%, transparent);
+}
+
+.dark .app-toast-error {
+  background:
+    linear-gradient(
+      102deg,
+      color-mix(in srgb, var(--destructive) 20%, var(--card)) 0%,
+      var(--card) 64%
+    );
+}
+
+@media (max-width: 640px) {
+  .app-toast {
+    border-radius: 12px;
+    padding: 12px 12px 12px 14px;
+  }
+}
+
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
   width: 6px;
@@ -329,4 +378,147 @@ body {
 
 .stagger-8 {
   animation-delay: 0.4s;
+}
+
+/* ===== AI Markdown ===== */
+.ai-markdown {
+  color: var(--foreground);
+}
+
+.ai-markdown h1,
+.ai-markdown h2,
+.ai-markdown h3 {
+  letter-spacing: -0.01em;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  margin-bottom: 0.9rem;
+  padding-left: 1.1rem;
+}
+
+.ai-markdown li {
+  margin-bottom: 0.3rem;
+}
+
+.ai-markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.ai-table-wrap table {
+  min-width: 520px;
+}
+
+.ai-math-inline {
+  display: inline-block;
+  margin: 0 0.1rem;
+  max-width: 100%;
+  vertical-align: middle;
+  color: color-mix(in srgb, var(--foreground) 92%, var(--primary));
+}
+
+.ai-math-inline .katex {
+  font-size: 1.02em;
+}
+
+.ai-math-block {
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: color-mix(in srgb, var(--muted) 78%, var(--card));
+}
+
+.ai-math-block .katex-display {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.1rem;
+}
+
+.ai-markdown-assistant .ai-math-inline .mord,
+.ai-markdown-assistant .ai-math-block .mord,
+.ai-markdown-assistant .ai-math-inline .mrel,
+.ai-markdown-assistant .ai-math-block .mrel,
+.ai-markdown-assistant .ai-math-inline .mbin,
+.ai-markdown-assistant .ai-math-block .mbin {
+  color: color-mix(in srgb, var(--foreground) 95%, var(--primary));
+}
+
+/* ===== ChatGPT Mobile Tuning ===== */
+.chat-bubble {
+  max-width: min(84%, 760px);
+}
+
+.chat-bubble-user {
+  margin-left: auto;
+}
+
+.chat-bubble-assistant {
+  margin-right: auto;
+}
+
+@media (max-width: 427px) {
+  .chat-stream {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 14px;
+    padding-bottom: 18px;
+  }
+
+  .chat-bubble {
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 12px;
+  }
+
+  .chat-bubble-user {
+    max-width: 87%;
+  }
+
+  .chat-bubble-assistant {
+    max-width: 93%;
+  }
+
+  .chat-composer {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .chat-stream {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .chat-bubble-user {
+    max-width: 88%;
+  }
+
+  .chat-bubble-assistant {
+    max-width: 94%;
+  }
+}
+
+@media (max-width: 375px) {
+  .chat-stream {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .chat-bubble {
+    padding: 11px;
+  }
+
+  .chat-bubble-user {
+    max-width: 90%;
+  }
+
+  .chat-bubble-assistant {
+    max-width: 95%;
+  }
 }

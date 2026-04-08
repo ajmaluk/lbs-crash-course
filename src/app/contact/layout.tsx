@@ -3,6 +3,12 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Contact Us",
   description: "Contact LBS MCA Entrance Learning Platform. Get in touch for support, inquiries, or feedback about our MCA entrance preparation courses.",
+  alternates: {
+    canonical: "/contact",
+  },
+  openGraph: {
+    url: "/contact",
+  },
 };
 
 export default function ContactLayout({

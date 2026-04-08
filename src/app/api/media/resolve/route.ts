@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-type Payload = { id: string; kind: "yt"; exp: number; t: number };
+type Payload = { id: string; kind: "yt" | "note"; exp: number; t: number };
 
 function verify(token: string, secret: string): Payload | null {
   const parts = token.split(".");

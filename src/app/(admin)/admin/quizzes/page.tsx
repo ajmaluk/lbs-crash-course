@@ -15,6 +15,8 @@ import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
 import { BookOpen, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { QuestionJsonImport } from "@/components/admin/QuestionJsonImport";
+import { dedupeQuestions } from "@/lib/question-json";
 
 const statusOptions = [
     { value: "draft", label: "Draft" },
@@ -99,12 +101,13 @@ export default function AdminQuizzesPage() {
         if (!form.title || !form.subject) { toast.error("Title and subject required"); return; }
         setSaving(true);
         try {
+            const { questions: cleanedQuestions, removed } = dedupeQuestions(questions);
             const data: Partial<Quiz> = {
                 title: form.title,
                 subject: form.subject,
                 status: form.status,
                 duration: parseInt(form.duration) || 30,
-                questions,
+                questions: cleanedQuestions,
                 createdBy: userData?.uid || "",
                 ...(editing ? {} : { createdAt: Date.now() }),
                 ...(form.status === "closed" && !editing?.closedAt ? { closedAt: Date.now() } : {}),
@@ -164,10 +167,10 @@ export default function AdminQuizzesPage() {
 
             if (editing) {
                 await update(ref(db, `quizzes/${editing.id}`), data);
-                toast.success("Quiz updated");
+                toast.success(removed > 0 ? `Quiz updated. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Quiz updated");
             } else {
                 await set(ref(db, `quizzes/${quizId}`), data);
-                toast.success("Quiz created");
+                toast.success(removed > 0 ? `Quiz created. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Quiz created");
             }
             setShowForm(false);
         } catch (error) {
@@ -188,24 +191,24 @@ export default function AdminQuizzesPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="h-6 w-6 text-pink-500" />Quizzes</h1>
-                    <p className="text-[var(--muted-foreground)] mt-1">{quizzes.length} quizzes</p>
+                    <p className="text-muted-foreground mt-1">{quizzes.length} quizzes</p>
                 </div>
                 <Button onClick={openCreate} className="gradient-primary border-0"><Plus className="h-4 w-4 mr-1" /> Create Quiz</Button>
             </div>
 
             {quizzes.length === 0 ? (
-                <Card><CardContent className="py-12 text-center text-[var(--muted-foreground)]"><BookOpen className="h-10 w-10 mx-auto mb-2" /><p>No quizzes</p></CardContent></Card>
+                <Card><CardContent className="py-12 text-center text-muted-foreground"><BookOpen className="h-10 w-10 mx-auto mb-2" /><p>No quizzes</p></CardContent></Card>
             ) : (
                 <div className="space-y-3">
                     {quizzes.map((quiz) => (
-                        <Card key={quiz.id} className="hover:border-[var(--primary)]/20 transition-all">
+                        <Card key={quiz.id} className="hover:border-(--primary)/20 transition-all">
                             <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <p className="font-semibold">{quiz.title}</p>
                                         <Badge variant={quiz.status === "published" ? "success" : quiz.status === "closed" ? "secondary" : "outline"}>{quiz.status}</Badge>
                                     </div>
-                                    <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-1.5">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                                         {quiz.subject} · {quiz.questions?.length || 0} questions ·
                                         <span className="flex items-center gap-0.5 text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-md font-medium">
                                             <Clock className="h-3 w-3" /> {quiz.duration || 30} min
@@ -228,7 +231,7 @@ export default function AdminQuizzesPage() {
                                         </Button>
                                     )}
                                     <Button variant="outline" size="sm" onClick={() => openEdit(quiz)}><Edit className="h-3.5 w-3.5" /></Button>
-                                    <Button variant="outline" size="sm" onClick={() => handleDelete(quiz.id)} className="text-[var(--destructive)]"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                    <Button variant="outline" size="sm" onClick={() => handleDelete(quiz.id)} className="text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -265,12 +268,15 @@ export default function AdminQuizzesPage() {
                         </div>
 
                         {/* Questions Section */}
-                        <div className="pt-2 border-t border-[var(--border)]">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base font-bold flex items-center gap-2">
-                                    <BookOpen className="h-5 w-5 text-pink-500" />
-                                    Questions ({questions.length})
-                                </h3>
+                        <div className="pt-2 border-t border-border">
+                            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold flex items-center gap-2">
+                                        <BookOpen className="h-5 w-5 text-pink-500" />
+                                        Questions ({questions.length})
+                                    </h3>
+                                    <p className="mt-1 text-xs text-muted-foreground">Upload a JSON file or add questions manually.</p>
+                                </div>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -280,6 +286,13 @@ export default function AdminQuizzesPage() {
                                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Question
                                 </Button>
                             </div>
+
+                            <QuestionJsonImport
+                                questions={questions}
+                                setQuestions={setQuestions}
+                                exportFilePrefix={form.title?.trim() ? `${form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-quiz-questions` : "quiz-questions"}
+                                className="mb-4"
+                            />
 
                             <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1 CustomScrollbar">
                                 {questions.length === 0 ? (
@@ -315,7 +328,7 @@ export default function AdminQuizzesPage() {
                             </div>
                         </div>
 
-                        <DialogFooter className="gap-3 sm:gap-0 mt-6 pt-4 border-t border-[var(--border)]">
+                        <DialogFooter className="gap-3 sm:gap-0 mt-6 pt-4 border-t border-border">
                             <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">Cancel</Button>
                             <Button onClick={handleSave} disabled={saving} className="gradient-primary border-0 h-11 rounded-xl px-10 shadow-lg shadow-pink-500/20">
                                 {saving ? "Saving..." : "Save Quiz"}
@@ -409,14 +422,14 @@ export default function AdminQuizzesPage() {
                                             {entry.rank}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-[var(--foreground)]">{entry.userName}</p>
+                                            <p className="font-bold text-foreground">{entry.userName}</p>
                                             <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-black flex items-center gap-1">
                                                 <Clock className="h-2.5 w-2.5" /> {entry.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : "N/A"}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-lg font-black text-[var(--primary)]">{entry.score}</span>
+                                        <span className="text-lg font-black text-primary">{entry.score}</span>
                                         <span className="text-xs text-zinc-400 font-bold"> / {entry.totalQuestions}</span>
                                     </div>
                                 </div>
