@@ -6,6 +6,11 @@ export const uploadImageToCloudinary = async (file: File, token?: string, source
         "x-upload-source": source,
     };
 
+    // Include registration secret for registration-flow source
+    if (source === "registration-flow" && process.env.NEXT_PUBLIC_REGISTRATION_SECRET) {
+        headers["x-registration-secret"] = process.env.NEXT_PUBLIC_REGISTRATION_SECRET;
+    }
+
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
