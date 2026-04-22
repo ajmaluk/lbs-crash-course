@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createMediaToken } from "@/lib/media";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 type Paper = {
   id: string;
@@ -22,6 +23,7 @@ type Paper = {
 
 export default function PreviousPapersPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [search, setSearch] = useState("");
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -68,7 +70,8 @@ export default function PreviousPapersPage() {
   const openPaper = async (paper: Paper) => {
     try {
       setOpeningId(paper.id);
-      const token = await createMediaToken(paper.pdfUrl, "note");
+      const fbToken = await user?.getIdToken();
+      const token = await createMediaToken(paper.pdfUrl, "note", fbToken);
       router.push(`/player/note?token=${encodeURIComponent(token)}`);
     } catch {
       toast.error("Could not open paper. Please try again.");

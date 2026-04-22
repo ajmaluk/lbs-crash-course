@@ -102,7 +102,12 @@ export default function RankingsPage() {
                 updateStates();
                 setLoadingQuizzes(false);
             }, (error) => {
-                console.error("Error fetching quiz rankings:", error);
+                // permission_denied is expected when Firebase rules haven't been deployed
+                if (String(error).includes("permission_denied")) {
+                    console.warn("[Rankings] No permission to read /rankings — ensure database rules are deployed.");
+                } else {
+                    console.error("Error fetching quiz rankings:", error);
+                }
                 setLoadingQuizzes(false);
             }),
             onValue(ref(db, "mockRankings"), (snapshot) => {
@@ -120,7 +125,11 @@ export default function RankingsPage() {
                 updateStates();
                 setLoadingMocks(false);
             }, (error) => {
-                console.error("Error fetching mock rankings:", error);
+                if (String(error).includes("permission_denied")) {
+                    console.warn("[Rankings] No permission to read /mockRankings — ensure database rules are deployed.");
+                } else {
+                    console.error("Error fetching mock rankings:", error);
+                }
                 setLoadingMocks(false);
             }),
         ];
