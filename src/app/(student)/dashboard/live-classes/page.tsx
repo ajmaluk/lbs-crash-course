@@ -103,8 +103,9 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
     };
 
     useEffect(() => {
-        const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
+        const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement));
         document.addEventListener("fullscreenchange", onFs);
+        document.addEventListener("webkitfullscreenchange", onFs);
 
         const onMsg = (e: MessageEvent) => {
             if (e.origin !== window.location.origin) return;
@@ -143,6 +144,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
         window.addEventListener("message", onMsg);
         return () => {
             document.removeEventListener("fullscreenchange", onFs);
+            document.removeEventListener("webkitfullscreenchange", onFs);
             window.removeEventListener("message", onMsg);
             if (hudTimerRef.current) {
                 window.clearTimeout(hudTimerRef.current);
@@ -226,20 +228,45 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
     };
 
     const enterFull = async () => {
-        const el = playerRootRef.current || containerRef.current?.parentElement || containerRef.current;
+        const el = playerRootRef.current;
+        let nativeFs = false;
         try {
-            const elem = el as Element | null;
-            await elem?.requestFullscreen?.();
-            const so = (screen as unknown as { orientation?: { lock?: (s: "landscape" | "portrait" | "any") => Promise<void>; unlock?: () => void } }).orientation;
-            if (so?.lock) {
-                try { await so.lock("landscape"); } catch { }
+            if (el?.requestFullscreen) {
+                await el.requestFullscreen();
+                nativeFs = true;
+            } else if ((el as any)?.webkitRequestFullscreen) {
+                await (el as any).webkitRequestFullscreen();
+                nativeFs = true;
             }
+        } catch (e) {
+            console.warn("Native fullscreen failed", e);
+        }
+
+        // Always set fullscreen state — CSS handles the fallback for iOS
+        setIsFullscreen(true);
+        
+        try {
+            const so = (screen as unknown as { orientation?: { lock?: (s: "landscape" | "portrait" | "any") => Promise<void>; unlock?: () => void } }).orientation;
+            if (so?.lock) { await so.lock("landscape"); }
         } catch { }
     };
 
     const exitFull = async () => {
         try {
-            if (document.fullscreenElement) await document.exitFullscreen();
+            if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    await (document as any).webkitExitFullscreen();
+                }
+            }
+        } catch (e) {
+            console.warn("Native exit fullscreen failed", e);
+        }
+
+        setIsFullscreen(false);
+        
+        try {
             const so = (screen as unknown as { orientation?: { unlock?: () => void } }).orientation;
             if (so?.unlock) so.unlock();
         } catch { }
@@ -330,7 +357,10 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
 
                 <div 
                     ref={playerRootRef} 
-                    className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-white/5"
+                    className={`relative w-full bg-black flex items-center justify-center overflow-hidden border-b border-white/5 group ${
+                        isFullscreen ? 'fixed inset-0 z-[999999] aspect-auto' : 'aspect-video'
+                    }`}
+                    style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
                     onContextMenu={(e) => e.preventDefault()}
                 >
                     <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
@@ -384,13 +414,17 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                     )}
                     {isFullscreen && fsOverlayVisible && (
                         <div className="absolute inset-0 z-40 flex flex-col justify-between">
-                            <div className="flex items-start justify-between p-3">
-                                <button onClick={() => { exitFull(); showFsOverlay(); }} className="px-3 py-1.5 rounded-md bg-black/60 text-white text-sm border border-white/10 flex items-center gap-2">
+                            <div className="flex items-start justify-between p-3"
+                                style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+                            >
+                                <button onClick={() => { exitFull(); showFsOverlay(); }} className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-sm font-medium border border-white/10 flex items-center gap-2 active:scale-95 transition-transform">
                                     <ArrowLeft className="h-4 w-4" />
                                     Back
                                 </button>
                             </div>
-                            <div className="p-3">
+                            <div className="p-3"
+                                style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+                            >
                                 <div className="rounded-xl bg-black/60 border border-white/10 px-3 py-2 text-white">
                                     <input
                                         type="range"

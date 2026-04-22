@@ -7,7 +7,7 @@ import { createMediaToken, extractYouTubeId } from "@/lib/media";
 import { ref, onValue, query, orderByChild, get, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { RecordedClass } from "@/lib/types";
-import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, Maximize2, Minimize2, FileText, Loader2, X } from "lucide-react";
+import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, Maximize2, Minimize2, FileText, Loader2, X, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -265,9 +265,8 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             console.warn("Native fullscreen failed", e);
         }
 
-        if (!nativeFs) {
-            setIsFullscreen(true);
-        }
+        // Always set fullscreen state — CSS handles the fallback for iOS
+        setIsFullscreen(true);
         
         try {
             const so = (screen as unknown as { orientation?: { lock?: (s: "landscape" | "portrait" | "any") => Promise<void>; unlock?: () => void } }).orientation;
@@ -276,24 +275,19 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
     };
 
     const exitFull = async () => {
-        let nativeFs = false;
         try {
             if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
                 if (document.exitFullscreen) {
                     await document.exitFullscreen();
-                    nativeFs = true;
                 } else if ((document as any).webkitExitFullscreen) {
                     await (document as any).webkitExitFullscreen();
-                    nativeFs = true;
                 }
             }
         } catch (e) {
             console.warn("Native exit fullscreen failed", e);
         }
 
-        if (!nativeFs) {
-            setIsFullscreen(false);
-        }
+        setIsFullscreen(false);
         
         try {
             const so = (screen as unknown as { orientation?: { unlock?: () => void } }).orientation;
@@ -477,8 +471,9 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 <div 
                     ref={playerRootRef} 
                     className={`relative w-full bg-black flex items-center justify-center overflow-hidden group ${
-                        isFullscreen ? 'fixed inset-0 z-100000 aspect-auto' : 'aspect-video'
+                        isFullscreen ? 'fixed inset-0 z-[999999] aspect-auto' : 'aspect-video'
                     }`}
+                    style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
                     onContextMenu={(e) => e.preventDefault()}
                 >
                     {!isReady && (
@@ -496,6 +491,32 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                         <p className="text-zinc-500 text-[10px] uppercase tracking-[0.3em]">Validating Access Rights</p>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Fullscreen exit button - top left, shows/hides with overlay */}
+                    {isFullscreen && (
+                        <div className={`absolute top-0 left-0 right-0 z-60 flex items-center justify-between p-3 transition-all duration-300 ${fsOverlayVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+                            style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+                        >
+                            <button
+                                onClick={exitFull}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white text-sm font-medium active:scale-95 transition-transform"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                Exit
+                            </button>
+                            <div className="flex items-center gap-2">
+                                <select
+                                    value={rate}
+                                    onChange={(e) => applyRate(Number(e.target.value))}
+                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-[10px] px-2 py-1.5 text-white outline-none"
+                                >
+                                    {rates.map((r) => (
+                                        <option key={r} value={r}>{r}x</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     )}
@@ -519,7 +540,9 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     />
 
                     {/* Progress Bar & Controls Overlay (Only visible on hover or mobile touch) */}
-                    <div className={`absolute inset-x-0 bottom-0 z-50 p-3 px-4 sm:p-6 bg-linear-to-t from-black/80 via-black/40 to-transparent transition-all duration-300 ${fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100'}`}>
+                    <div className={`absolute inset-x-0 bottom-0 z-50 p-3 px-4 sm:p-6 bg-linear-to-t from-black/80 via-black/40 to-transparent transition-all duration-300 ${isFullscreen ? (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0') : (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100')}`}
+                        style={isFullscreen ? { paddingBottom: 'max(12px, env(safe-area-inset-bottom))' } : undefined}
+                    >
                         <div className="max-w-4xl mx-auto space-y-2 sm:space-y-4">
                             <div className="relative group/progress">
                                 <input

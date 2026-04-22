@@ -38,7 +38,7 @@ function Dialog({ open, onOpenChange, children, className, hideClose }: DialogPr
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-200 overflow-y-auto" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-200 overflow-y-auto" role="dialog" aria-modal="true" style={{ WebkitOverflowScrolling: 'touch' }}>
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -46,7 +46,7 @@ function Dialog({ open, onOpenChange, children, className, hideClose }: DialogPr
                 aria-hidden="true"
             />
             {/* Content Container */}
-            <div className="min-h-screen px-4 py-8 flex items-center justify-center">
+            <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ minHeight: '-webkit-fill-available' }}>
                 <div className={cn("relative w-full max-w-lg", className)}>
                     {!hideClose && (
                         <button
