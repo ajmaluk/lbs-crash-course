@@ -143,13 +143,13 @@ const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
     window.fetch = async function patchedFetch(...args: Parameters<typeof fetch>): Promise<Response> {
         const url = typeof args[0] === "string" ? args[0] : args[0] instanceof Request ? args[0].url : "";
 
-        if (url.includes("firebaseinstallations.googleapis.com")) {
+        if (url.includes("firebaseinstallations.googleapis.com") || url.includes("/installations")) {
             try {
                 const response = await originalFetch.apply(this, args);
-                if (response.status === 403) {
+                if (response.status === 403 || response.status === 401) {
                     // Return a fake "ok" response so the SDK doesn't throw
                     return new Response(JSON.stringify({
-                        fid: "fake-fid-installations-disabled",
+                        fid: "fake-fid-" + Math.random().toString(36).substring(2),
                         refreshToken: "fake-refresh-token",
                         authToken: { token: "fake-auth-token", expiresIn: "604800s" },
                     }), {
@@ -159,9 +159,8 @@ const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
                 }
                 return response;
             } catch {
-                // Network error — return a fake response to prevent SDK crash
                 return new Response(JSON.stringify({
-                    fid: "fake-fid-installations-disabled",
+                    fid: "fake-fid-network-error",
                     refreshToken: "fake-refresh-token",
                     authToken: { token: "fake-auth-token", expiresIn: "604800s" },
                 }), {
@@ -171,14 +170,14 @@ const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
             }
         }
 
-        // Also silence the webConfig fetch (used by Analytics to resolve measurementId)
-        if (url.includes("firebase.googleapis.com") && url.includes("webConfig")) {
+        // Also silence the webConfig fetch (used by Analytics/Messaging to resolve measurementId/appConfig)
+        if (url.includes("firebase.googleapis.com") && (url.includes("webConfig") || url.includes("/apps/"))) {
             try {
                 const response = await originalFetch.apply(this, args);
-                if (response.status === 403) {
+                if (response.status === 403 || response.status === 401) {
                     return new Response(JSON.stringify({
-                        measurementId: firebaseConfig.measurementId || "",
-                        appId: firebaseConfig.appId || "",
+                        measurementId: firebaseConfig.measurementId || "G-FAKE-ID",
+                        appId: firebaseConfig.appId || "fake-app-id",
                     }), {
                         status: 200,
                         headers: { "Content-Type": "application/json" },
@@ -187,8 +186,8 @@ const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
                 return response;
             } catch {
                 return new Response(JSON.stringify({
-                    measurementId: firebaseConfig.measurementId || "",
-                    appId: firebaseConfig.appId || "",
+                    measurementId: firebaseConfig.measurementId || "G-FAKE-ID",
+                    appId: firebaseConfig.appId || "fake-app-id",
                 }), {
                     status: 200,
                     headers: { "Content-Type": "application/json" },

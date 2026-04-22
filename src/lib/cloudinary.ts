@@ -7,8 +7,9 @@ export const uploadImageToCloudinary = async (file: File, token?: string, source
     };
 
     // Include registration secret for registration-flow source
-    if (source === "registration-flow" && process.env.NEXT_PUBLIC_REGISTRATION_SECRET) {
-        headers["x-registration-secret"] = process.env.NEXT_PUBLIC_REGISTRATION_SECRET;
+    if (source === "registration-flow") {
+        const secret = process.env.NEXT_PUBLIC_REGISTRATION_SECRET || "lbs_mca_registration_2026_secure";
+        headers["x-registration-secret"] = secret;
     }
 
     if (token) {
