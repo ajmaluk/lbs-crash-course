@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import FormattedMessage from "@/components/ai/FormattedMessage";
 
 export default function ToolPixOverlay() {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -79,19 +79,22 @@ export default function ToolPixOverlay() {
 
     if (!mounted) return null;
 
+    // On public pages, we show the chat even if auth is still loading
+    const shouldShow = isPublicPage || (!loading && user);
+
+    if (!shouldShow) return null;
+
     return (
         <>
-
-            {isPublicPage && (
-                <div className="fixed bottom-6 right-6 z-9999 flex flex-col items-end gap-4">
-                    <AnimatePresence mode="wait">
-                        {isOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                                className="flex h-125 max-h-[calc(100dvh-120px)] w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-xl sm:w-100 relative"
-                            >
+            <div className="fixed bottom-6 right-6 z-9999 flex flex-col items-end gap-4">
+                <AnimatePresence mode="wait">
+                    {isOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            className="flex h-125 max-h-[calc(100dvh-120px)] w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-xl sm:w-100 relative"
+                        >
                                 {/* Header */}
                                 <div className="p-4 gradient-primary text-white flex items-center justify-between shadow-lg">
                                     <div className="flex items-center gap-3">
@@ -202,7 +205,6 @@ export default function ToolPixOverlay() {
                         )}
                     </motion.button>
                 </div>
-            )}
         </>
     );
 }

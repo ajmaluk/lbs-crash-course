@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { verifyAdmin } from "@/lib/auth-utils";
 
-export default async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get('__session')?.value;
 
@@ -41,6 +41,8 @@ export default async function proxy(request: NextRequest) {
 
   return NextResponse.next();
 }
+
+export default proxy;
 
 export const config = {
   matcher: [

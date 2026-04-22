@@ -50,9 +50,18 @@ export async function POST(req: NextRequest) {
         if (source === "registration-flow") {
             // Check for registration secret to prevent public upload abuse
             const regSecret = req.headers.get("x-registration-secret");
-            if (regSecret !== process.env.NEXT_PUBLIC_REGISTRATION_SECRET && process.env.NODE_ENV === "production") {
-                console.error(`[SEC_CRITICAL] Unauthorized Registration Upload Attempt: IP=${clientIp}`);
-                return NextResponse.json({ error: "Access Denied: Invalid Security Context" }, { status: 403 });
+            const expectedSecret = process.env.NEXT_PUBLIC_REGISTRATION_SECRET;
+            
+            if (process.env.NODE_ENV === "production") {
+                if (!regSecret || regSecret !== expectedSecret) {
+                    console.error(`[SEC_CRITICAL] Unauthorized Registration Upload Attempt: IP=${clientIp}, Provided=${regSecret ? "YES" : "NO"}`);
+                    return NextResponse.json({ error: "Access Denied: Invalid Security Context" }, { status: 403 });
+                }
+            } else {
+                // In development, warn but allow if secret is missing to avoid blocking local testing
+                if (!regSecret || regSecret !== expectedSecret) {
+                    console.warn(`[SEC_WARN] Registration upload secret mismatch in DEV: IP=${clientIp}`);
+                }
             }
         } else if (source === "profile-upgrade" || source === "admin-action") {
             // MUST be authenticated for profile upgrades or admin actions
