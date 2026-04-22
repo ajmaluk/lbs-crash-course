@@ -505,7 +505,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                             className="w-full accent-violet-500"
                         />
                         <div className="bg-black/60 backdrop-blur-md text-white rounded-xl border border-white/10 px-3 py-2 flex items-center gap-3 overflow-x-auto no-scrollbar">
-                            <div className="text-[10px] font-mono text-zinc-300 w-24 text-center">{fmt(currentTime)} / {fmt(duration || 0)}</div>
+                            <div className="text-[10px] font-mono text-zinc-300 w-24 text-center shrink-0">{fmt(currentTime)} / {fmt(duration || 0)}</div>
                             <button onClick={togglePlay} className="p-1.5 rounded-md hover:bg-white/10">
                                 {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
                             </button>
@@ -515,6 +515,31 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                             <button onClick={() => seekBy(10)} className="p-1.5 rounded-md hover:bg-white/10">
                                 <SkipForward className="h-5 w-5" />
                             </button>
+                            
+                            <div className="sm:hidden flex items-center gap-2">
+                                <div className="h-4 w-px bg-white/10" />
+                                <select
+                                    value={rate}
+                                    onChange={(e) => applyRate(Number(e.target.value))}
+                                    className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1.5 py-1"
+                                >
+                                    {rates.map((r) => (
+                                        <option key={r} value={r}>{r}x</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={quality}
+                                    onChange={(e) => applyQuality(e.target.value)}
+                                    className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1.5 py-1"
+                                >
+                                    {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                        <option key={q} value={q}>
+                                            {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div className="ml-auto">
                                 <button onClick={isFullscreen ? exitFull : enterFull} className="p-1.5 rounded-md hover:bg-white/10">
                                     {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}

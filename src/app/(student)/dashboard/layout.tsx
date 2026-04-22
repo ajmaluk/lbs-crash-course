@@ -43,10 +43,11 @@ export default function StudentDashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { userData, loading, logout } = useAuth();
+    const { userData, loading, logout, user } = useAuth();
     useRequireAuth("student");
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [userDataTimedOut, setUserDataTimedOut] = useState(false);
 
     useEffect(() => {
         const openSidebar = () => setSidebarOpen(true);
@@ -54,8 +55,56 @@ export default function StudentDashboardLayout({
         return () => window.removeEventListener("student-sidebar:open", openSidebar);
     }, []);
 
+    // Detect when auth loading finished but userData is still null.
+    // This can happen if the RTDB fetch failed/hung (common in Safari).
+    useEffect(() => {
+        if (loading || userData) {
+            setUserDataTimedOut(false);
+            return;
+        }
+        // loading is false but no userData — give it a grace period
+        const timer = setTimeout(() => {
+            if (!userData && user) {
+                console.warn("[LAYOUT] userData still null 5s after auth loaded — showing recovery UI");
+                setUserDataTimedOut(true);
+            }
+        }, 5_000);
+        return () => clearTimeout(timer);
+    }, [loading, userData, user]);
+
     if (loading) return <PageLoader />;
-    if (!userData) return <PageLoader />;
+    
+    // If userData hasn't loaded but we have a user, show a retry prompt instead of infinite spinner
+    if (!userData) {
+        if (userDataTimedOut && user) {
+            return (
+                <div className="flex h-screen items-center justify-center bg-background">
+                    <div className="flex flex-col items-center gap-4 text-center p-6">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary">
+                            <GraduationCap className="h-8 w-8 text-white" />
+                        </div>
+                        <p className="text-lg font-semibold">Taking longer than expected…</p>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                            We&apos;re having trouble loading your profile. This can happen on some browsers.
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors cursor-pointer"
+                        >
+                            Reload Page
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        >
+                            Log out and try again
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return <PageLoader />;
+    }
 
     return (
         <div className="flex h-dvh overflow-hidden bg-background">

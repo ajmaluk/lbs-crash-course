@@ -254,7 +254,7 @@ LBS MCA Team`;
                                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
                                     <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Email</th>
                                     <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Phone</th>
-                                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Package</th>
+                                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Transaction ID</th>
                                     <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Date</th>
                                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">Action</th>
                                 </tr>
@@ -266,9 +266,22 @@ LBS MCA Team`;
                                         <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{reg.email}</td>
                                         <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{reg.phone}</td>
                                         <td className="px-4 py-3">
-                                            <Badge variant={activeTab === "rejected" ? "secondary" : "outline"} className="text-xs">
-                                                {packageLabel(reg.selectedPackage)}
-                                            </Badge>
+                                            {reg.transactionId ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigator.clipboard.writeText(reg.transactionId!);
+                                                        toast.success("Transaction ID copied!");
+                                                    }}
+                                                    className="font-mono text-xs bg-muted/50 hover:bg-muted px-2 py-1 rounded-md border border-border cursor-pointer transition-colors flex items-center gap-1.5 max-w-40 group"
+                                                    title="Click to copy"
+                                                >
+                                                    <span className="truncate">{reg.transactionId}</span>
+                                                    <Copy className="h-3 w-3 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground italic">N/A</span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
                                             {format(new Date(reg.submittedAt), "MMM d, yyyy")}

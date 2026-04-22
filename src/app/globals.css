@@ -385,6 +385,14 @@ body {
   color: var(--foreground);
 }
 
+.ai-markdown-user {
+  color: inherit;
+}
+
+.ai-markdown-user * {
+  color: inherit !important;
+}
+
 .ai-markdown h1,
 .ai-markdown h2,
 .ai-markdown h3 {
@@ -395,10 +403,6 @@ body {
 .ai-markdown ol {
   margin-bottom: 0.9rem;
   padding-left: 1.1rem;
-}
-
-.ai-markdown li {
-  margin-bottom: 0.3rem;
 }
 
 .ai-markdown a {

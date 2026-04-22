@@ -124,8 +124,8 @@ function YTProxyInner() {
             p?.seekTo?.(Number(d.time || 0), true);
           } else if (d.name === "rate") {
             p?.setPlaybackRate?.(Number(d.rate || 1));
-          } else if (d.name === "quality" && d.quality && d.quality !== "auto") {
-            p?.setPlaybackQuality?.(String(d.quality));
+          } else if (d.name === "quality" && d.quality) {
+            p?.setPlaybackQuality?.(d.quality === "auto" ? "default" : String(d.quality));
           }
         } catch {}
       };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
@@ -46,13 +46,59 @@ export default function AdminDashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { userData, loading, logout } = useAuth();
+    const { userData, loading, logout, user } = useAuth();
     useRequireAuth("admin");
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [userDataTimedOut, setUserDataTimedOut] = useState(false);
+
+    // Detect when auth loading finished but userData is still null.
+    useEffect(() => {
+        if (loading || userData) {
+            setUserDataTimedOut(false);
+            return;
+        }
+        const timer = setTimeout(() => {
+            if (!userData && user) {
+                console.warn("[ADMIN_LAYOUT] userData still null 5s after auth loaded — showing recovery UI");
+                setUserDataTimedOut(true);
+            }
+        }, 5_000);
+        return () => clearTimeout(timer);
+    }, [loading, userData, user]);
 
     if (loading) return <PageLoader />;
-    if (!userData) return <PageLoader />;
+
+    if (!userData) {
+        if (userDataTimedOut && user) {
+            return (
+                <div className="flex h-screen items-center justify-center bg-background">
+                    <div className="flex flex-col items-center gap-4 text-center p-6">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-red-500 to-orange-500">
+                            <Shield className="h-8 w-8 text-white" />
+                        </div>
+                        <p className="text-lg font-semibold">Taking longer than expected…</p>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                            We&apos;re having trouble loading your profile.
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors cursor-pointer"
+                        >
+                            Reload Page
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        >
+                            Log out and try again
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return <PageLoader />;
+    }
 
     return (
         <div className="flex h-screen overflow-hidden bg-background">

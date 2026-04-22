@@ -103,33 +103,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen to auth state changes
     useEffect(() => {
+        // Safety timeout: if Firebase auth doesn't resolve within 10s,
+        // force-clear the loading state so the UI doesn't hang forever.
+        // This handles Safari ITP blocking, slow networks, and hung Firebase connections.
+        const AUTH_SAFETY_TIMEOUT_MS = 10_000;
+        const safetyTimer = setTimeout(() => {
+            setLoading((prev) => {
+                if (prev) {
+                    console.warn("[AUTH] Safety timeout reached — forcing loading=false");
+                }
+                return false;
+            });
+        }, AUTH_SAFETY_TIMEOUT_MS);
 
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            setUser(firebaseUser);
-            if (firebaseUser) {
-                // Set cookie for middleware
-                const token = await firebaseUser.getIdToken();
-                document.cookie = `__session=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
-                
-                // Fetch user data to get role for edge-side middleware check
-                const userRef = ref(db, `users/${firebaseUser.uid}`);
-                const snapshot = await get(userRef);
-                if (snapshot.exists()) {
-                    const data = snapshot.val() as Partial<UserData>;
-                    const role = data.role || "student";
-                    document.cookie = `__role=${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
-                    setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
+            try {
+                setUser(firebaseUser);
+                if (firebaseUser) {
+                    try {
+                        // Set cookie for middleware
+                        const token = await firebaseUser.getIdToken();
+                        document.cookie = `__session=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+                    } catch (tokenErr) {
+                        console.warn("[AUTH] Failed to get ID token for cookie:", tokenErr);
+                    }
+
+                    try {
+                        // Fetch user data to get role for edge-side middleware check
+                        const userRef = ref(db, `users/${firebaseUser.uid}`);
+                        const snapshot = await get(userRef);
+                        if (snapshot.exists()) {
+                            const data = snapshot.val() as Partial<UserData>;
+                            const role = data.role || "student";
+                            try {
+                                document.cookie = `__role=${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+                            } catch { /* cookie write may fail in some contexts */ }
+                            setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
+                        }
+                    } catch (dbErr) {
+                        console.warn("[AUTH] Failed to fetch user data from RTDB:", dbErr);
+                        // User is authenticated but we couldn't load their profile yet.
+                        // The onValue listener (session check) will pick it up later.
+                    }
+                } else {
+                    setUserData(null);
+                    // Clear cookies
+                    try {
+                        document.cookie = "__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                        document.cookie = "__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                    } catch { /* ignore cookie failures */ }
                 }
-            } else {
-                setUserData(null);
-                // Clear cookies
-                document.cookie = "__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                document.cookie = "__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            } catch (err) {
+                console.error("[AUTH] Unexpected error in onAuthStateChanged:", err);
+            } finally {
+                // ALWAYS clear loading, even if something above threw.
+                clearTimeout(safetyTimer);
+                setLoading(false);
             }
-            setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            clearTimeout(safetyTimer);
+            unsubscribe();
+        };
     }, []);
 
     // Listen for session invalidation (single-device enforcement) & Ban status

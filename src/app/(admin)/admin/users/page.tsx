@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ref, onValue, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
-import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye } from "lucide-react";
+import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Copy, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -100,7 +100,7 @@ export default function AdminUsersPage() {
             <div className="grid gap-4">
                 {filtered.map((user) => (
                     <Card key={user.uid} className={cn(
-                        "hover:border-(--primary)/20 transition-all",
+                        "hover:border-primary/20 transition-all",
                         user.banned && "border-red-500/50 bg-red-500/2"
                     )}>
                         <CardContent className="p-0">
@@ -124,7 +124,20 @@ export default function AdminUsersPage() {
                                         </div>
                                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm text-muted-foreground">
                                             <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{user.email}</span>
-                                            <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{user.phone}</span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const num = user.whatsapp || user.phone;
+                                                    navigator.clipboard.writeText(num);
+                                                    toast.success("WhatsApp number copied!");
+                                                }}
+                                                className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-pointer group"
+                                                title="Click to copy WhatsApp number"
+                                            >
+                                                <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                                <span>{user.whatsapp || user.phone}</span>
+                                                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

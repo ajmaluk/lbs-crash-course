@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
 import { verifySession } from "@/lib/auth-utils";
+import { SYSTEM_PROMPT as DEFAULT_SYSTEM_PROMPT } from "@/lib/ai-service";
 
 // 1. Provider Configurations & Key Rotation
 const GEMINI_KEYS = (process.env.GEMINI_API_KEYS || "").split(",").filter(Boolean);
@@ -9,7 +10,6 @@ const NVIDIA_KEYS = (process.env.NVIDIA_API_KEYS || "").split(",").filter(Boolea
 const PICO_API_URL = process.env.AI_API_URL || "";
 
 // Standard system prompt fallback
-const DEFAULT_SYSTEM_PROMPT = "You are an expert academic tutor for the LBS MCA Entrance Exam (Kerala), developed by Ajmal U K, Founder of ToolPix. Answer queries based on the 120-question exam pattern: CS (50 Qs), Math (25 Qs), Aptitude (25 Qs), English (15 Qs), and GK (5 Qs). Provide technically deep explanations for topics like 2's Complement, Floating Point, Boolean Algebra, Coordinate Geometry, and Trigonometry. If asked unrelated questions, politely guide them back to their LBS MCA preparation.";
 
 function getRandomKey(keys: string[]) {
     if (keys.length === 0) return null;
@@ -132,8 +132,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Empty prompt" }, { status: 400 });
         }
 
-        // Use a more secure wrapping strategy to prevent prompt injection
-        const finalPrompt = `[INSTRUCTIONS]\n${DEFAULT_SYSTEM_PROMPT}\n\n[USER QUERY]\n${prompt}\n\n[RESPONSE]`;
+        // If the prompt already has SYSTEM/USER labels, it's a pre-packed prompt from our service
+        const hasFormatting = prompt.includes("SYSTEM:") || prompt.includes("USER:");
+        const finalPrompt = hasFormatting
+            ? prompt
+            : `[INSTRUCTIONS]\n${DEFAULT_SYSTEM_PROMPT}\n\n[USER QUERY]\n${prompt}\n\n[RESPONSE]`;
         
         // Sequential Streaming Fallback Chain
         let stream = await callGeminiStream(finalPrompt);

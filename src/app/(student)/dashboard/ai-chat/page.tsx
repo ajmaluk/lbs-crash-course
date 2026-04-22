@@ -2,15 +2,31 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Loader2, Clock, Plus, ChevronDown, Trash2, Copy as CopyIcon, ThumbsUp, ThumbsDown, Menu, Check, Bookmark, BookmarkCheck, BookOpen, Download, Brain } from "lucide-react";
+import { 
+    Clock, 
+    Plus, 
+    Trash2, 
+    BookOpen, 
+    Download,
+    ChevronDown,
+    Brain,
+    Check,
+    Copy as CopyIcon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogDescription, 
+    DialogFooter 
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { chatWithAI, getUserContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
 import { cn } from "@/lib/utils";
-import FormattedMessage from "@/components/ai/FormattedMessage";
+import { FormattedMessage } from "@/components/ai/FormattedMessage";
 import HistoryOverlay from "@/components/ai/HistoryOverlay";
 import StudyLabPanel from "@/components/ai/StudyLabPanel";
 import { toast } from "sonner";
@@ -22,6 +38,12 @@ import {
     updateSession,
     deleteSession as removeSession
 } from "@/lib/chat-history";
+import { cacheDB } from "@/lib/db-service";
+
+// Modular components
+import { ChatHeader } from "@/components/ai/chat-components/ChatHeader";
+import { MessageList } from "@/components/ai/chat-components/MessageList";
+import { ChatComposer } from "@/components/ai/chat-components/ChatComposer";
 
 const MESSAGE_FEEDBACK_STORAGE_KEY = "toolpix_message_feedback";
 const STUDY_NOTES_STORAGE_KEY = "toolpix_study_notes";
@@ -29,6 +51,7 @@ const STUDY_NOTES_STORAGE_KEY = "toolpix_study_notes";
 type MessageFeedback = "up" | "down";
 type SessionFeedback = Record<string, MessageFeedback>;
 type FeedbackBySession = Record<string, SessionFeedback>;
+
 type StudyNote = {
     id: string;
     sessionId: string;
@@ -47,19 +70,6 @@ function normalizeSessionsForStorage(items: ChatSession[]) {
     if (empty.length <= 1) return sorted;
     const keepEmptyId = empty[0].id;
     return sorted.filter((session) => !isEmptySession(session) || session.id === keepEmptyId);
-}
-
-function getMessageHash(content: string) {
-    let hash = 0;
-    for (let i = 0; i < content.length; i += 1) {
-        hash = (hash << 5) - hash + content.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash).toString(36);
-}
-
-function getAssistantMessageKey(sessionId: string, index: number, content: string) {
-    return `${sessionId}:${index}:${getMessageHash(content)}`;
 }
 
 export default function DashboardAIChatPage() {
@@ -81,216 +91,144 @@ export default function DashboardAIChatPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const [feedbackBySession, setFeedbackBySession] = useState<FeedbackBySession>({});
     const [studyNotes, setStudyNotes] = useState<StudyNote[]>([]);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [isDeepScanning, setIsDeepScanning] = useState(false);
     const [copiedMessageKey, setCopiedMessageKey] = useState<string | null>(null);
     const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
-    const requestSidebarOpen = () => {
-        window.dispatchEvent(new Event("student-sidebar:open"));
-    };
-
-    // Get active session
-    const activeSession = sessions.find(s => s.id === activeSessionId) || null;
-    const messages = useMemo(() => activeSession?.messages ?? [], [activeSession]);
-    const hasVisibleMessages = useMemo(() => messages.some((message) => message.role !== "system"), [messages]);
-    const activeSessionFeedback = useMemo(
-        () => (activeSessionId ? (feedbackBySession[activeSessionId] || {}) : {}),
-        [activeSessionId, feedbackBySession]
-    );
-    const sessionStudyNotes = useMemo(
-        () => (activeSessionId ? studyNotes.filter((note) => note.sessionId === activeSessionId).sort((a, b) => b.createdAt - a.createdAt) : []),
-        [activeSessionId, studyNotes]
-    );
-    const sessionAssistantMessages = useMemo(
-        () => messages.filter((message) => message.role === "assistant").map((message) => message.content),
-        [messages]
-    );
-
+    // Initial load
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(MESSAGE_FEEDBACK_STORAGE_KEY);
-            if (!raw) return;
-            const parsed = JSON.parse(raw) as FeedbackBySession;
-            if (parsed && typeof parsed === "object") {
-                setFeedbackBySession(parsed);
-            }
-        } catch {
-            setFeedbackBySession({});
-        }
-    }, []);
+        let didFinish = false;
 
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(STUDY_NOTES_STORAGE_KEY);
-            if (!raw) return;
-            const parsed = JSON.parse(raw) as StudyNote[];
-            if (Array.isArray(parsed)) {
-                setStudyNotes(parsed.filter((item) => (
-                    !!item &&
-                    typeof item.id === "string" &&
-                    typeof item.sessionId === "string" &&
-                    typeof item.messageKey === "string" &&
-                    typeof item.content === "string" &&
-                    typeof item.createdAt === "number"
-                )));
-            }
-        } catch {
-            setStudyNotes([]);
-        }
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (copyResetTimeoutRef.current) {
-                clearTimeout(copyResetTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    // Auto-focus input on mount and session change
-    useEffect(() => {
-        if (!initializing) {
-            const timeout = setTimeout(() => {
-                inputRef.current?.focus();
-            }, 100);
-            return () => clearTimeout(timeout);
-        }
-    }, [initializing, activeSessionId]);
-
-    // Initialize Sessions
-    useEffect(() => {
         const init = async () => {
             try {
-                const loaded = loadSessions();
-                const normalized = normalizeSessionsForStorage(loaded);
-                if (normalized.length !== loaded.length) {
-                    saveSessions(normalized);
-                }
-                setSessions(normalized);
+                const storedSessions = await loadSessions();
+                setSessions(storedSessions);
 
-                if (normalized.length > 0) {
-                    // Load the most recent session
-                    setActiveSessionId(normalized[0].id);
-                } else if (userData?.uid) {
-                    // Create first session if none exist
-                    const context = await getUserContext(userData.uid);
-                    const initialMessages: ChatMessage[] = [
-                        { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` }
-                    ];
-                    const newSession = createNewSession(initialMessages);
-                    const updatedSessions = [...loadSessions(), newSession];
-                    setSessions(updatedSessions);
-                    saveSessions(updatedSessions);
+                if (storedSessions.length > 0) {
+                    setActiveSessionId(storedSessions[0].id);
+                } else {
+                    const newSession = createNewSession();
+                    setSessions([newSession]);
                     setActiveSessionId(newSession.id);
+                    await saveSessions([newSession]);
                 }
-            } catch {
-                const fallbackSession = createNewSession([{ role: "system", content: SYSTEM_PROMPT }]);
-                saveSessions([fallbackSession]);
-                setSessions([fallbackSession]);
-                setActiveSessionId(fallbackSession.id);
+
+                // Load feedback
+                try {
+                    const storedFeedback = await cacheDB.get<Record<string, Record<string, MessageFeedback>>>(MESSAGE_FEEDBACK_STORAGE_KEY);
+                    if (!storedFeedback) {
+                        const fallbackFeedback = localStorage.getItem(MESSAGE_FEEDBACK_STORAGE_KEY);
+                        if (fallbackFeedback) {
+                            const parsed = JSON.parse(fallbackFeedback);
+                            await cacheDB.set(MESSAGE_FEEDBACK_STORAGE_KEY, parsed);
+                            setFeedbackBySession(parsed);
+                            localStorage.removeItem(MESSAGE_FEEDBACK_STORAGE_KEY);
+                        }
+                    } else {
+                        setFeedbackBySession(storedFeedback);
+                    }
+                } catch (e) {
+                    console.error("Failed to load feedback", e);
+                }
+
+                // Load study notes
+                try {
+                    const storedNotes = await cacheDB.get<StudyNote[]>(STUDY_NOTES_STORAGE_KEY);
+                    if (!storedNotes) {
+                        const fallbackNotes = localStorage.getItem(STUDY_NOTES_STORAGE_KEY);
+                        if (fallbackNotes) {
+                            const parsed = JSON.parse(fallbackNotes);
+                            await cacheDB.set(STUDY_NOTES_STORAGE_KEY, parsed);
+                            setStudyNotes(parsed);
+                            localStorage.removeItem(STUDY_NOTES_STORAGE_KEY);
+                        }
+                    } else {
+                        setStudyNotes(storedNotes);
+                    }
+                } catch (e) {
+                    console.error("Failed to load study notes", e);
+                }
+            } catch (e) {
+                console.error("[AI_CHAT] Initialization error:", e);
             } finally {
+                didFinish = true;
                 setInitializing(false);
             }
         };
+
         init();
-    }, [userData?.uid]);
 
-    // Handle Scroll Tracking
-    useEffect(() => {
-        const el = scrollRef.current;
-        if (!el) return;
+        // Safety timeout: if init() hasn't finished in 8 seconds
+        // (e.g. Safari IDB hang slipping through), force-unblock the UI.
+        const safetyTimer = setTimeout(() => {
+            if (!didFinish) {
+                console.warn("[AI_CHAT] Init safety timeout reached — unblocking UI");
+                setInitializing(false);
+            }
+        }, 8000);
 
-        const handleScroll = () => {
-            const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 100;
-            setShowScrollBottom(!isAtBottom);
-        };
-
-        el.addEventListener("scroll", handleScroll);
-        return () => el.removeEventListener("scroll", handleScroll);
+        return () => clearTimeout(safetyTimer);
     }, []);
 
-    // Handle Scrolling
-    const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    // Auto-scroll logic
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
         if (scrollRef.current) {
             scrollRef.current.scrollTo({
                 top: scrollRef.current.scrollHeight,
                 behavior
             });
         }
-    };
+    }, []);
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages, isLoading]);
+        const timer = setTimeout(() => scrollToBottom("auto"), 100);
+        return () => clearTimeout(timer);
+    }, [activeSessionId, scrollToBottom]);
 
-    const handleNewChat = useCallback(async () => {
-        if (!userData || isLoading) return;
-
-        const current = loadSessions();
-        const normalized = normalizeSessionsForStorage(current);
-        if (normalized.length !== current.length) {
-            saveSessions(normalized);
-        }
-
-        const existingEmpty = normalized.find(isEmptySession);
-        if (existingEmpty) {
-            setSessions(normalized);
-            setActiveSessionId(existingEmpty.id);
-            setInput("");
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const context = await getUserContext(userData.uid);
-            const initialMessages: ChatMessage[] = [
-                { role: "system", content: `${SYSTEM_PROMPT}\n\nUSER CONTEXT:\n${context}` }
-            ];
-
-            const newSession = createNewSession(initialMessages);
-            const updatedSessions = [...normalized, newSession];
-            setSessions(updatedSessions);
-            saveSessions(updatedSessions);
-            setActiveSessionId(newSession.id);
-        } catch {
-            const fallbackSession = createNewSession([{ role: "system", content: SYSTEM_PROMPT }]);
-            const updatedSessions = [...normalized, fallbackSession];
-            setSessions(updatedSessions);
-            saveSessions(updatedSessions);
-            setActiveSessionId(fallbackSession.id);
-            toast.error("Could not load user context. Started a blank chat instead.");
-        } finally {
-            setIsLoading(false);
-        }
-    }, [isLoading, userData]);
-
-    const handleSelectSession = (id: string) => {
-        setActiveSessionId(id);
-        setCopiedMessageKey(null); // Reset copy indicator when switching sessions
+    const handleScroll = () => {
+        if (!scrollRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        setShowScrollBottom(!isNearBottom);
     };
 
-    const handleDeleteSession = (id: string) => {
-        const target = sessions.find((session) => session.id === id);
-        setDeleteTarget({ id, title: target?.title || "this session" });
-        setIsDeleteDialogOpen(true);
-    };
+    // Session Management
+    const activeSession = useMemo(() => 
+        sessions.find(s => s.id === activeSessionId) || null
+    , [sessions, activeSessionId]);
 
-    const handleRenameSession = (id: string, title: string) => {
-        const target = sessions.find((session) => session.id === id);
-        if (!target) return;
-        updateSession(id, target.messages, title);
-        setSessions(loadSessions());
-        toast.success("Session renamed");
-    };
-
-    const confirmDeleteSession = () => {
-        if (!deleteTarget) return;
-        const id = deleteTarget.id;
-        removeSession(id);
-        const updated = loadSessions();
+    const handleNewChat = useCallback(() => {
+        const newSession = createNewSession();
+        const updated = normalizeSessionsForStorage([newSession, ...sessions]);
         setSessions(updated);
-        if (activeSessionId === id) {
+        setActiveSessionId(newSession.id);
+        saveSessions(updated);
+        setIsHistoryOpen(false);
+        inputRef.current?.focus();
+    }, [sessions]);
+
+    const handleSelectSession = useCallback((id: string) => {
+        setActiveSessionId(id);
+        setIsHistoryOpen(false);
+    }, []);
+
+    const handleDeleteSession = useCallback((id: string) => {
+        const session = sessions.find(s => s.id === id);
+        const title = session?.title || "Unknown Chat";
+        setDeleteTarget({ id, title });
+        setIsDeleteDialogOpen(true);
+    }, [sessions]);
+
+    const confirmDeleteSession = useCallback(() => {
+        if (!deleteTarget) return;
+        const updated = sessions.filter(s => s.id !== deleteTarget.id);
+        setSessions(updated);
+        saveSessions(updated);
+        if (activeSessionId === deleteTarget.id) {
             if (updated.length > 0) {
                 setActiveSessionId(updated[0].id);
             } else {
@@ -300,672 +238,489 @@ export default function DashboardAIChatPage() {
         setIsDeleteDialogOpen(false);
         setDeleteTarget(null);
         toast.success("Session deleted");
-    };
+    }, [deleteTarget, sessions, activeSessionId, handleNewChat]);
 
-    const handleClearAll = () => {
-        removeSession("all");
-        try {
-            localStorage.removeItem(MESSAGE_FEEDBACK_STORAGE_KEY);
-            localStorage.removeItem(STUDY_NOTES_STORAGE_KEY);
-        } catch {
-            // Ignore storage removal issues to keep clear action responsive.
-        }
-        setFeedbackBySession({});
-        setStudyNotes([]);
-        setSessions([]);
-        setActiveSessionId(null);
-        handleNewChat();
+    const handleRenameSession = useCallback((id: string, newTitle: string) => {
+        const updated = sessions.map(s => s.id === id ? { ...s, title: newTitle } : s);
+        setSessions(updated);
+        saveSessions(updated);
+    }, [sessions]);
+
+    const handleClearAll = useCallback(() => {
+        const newSession = createNewSession();
+        setSessions([newSession]);
+        setActiveSessionId(newSession.id);
+        saveSessions([newSession]);
         setIsClearDialogOpen(false);
-        toast.success("Chat history cleared");
-    };
+        toast.success("All history cleared");
+    }, []);
 
-    const setMessageFeedback = useCallback((messageKey: string, feedback: MessageFeedback) => {
+    // Feedback & Notes
+    const setFeedback = useCallback((messageKey: string, reaction: MessageFeedback) => {
         if (!activeSessionId) return;
-
         setFeedbackBySession((prev) => {
-            const prevSession = prev[activeSessionId] || {};
-            const nextSession = { ...prevSession };
-            const current = nextSession[messageKey];
-
-            if (current === feedback) {
-                delete nextSession[messageKey];
+            const sessionFeedback = { ...(prev[activeSessionId] || {}) };
+            if (sessionFeedback[messageKey] === reaction) {
+                delete sessionFeedback[messageKey];
             } else {
-                nextSession[messageKey] = feedback;
+                sessionFeedback[messageKey] = reaction;
             }
-
-            const next = { ...prev, [activeSessionId]: nextSession };
-            try {
-                localStorage.setItem(MESSAGE_FEEDBACK_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                // Ignore storage write failures to keep chat interaction responsive.
-            }
-            return next;
+            const updated = { ...prev, [activeSessionId]: sessionFeedback };
+            cacheDB.set(MESSAGE_FEEDBACK_STORAGE_KEY, updated).catch(e => console.error("Failed to save feedback", e));
+            return updated;
         });
     }, [activeSessionId]);
 
-    const copyMessage = async (content: string, messageKey: string) => {
-        try {
-            await navigator.clipboard.writeText(content);
-            setCopiedMessageKey(messageKey);
-            if (copyResetTimeoutRef.current) {
-                clearTimeout(copyResetTimeoutRef.current);
-            }
-            copyResetTimeoutRef.current = setTimeout(() => {
-                setCopiedMessageKey(null);
-            }, 3000);
-            toast.success("Message copied to clipboard");
-        } catch {
-            toast.error("Clipboard access failed. Please copy manually.");
-        }
-    };
-
     const toggleStudyNote = useCallback((messageKey: string, content: string) => {
-        if (!activeSessionId || !messageKey) return;
-
+        if (!activeSessionId) return;
         setStudyNotes((prev) => {
             const existing = prev.find((note) => note.sessionId === activeSessionId && note.messageKey === messageKey);
-            let next: StudyNote[];
-
+            let updated;
             if (existing) {
-                next = prev.filter((note) => note.id !== existing.id);
-                toast.success("Removed from Study Notes");
+                updated = prev.filter((note) => note.id !== existing.id);
+                toast.success("Note removed from study notes");
             } else {
-                next = [{
-                    id: crypto.randomUUID(),
+                const newNote: StudyNote = {
+                    id: Math.random().toString(36).substring(2, 9),
                     sessionId: activeSessionId,
                     messageKey,
                     content,
                     createdAt: Date.now()
-                }, ...prev];
-                toast.success("Saved to Study Notes");
+                };
+                updated = [newNote, ...prev];
+                toast.success("Added to study notes");
             }
-
-            try {
-                localStorage.setItem(STUDY_NOTES_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                toast.error("Could not save study note");
-            }
-
-            return next;
+            cacheDB.set(STUDY_NOTES_STORAGE_KEY, updated).catch(e => console.error("Failed to save study notes", e));
+            return updated;
         });
     }, [activeSessionId]);
 
-    const removeStudyNote = useCallback((noteId: string) => {
-        setStudyNotes((prev) => {
-            const next = prev.filter((note) => note.id !== noteId);
-            try {
-                localStorage.setItem(STUDY_NOTES_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                // Keep UI state even if storage write fails.
-            }
-            return next;
+    const removeStudyNote = (id: string) => {
+        setStudyNotes(prev => {
+            const updated = prev.filter(n => n.id !== id);
+            cacheDB.set(STUDY_NOTES_STORAGE_KEY, updated).catch(e => console.error("Failed to save study notes", e));
+            return updated;
         });
-    }, []);
+    };
 
-    const exportStudyNotes = useCallback(() => {
-        if (sessionStudyNotes.length === 0) {
-            toast.error("No notes to export");
+    const copyMessage = (content: string, key: string) => {
+        navigator.clipboard.writeText(content);
+        setCopiedMessageKey(key);
+        if (copyResetTimeoutRef.current) clearTimeout(copyResetTimeoutRef.current);
+        copyResetTimeoutRef.current = setTimeout(() => setCopiedMessageKey(null), 2000);
+        toast.success("Copied to clipboard");
+    };
+
+    // Sync & Deep Scan
+    const handleSyncData = async () => {
+        if (!user?.uid) return;
+        setIsSyncing(true);
+        try {
+            await getUserContext(user.uid, true); // force refresh from backend
+            toast.success("Knowledge synchronized successfully");
+        } catch (error) {
+            console.error("Failed to sync data:", error);
+            toast.error("Failed to sync knowledge base");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleDeepScan = async () => {
+        if (!user?.uid) return;
+        setIsDeepScanning(true);
+        try {
+            await getUserContext(user.uid, true, true); // deep scan forces a fresh context retrieval
+            toast.success("Deep knowledge scan completed");
+        } catch (error) {
+            console.error("Deep scan failed:", error);
+            toast.error("Deep scan failed");
+        } finally {
+            setIsDeepScanning(false);
+        }
+    };
+
+    const exportStudyNotes = () => {
+        const sessionNotes = studyNotes.filter(n => n.sessionId === activeSessionId);
+        if (sessionNotes.length === 0) return;
+        
+        const content = sessionNotes.map((n, i) => `Note ${i + 1}\n${n.content}\n\n`).join("---\n\n");
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `study-notes-${activeSession?.title || "chat"}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Chat Logic
+    const sendMessage = async (overridePrompt?: string) => {
+        const text = overridePrompt || input;
+        if (!text.trim() || !activeSessionId) return;
+
+        // Cancel previous request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
+        if (!overridePrompt) setInput("");
+        setIsLoading(true);
+
+        const userMsg: ChatMessage = { role: "user", content: text };
+        
+        // Find session in a way that handles the state properly
+        let currentSession: ChatSession | undefined;
+        setSessions(prev => {
+            const session = prev.find(s => s.id === activeSessionId);
+            if (!session) return prev;
+            
+            currentSession = { 
+                ...session, 
+                messages: [...session.messages, userMsg],
+                updatedAt: Date.now()
+            };
+            
+            const updated = prev.map(s => s.id === activeSessionId ? currentSession! : s);
+            saveSessions(updated);
+            return updated;
+        });
+
+        // Small delay to ensure state is updated before continuing
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (!currentSession) {
+            setIsLoading(false);
             return;
         }
 
-        const text = sessionStudyNotes
-            .map((note, idx) => `# Note ${idx + 1}\nSaved: ${new Date(note.createdAt).toLocaleString()}\n\n${note.content.trim()}\n`)
-            .join("\n------------------------------\n\n");
-
-        try {
-            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            const anchor = document.createElement("a");
-            anchor.href = url;
-            anchor.download = `study-notes-${new Date().toISOString().slice(0, 10)}.txt`;
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            URL.revokeObjectURL(url);
-            toast.success("Study notes exported");
-        } catch {
-            toast.error("Failed to export notes");
+        // Auto-title if it's the first message
+        if (currentSession.title === "New Chat" && currentSession.messages.filter(m => m.role !== "system").length === 1) {
+            const newTitle = text.slice(0, 30) + (text.length > 30 ? "..." : "");
+            handleRenameSession(activeSessionId, newTitle);
         }
-    }, [sessionStudyNotes]);
-
-    const sendMessage = useCallback(async (rawInput: string) => {
-        if (!rawInput.trim() || isLoading || !activeSessionId) return;
-
-        const content = rawInput.trim();
-        const userMsg: ChatMessage = { role: "user", content };
-        const updatedMessages = [...messages, userMsg];
-
-        // Optimistic UI update for user message
-        let currentSessions = sessions.map(s =>
-            s.id === activeSessionId ? { ...s, messages: updatedMessages, updatedAt: Date.now() } : s
-        );
-        setSessions(currentSessions);
-        setInput("");
-        setIsLoading(true);
 
         try {
-            const idToken = user ? await user.getIdToken() : undefined;
-            const generator = chatWithAI(updatedMessages, idToken);
-
-            // Add placeholder for assistant starting to type
-            const messagesWithPlaceholder: ChatMessage[] = [...updatedMessages, { role: "assistant", content: "" }];
-            currentSessions = sessions.map(s =>
-                s.id === activeSessionId ? { ...s, messages: messagesWithPlaceholder, updatedAt: Date.now() } : s
-            );
-            setSessions(currentSessions);
-
-            let lastFullText = "";
-            for await (const chunk of generator) {
-                lastFullText = chunk;
-                setSessions(prev => prev.map(s =>
-                    s.id === activeSessionId
-                        ? {
-                            ...s,
-                            messages: [...updatedMessages, { role: "assistant", content: chunk }],
-                            updatedAt: Date.now()
-                        }
+            const context = await getUserContext(userData?.uid || user?.uid || "");
+            const token = await user?.getIdToken();
+            
+            // Initial placeholder assistant message for streaming
+            const assistantMsg: ChatMessage = { role: "assistant", content: "" };
+            
+            setSessions(prev => {
+                const session = prev.find(s => s.id === activeSessionId);
+                if (!session) return prev;
+                const updated = prev.map(s => 
+                    s.id === activeSessionId 
+                        ? { ...s, messages: [...s.messages, assistantMsg], updatedAt: Date.now() } 
                         : s
-                ));
-            }
+                );
+                return updated;
+            });
 
-            // Final persist to local history
-            const finalMessages: ChatMessage[] = [...updatedMessages, { role: "assistant", content: lastFullText }];
-            updateSession(activeSessionId, finalMessages);
-            setSessions(loadSessions());
-        } catch {
-            const errorMessages: ChatMessage[] = [...updatedMessages, {
-                role: "assistant",
-                content: "I could not load your live analytics right now, but I can still guide you. Try this: 1) Ask me for a 7-day plan, 2) Ask for a topic-wise practice list, or 3) Ask for a mock-test strategy based on your target rank."
-            }];
-            updateSession(activeSessionId, errorMessages);
-            setSessions(loadSessions());
+            // Start streaming
+            // Prepare messages with user context for hyper-personalization
+            const messagesWithContext: ChatMessage[] = [
+                { role: "system", content: `${SYSTEM_PROMPT}\n\n${context}` },
+                ...currentSession.messages.filter(m => m.role !== "system")
+            ];
+
+            // Start streaming with proper idToken
+            const chatStream = chatWithAI(messagesWithContext, token, abortControllerRef.current.signal);
+            
+            let fullResponse = "";
+            for await (const chunk of chatStream) {
+                fullResponse += chunk;
+                
+                // Update assistant message in sessions
+                setSessions(prev => {
+                    const session = prev.find(s => s.id === activeSessionId);
+                    if (!session) return prev;
+                    
+                    const updatedMessages = [...session.messages];
+                    const lastMsg = updatedMessages[updatedMessages.length - 1];
+                    
+                    if (lastMsg && lastMsg.role === "assistant") {
+                        updatedMessages[updatedMessages.length - 1] = { 
+                            ...lastMsg, 
+                            content: fullResponse 
+                        };
+                    }
+                    
+                    return prev.map(s => 
+                        s.id === activeSessionId 
+                            ? { ...s, messages: updatedMessages, updatedAt: Date.now() } 
+                            : s
+                    );
+                });
+                
+                scrollToBottom("auto");
+            }
+            
+            // Final save to localStorage
+            setSessions(prev => {
+                saveSessions(prev);
+                return prev;
+            });
+
+        } catch (error: any) {
+            if (error.name === "AbortError") {
+                console.log("Chat aborted");
+            } else {
+                console.error("Chat error:", error);
+                toast.error("Failed to get AI response");
+            }
         } finally {
             setIsLoading(false);
+            scrollToBottom();
+            abortControllerRef.current = null;
         }
-    }, [activeSessionId, isLoading, messages, sessions, user]);
-
-    const handleSend = async () => {
-        await sendMessage(input);
     };
+
+    const reactions = useMemo(() => feedbackBySession[activeSessionId || ""] || {}, [feedbackBySession, activeSessionId]);
+    const copiedStates = useMemo(() => copiedMessageKey ? { [copiedMessageKey]: true } : {}, [copiedMessageKey]);
+    const sessionStudyNotes = useMemo(() => studyNotes.filter(n => n.sessionId === activeSessionId), [studyNotes, activeSessionId]);
+    
+    const sessionAssistantMessages = useMemo(() => 
+        activeSession?.messages.filter(m => m.role === "assistant" && m.content).map(m => m.content) || []
+    , [activeSession]);
 
     if (initializing) {
         return (
-            <div className="flex h-[70vh] items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-primary" />
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Analysing History...</p>
-                </div>
+            <div className="flex h-screen w-full items-center justify-center bg-background">
+                <Brain className="h-10 w-10 animate-pulse text-primary" />
             </div>
         );
     }
 
     return (
-        <div className="chatgpt-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background text-foreground font-sans animate-fade-in relative">
-            {/* Top Navigation */}
-            <header className="z-30 flex shrink-0 items-center justify-between bg-background/95 px-4 py-2 backdrop-blur-xl sm:px-6 sm:py-3">
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={requestSidebarOpen}
-                        className="h-9 w-9 rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden"
-                        title="Open menu"
-                    >
-                        <Menu className="h-4 w-4" />
-                    </Button>
-                </div>
+        <div className="relative flex h-[calc(100vh-(--spacing(16)))] w-full flex-col overflow-hidden bg-background">
+            <ChatHeader
+                isSyncing={isSyncing}
+                isLoading={isLoading}
+                isDeepScanning={isDeepScanning}
+                studyNotesCount={sessionStudyNotes.length}
+                onOpenHistory={() => setIsHistoryOpen(true)}
+                onOpenStudyLab={() => setIsStudyLabOpen(true)}
+                onOpenStudyNotes={() => setIsStudyNotesOpen(true)}
+                onSyncData={handleSyncData}
+                onDeepScan={handleDeepScan}
+                onClearAll={() => setIsClearDialogOpen(true)}
+                onNewChat={handleNewChat}
+            />
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsStudyLabOpen(true)}
-                        className="h-9 gap-1.5 rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted"
-                    >
-                        <Brain className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Study Lab</span>
-                    </Button>
-                    <div className="mx-0.5 h-4 w-px bg-border" />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsStudyNotesOpen(true)}
-                        className="h-9 gap-1.5 rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted"
-                    >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Study Notes</span>
-                        {sessionStudyNotes.length > 0 && (
-                            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                {sessionStudyNotes.length}
-                            </span>
-                        )}
-                    </Button>
-                    <div className="mx-0.5 h-4 w-px bg-border" />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsHistoryOpen(true)}
-                        className="h-9 gap-1.5 rounded-xl border border-border px-3.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted"
-                    >
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">History</span>
-                    </Button>
-                    <div className="mx-0.5 h-4 w-px bg-border" />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsClearDialogOpen(true)}
-                        className="h-9 gap-1.5 rounded-xl border border-border px-3.5 text-xs font-semibold text-muted-foreground transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                    >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Clear</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleNewChat}
-                        className="h-9 w-9 rounded-xl border border-border bg-muted/70 text-muted-foreground transition-all hover:border-primary/20 hover:bg-primary/10 hover:text-primary"
-                        title="New Chat"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </div>
-            </header>
+            <div className="relative flex-1 overflow-hidden">
+                <div 
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="h-full overflow-y-auto px-4 py-6 sm:px-6 md:py-8 scrollbar-hide"
+                >
+                    <MessageList
+                        messages={activeSession?.messages || []}
+                        reactions={reactions}
+                        studyNotes={studyNotes}
+                        copiedStates={copiedStates}
+                        isLoading={isLoading}
+                        onCopy={copyMessage}
+                        onToggleBookmark={toggleStudyNote}
+                        onSetFeedback={setFeedback}
+                    />
 
-            {/* Main Chat Area */}
-            <div className="relative flex min-h-0 flex-1 flex-col bg-background">
-                <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none rounded-none bg-transparent">
-                    <CardContent className="flex-1 flex flex-col p-0 overflow-hidden relative">
-                        {/* Chat Messages or Welcome Hero */}
-                        <div
-                            ref={scrollRef}
-                            className="chat-stream relative flex flex-1 flex-col overflow-y-auto scroll-smooth px-4 py-6 sm:px-8 md:px-16 lg:px-24 xl:px-36"
-                        >
-                            {!hasVisibleMessages ? (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center px-4 py-12 text-center"
+                    {/* Scroll to Bottom Button */}
+                    <AnimatePresence>
+                        {showScrollBottom && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                className="sticky bottom-4 left-1/2 -translate-x-1/2 z-20"
+                            >
+                                <Button
+                                    size="icon"
+                                    onClick={() => scrollToBottom()}
+                                    className="h-10 w-10 rounded-full bg-background/80 shadow-lg ring-1 ring-border backdrop-blur-sm hover:bg-background"
                                 >
-                                    <div className="space-y-3">
-                                        <h2 className="text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl">
-                                            How can I help you?
-                                        </h2>
-                                        <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-                                            Type your question below to get started.
-                                        </p>
-                                    </div>
+                                    <ChevronDown className="h-5 w-5" />
+                                </Button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
 
-                                    <form
-                                        onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                                        className="chat-composer mt-8 w-full max-w-3xl relative"
-                                    >
-                                        <div className="relative group">
-                                            <Input
-                                                ref={inputRef}
-                                                value={input}
-                                                onChange={(e) => setInput(e.target.value)}
-                                                placeholder="Ask anything"
-                                                className="h-12 rounded-full border border-border bg-card pl-5 pr-16 text-[15px] shadow-sm transition-all placeholder:text-muted-foreground/70 focus:border-border focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14"
-                                                disabled={isLoading}
-                                            />
-                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+            <ChatComposer
+                input={input}
+                setInput={setInput}
+                onSend={() => sendMessage()}
+                isLoading={isLoading}
+                inputRef={inputRef}
+            />
+
+            {/* Overlays and Dialogs */}
+            <HistoryOverlay
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onSelectSession={handleSelectSession}
+                onNewChat={handleNewChat}
+                onDeleteSession={handleDeleteSession}
+                onRenameSession={handleRenameSession}
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+            />
+
+            {/* Clear Chat Dialog */}
+            <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+                <DialogContent className="sm:max-w-md rounded-3xl p-6">
+                    <DialogHeader>
+                        <div className="mx-auto h-12 w-12 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+                            <Trash2 className="h-6 w-6 text-red-500" />
+                        </div>
+                        <DialogTitle className="text-2xl font-black text-center">Clear all history?</DialogTitle>
+                        <DialogDescription className="text-zinc-500 text-center text-sm mt-2 leading-relaxed">
+                            This will permanently delete all your chat sessions.
+                            <br />
+                            <span className="font-bold text-red-500/80">This action cannot be undone.</span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-8">
+                        <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)} className="rounded-xl font-bold h-12 flex-1">
+                            No, Keep History
+                        </Button>
+                        <Button variant="destructive" onClick={handleClearAll} className="rounded-xl font-bold bg-red-500 hover:bg-red-600 border-0 h-12 flex-1 shadow-lg shadow-red-200">
+                            Yes, Clear All
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Session Dialog */}
+            <Dialog 
+                open={isDeleteDialogOpen} 
+                onOpenChange={(open) => {
+                    setIsDeleteDialogOpen(open);
+                    if (!open) setDeleteTarget(null);
+                }}
+            >
+                <DialogContent className="sm:max-w-md rounded-3xl p-6">
+                    <DialogHeader>
+                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10">
+                            <Trash2 className="h-6 w-6 text-red-500" />
+                        </div>
+                        <DialogTitle className="text-center text-2xl font-black">Delete session?</DialogTitle>
+                        <DialogDescription className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
+                            You are about to delete
+                            <span className="mx-1 font-semibold text-foreground">{deleteTarget?.title || "this session"}</span>
+                            permanently.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-8 flex flex-col gap-3 sm:flex-row">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setIsDeleteDialogOpen(false);
+                                setDeleteTarget(null);
+                            }}
+                            className="h-12 flex-1 rounded-xl font-semibold"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDeleteSession}
+                            className="h-12 flex-1 rounded-xl border-0 bg-red-500 font-semibold hover:bg-red-600"
+                        >
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Study Notes Dialog */}
+            <Dialog open={isStudyNotesOpen} onOpenChange={setIsStudyNotesOpen}>
+                <DialogContent className="sm:max-w-3xl rounded-3xl p-0 overflow-hidden">
+                    <DialogHeader className="border-b border-border px-6 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <DialogTitle className="text-xl font-bold">Study Notes</DialogTitle>
+                                <DialogDescription className="mt-1 text-sm">
+                                    Save key AI explanations and export them for revision.
+                                </DialogDescription>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportStudyNotes}
+                                disabled={sessionStudyNotes.length === 0}
+                                className="rounded-lg"
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="max-h-[62vh] overflow-y-auto px-6 py-5">
+                        {sessionStudyNotes.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center">
+                                <BookOpen className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
+                                <p className="text-sm text-muted-foreground">
+                                    No notes saved yet. Use the bookmark icon under assistant replies.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {sessionStudyNotes.map((note, idx) => (
+                                    <div key={note.id} className="rounded-2xl border border-border bg-card p-4">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                                Note {idx + 1} • {new Date(note.createdAt).toLocaleString()}
+                                            </p>
+                                            <div className="flex items-center gap-1">
                                                 <Button
-                                                    type="submit"
-                                                    disabled={!input.trim() || isLoading}
+                                                    variant="ghost"
                                                     size="icon"
-                                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white text-zinc-900 shadow-sm transition-all duration-300 hover:scale-105 hover:bg-zinc-100 active:scale-95 sm:h-11 sm:w-11"
+                                                    className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
+                                                    onClick={() => copyMessage(note.content, `study-note-${note.id}`)}
                                                 >
-                                                    {isLoading ? (
-                                                        <span className="h-2.5 w-2.5 rounded-full bg-zinc-900 animate-pulse" aria-label="AI is thinking" />
-                                                    ) : (
-                                                        <ArrowUp className="h-4 w-4" />
-                                                    )}
+                                                    <Check className={cn("h-3.5 w-3.5 text-emerald-500", copiedMessageKey !== `study-note-${note.id}` && "hidden")} />
+                                                    <CopyIcon className={cn("h-3.5 w-3.5", copiedMessageKey === `study-note-${note.id}` && "hidden")} />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-md text-muted-foreground hover:text-red-500"
+                                                    onClick={() => removeStudyNote(note.id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
                                                 </Button>
                                             </div>
                                         </div>
-                                    </form>
-                                </motion.div>
-                            ) : (
-                                <div className="space-y-6 pb-20 pt-4 sm:pt-6">
-                                    <AnimatePresence mode="popLayout">
-                                        {messages.filter(m => m.role !== "system").map((msg, idx) => {
-                                            const messageKey = activeSessionId && msg.role === "assistant"
-                                                ? getAssistantMessageKey(activeSessionId, idx, msg.content)
-                                                : "";
-                                            const reaction = messageKey ? activeSessionFeedback[messageKey] : undefined;
-
-                                            return (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 15, scale: 0.99 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    key={`${activeSessionId}-${idx}`}
-                                                    className={cn(
-                                                        "group/msg flex w-full",
-                                                        msg.role === "user" ? "justify-end" : "justify-start"
-                                                    )}
-                                                >
-                                                    <div className={cn(
-                                                        "chat-bubble group/bubble relative rounded-2xl p-4 text-[15px] leading-normal transition-all duration-300",
-                                                        msg.role === "user"
-                                                            ? "chat-bubble-user rounded-2xl rounded-tr-md bg-muted px-3 py-2 text-sm text-foreground shadow-sm"
-                                                            : "chat-bubble-assistant rounded-tl-md border-0 bg-transparent p-0 text-foreground shadow-none"
-                                                    )}>
-                                                        <FormattedMessage content={msg.content} role={msg.role === "user" ? "user" : "assistant"} />
-
-                                                        {/* Message Actions */}
-                                                        {msg.role === "assistant" && (
-                                                            <div className={cn(
-                                                                "mt-2 flex items-center gap-1.5 transition-opacity",
-                                                                reaction ? "opacity-100" : "opacity-0 group-hover/msg:opacity-100"
-                                                            )}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={cn(
-                                                                        "h-7 w-7 rounded-md hover:bg-transparent",
-                                                                        copiedMessageKey === messageKey ? "text-emerald-500" : "text-muted-foreground hover:text-foreground"
-                                                                    )}
-                                                                    onClick={() => copyMessage(msg.content, messageKey)}
-                                                                >
-                                                                    {copiedMessageKey === messageKey ? (
-                                                                        <Check className="h-3.5 w-3.5" />
-                                                                    ) : (
-                                                                        <CopyIcon className="h-3.5 w-3.5" />
-                                                                    )}
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={cn(
-                                                                        "h-7 w-7 rounded-md hover:bg-transparent",
-                                                                        sessionStudyNotes.some((note) => note.messageKey === messageKey)
-                                                                            ? "text-primary"
-                                                                            : "text-muted-foreground hover:text-foreground"
-                                                                    )}
-                                                                    onClick={() => toggleStudyNote(messageKey, msg.content)}
-                                                                    title="Save to Study Notes"
-                                                                >
-                                                                    {sessionStudyNotes.some((note) => note.messageKey === messageKey) ? (
-                                                                        <BookmarkCheck className="h-3.5 w-3.5" />
-                                                                    ) : (
-                                                                        <Bookmark className="h-3.5 w-3.5" />
-                                                                    )}
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={cn(
-                                                                        "h-7 w-7 rounded-md hover:bg-transparent",
-                                                                        reaction === "up" ? "text-emerald-500" : "text-muted-foreground hover:text-foreground"
-                                                                    )}
-                                                                    onClick={() => setMessageFeedback(messageKey, "up")}
-                                                                >
-                                                                    <ThumbsUp className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={cn(
-                                                                        "h-7 w-7 rounded-md hover:bg-transparent",
-                                                                        reaction === "down" ? "text-red-500" : "text-muted-foreground hover:text-foreground"
-                                                                    )}
-                                                                    onClick={() => setMessageFeedback(messageKey, "down")}
-                                                                >
-                                                                    <ThumbsDown className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </motion.div>
-                                            );
-                                        })}
-                                    </AnimatePresence>
-
-                                    {isLoading && (!messages.length || messages[messages.length - 1].role !== "assistant" || !messages[messages.length - 1].content) && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="flex justify-start pb-4"
-                                        >
-                                            <div className="flex w-full max-w-[80%] flex-col gap-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-5 w-5 animate-pulse rounded-full bg-muted" />
-                                                    <div className="h-3 w-24 animate-pulse rounded-md bg-muted" />
-                                                </div>
-                                                <div className="space-y-2 rounded-2xl bg-muted/30 p-4">
-                                                    <div className="h-3 w-full animate-pulse rounded-md bg-muted/40" />
-                                                    <div className="h-3 w-5/6 animate-pulse rounded-md bg-muted/40" />
-                                                    <div className="h-3 w-4/6 animate-pulse rounded-md bg-muted/40" />
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Scroll to Bottom Button */}
-                        <AnimatePresence>
-                            {showScrollBottom && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                    className="absolute bottom-32 right-8 z-20"
-                                >
-                                    <Button
-                                        size="icon"
-                                        onClick={() => scrollToBottom()}
-                                        className="h-10 w-10 rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-all hover:scale-105 hover:text-foreground"
-                                    >
-                                        <ChevronDown className="h-5 w-5" />
-                                    </Button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Input Area */}
-                        {hasVisibleMessages && (
-                            <div className="chat-composer-wrap relative z-10 shrink-0 bg-background px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-3 sm:px-6 sm:pt-4">
-                                <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-linear-to-t from-background to-transparent" />
-                                <form
-                                    onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                                    className="chat-composer mx-auto max-w-3xl relative"
-                                >
-                                    <div className="relative group">
-                                        <Input
-                                            ref={inputRef}
-                                            value={input}
-                                            onChange={(e) => setInput(e.target.value)}
-                                            placeholder="Ask anything"
-                                            className="h-12 rounded-full border border-border bg-card pl-5 pr-16 text-[15px] text-foreground shadow-sm transition-all placeholder:text-muted-foreground/70 focus:border-border focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14"
-                                            disabled={isLoading}
-                                        />
-                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                                            <Button
-                                                type="submit"
-                                                disabled={!input.trim() || isLoading}
-                                                size="icon"
-                                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white text-zinc-900 shadow-sm transition-all duration-300 hover:scale-105 hover:bg-zinc-100 active:scale-95 sm:h-11 sm:w-11"
-                                            >
-                                                {isLoading ? (
-                                                    <span className="h-2.5 w-2.5 rounded-full bg-zinc-900 animate-pulse" aria-label="AI is thinking" />
-                                                ) : (
-                                                    <ArrowUp className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
+                                        <FormattedMessage content={note.content} role="assistant" />
                                     </div>
-                                </form>
+                                ))}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
-                {/* History Overlay */}
-                <HistoryOverlay
-                    sessions={sessions}
-                    activeSessionId={activeSessionId}
-                    onSelectSession={handleSelectSession}
-                    onNewChat={handleNewChat}
-                    onDeleteSession={handleDeleteSession}
-                    onRenameSession={handleRenameSession}
-                    isOpen={isHistoryOpen}
-                    onClose={() => setIsHistoryOpen(false)}
-                />
-
-                {/* Clear Chat Dialog */}
-                <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-                    <DialogContent className="sm:max-w-md rounded-3xl p-6">
-                        <DialogHeader>
-                            <div className="mx-auto h-12 w-12 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
-                                <Trash2 className="h-6 w-6 text-red-500" />
-                            </div>
-                            <DialogTitle className="text-2xl font-black text-center">Clear all history?</DialogTitle>
-                            <DialogDescription className="text-zinc-500 text-center text-sm mt-2 leading-relaxed">
-                                This will permanently delete all your chat sessions.
-                                <br />
-                                <span className="font-bold text-red-500/80">This action cannot be undone.</span>
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-8">
-                            <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)} className="rounded-xl font-bold h-12 flex-1">
-                                No, Keep History
-                            </Button>
-                            <Button variant="destructive" onClick={handleClearAll} className="rounded-xl font-bold bg-red-500 hover:bg-red-600 border-0 h-12 flex-1 shadow-lg shadow-red-200">
-                                Yes, Clear All
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
-                <Dialog
-                    open={isDeleteDialogOpen}
-                    onOpenChange={(open) => {
-                        setIsDeleteDialogOpen(open);
-                        if (!open) setDeleteTarget(null);
-                    }}
-                >
-                    <DialogContent className="sm:max-w-md rounded-3xl p-6">
-                        <DialogHeader>
-                            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10">
-                                <Trash2 className="h-6 w-6 text-red-500" />
-                            </div>
-                            <DialogTitle className="text-center text-2xl font-black">Delete session?</DialogTitle>
-                            <DialogDescription className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
-                                You are about to delete
-                                <span className="mx-1 font-semibold text-foreground">{deleteTarget?.title || "this session"}</span>
-                                permanently.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="mt-8 flex flex-col gap-3 sm:flex-row">
-                            <Button
-                                variant="ghost"
-                                onClick={() => {
-                                    setIsDeleteDialogOpen(false);
-                                    setDeleteTarget(null);
-                                }}
-                                className="h-12 flex-1 rounded-xl font-semibold"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={confirmDeleteSession}
-                                className="h-12 flex-1 rounded-xl border-0 bg-red-500 font-semibold hover:bg-red-600"
-                            >
-                                Delete
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
-                <Dialog open={isStudyNotesOpen} onOpenChange={setIsStudyNotesOpen}>
-                    <DialogContent className="sm:max-w-3xl rounded-3xl p-0 overflow-hidden">
-                        <DialogHeader className="border-b border-border px-6 py-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <DialogTitle className="text-xl font-bold">Study Notes</DialogTitle>
-                                    <DialogDescription className="mt-1 text-sm">
-                                        Save key AI explanations and export them for revision.
-                                    </DialogDescription>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={exportStudyNotes}
-                                    disabled={sessionStudyNotes.length === 0}
-                                    className="rounded-lg"
-                                >
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export
-                                </Button>
-                            </div>
-                        </DialogHeader>
-
-                        <div className="max-h-[62vh] overflow-y-auto px-6 py-5">
-                            {sessionStudyNotes.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center">
-                                    <BookOpen className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
-                                    <p className="text-sm text-muted-foreground">
-                                        No notes saved yet. Use the bookmark icon under assistant replies.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {sessionStudyNotes.map((note, idx) => (
-                                        <div key={note.id} className="rounded-2xl border border-border bg-card p-4">
-                                            <div className="mb-2 flex items-center justify-between gap-2">
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                    Note {idx + 1} • {new Date(note.createdAt).toLocaleString()}
-                                                </p>
-                                                <div className="flex items-center gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
-                                                        onClick={() => copyMessage(note.content, `study-note-${note.id}`)}
-                                                    >
-                                                        <CopyIcon className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 rounded-md text-muted-foreground hover:text-red-500"
-                                                        onClick={() => removeStudyNote(note.id)}
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            <FormattedMessage content={note.content} role="assistant" />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </DialogContent>
-                </Dialog>
-
-                <StudyLabPanel
-                    open={isStudyLabOpen}
-                    onOpenChange={setIsStudyLabOpen}
-                    activeSessionId={activeSessionId}
-                    userId={userData?.uid}
-                    userName={userData?.name}
-                    studyNotes={sessionStudyNotes.map((note) => ({
-                        id: note.id,
-                        content: note.content,
-                        createdAt: note.createdAt
-                    }))}
-                    assistantMessages={sessionAssistantMessages}
-                    onUsePrompt={(prompt) => {
-                        setIsStudyLabOpen(false);
-                        void sendMessage(prompt);
-                    }}
-                />
-            </div>
+            <StudyLabPanel
+                open={isStudyLabOpen}
+                onOpenChange={setIsStudyLabOpen}
+                activeSessionId={activeSessionId}
+                userId={userData?.uid}
+                userName={userData?.name}
+                studyNotes={sessionStudyNotes.map((note) => ({
+                    id: note.id,
+                    content: note.content,
+                    createdAt: note.createdAt
+                }))}
+                assistantMessages={sessionAssistantMessages}
+                onUsePrompt={(prompt) => {
+                    setIsStudyLabOpen(false);
+                    void sendMessage(prompt);
+                }}
+            />
         </div>
     );
 }

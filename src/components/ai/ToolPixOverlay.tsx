@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, X, Send, Loader2, Sparkles, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { chatWithAI, ChatMessage, SYSTEM_PROMPT, GUEST_SYSTEM_PROMPT } from "@/lib/ai-service";
+import { chatWithAI, OVERLAY_SYSTEM_PROMPT, ChatMessage } from "@/lib/ai-service";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import FormattedMessage from "@/components/ai/FormattedMessage";
@@ -30,11 +30,10 @@ export default function ToolPixOverlay() {
     const isPublicPage = !isPrivateAppPage && !isPlayerPage;
 
     useEffect(() => {
-        if (!isPublicPage) return;
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [messages, isLoading, isPublicPage]);
+    }, [messages, isLoading]);
 
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
@@ -46,12 +45,11 @@ export default function ToolPixOverlay() {
         setIsLoading(true);
 
         try {
-            const idToken = user ? await user.getIdToken() : undefined;
-            const activePrompt = user ? SYSTEM_PROMPT : GUEST_SYSTEM_PROMPT;
+            const activePrompt = OVERLAY_SYSTEM_PROMPT;
             const generator = chatWithAI([
                 { role: "system", content: activePrompt },
                 ...updatedMessages
-            ], idToken);
+            ]);
 
             // Add a placeholder message for the assistant
             setMessages(prev => [...prev, { role: "assistant", content: "" }]);
@@ -70,7 +68,7 @@ export default function ToolPixOverlay() {
         } catch {
             setMessages(prev => [...prev, {
                 role: "assistant",
-                content: "I cannot fetch live analytics right now, but I can still help. Ask for a quick revision plan, a topic checklist, or a mock strategy and I will generate it immediately."
+                content: "I'm having a bit of trouble connecting to my knowledge base right now. Please try again in a moment, or ask me about a specific topic like 'Math syllabus' or 'CS pattern'."
             }]);
         } finally {
             setIsLoading(false);
@@ -102,7 +100,11 @@ export default function ToolPixOverlay() {
                                             <Sparkles className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-lg leading-none">ToolPix Ai</h3>
+                                            <h3 className="font-bold text-lg leading-none">ToolPix AI</h3>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                <span className="text-[10px] font-medium text-white/70 uppercase tracking-wider">Online</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <Button
@@ -126,7 +128,7 @@ export default function ToolPixOverlay() {
                                                 <Bot className="h-8 w-8 text-primary" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-lg">Hello! I&apos;m ToolPix Ai</p>
+                                                <p className="font-bold text-lg">Hello! I&apos;m ToolPix AI</p>
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     How can I help you with your LBS MCA entrance preparation today?
                                                 </p>
@@ -188,23 +190,25 @@ export default function ToolPixOverlay() {
                     </AnimatePresence>
 
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsOpen(!isOpen)}
-                        className={cn(
-                            "h-14 w-14 rounded-full flex items-center justify-center shadow-2xl relative transition-all duration-300",
-                            isOpen ? "bg-destructive rotate-90" : "gradient-primary"
-                        )}
-                    >
-                        {isOpen ? <X className="h-6 w-6 text-white" /> : <MessageSquare className="h-6 w-6 text-white" />}
-                        {!isOpen && (
-                            <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-45"></span>
-                                <span className="relative inline-flex rounded-full h-4 w-4 bg-white/30 backdrop-blur-sm border border-white/50"></span>
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="group relative h-16 w-16 rounded-full gradient-primary text-white shadow-xl shadow-primary/40 flex items-center justify-center transition-all duration-300"
+                >
+                    <div className="absolute inset-0 rounded-full bg-primary animate-pulse opacity-20 group-hover:opacity-40 transition-opacity" />
+                    {isOpen ? (
+                        <X className="h-7 w-7 relative z-10" />
+                    ) : (
+                        <div className="relative z-10">
+                            <Sparkles className="h-7 w-7 transition-transform group-hover:rotate-12" />
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
                             </span>
-                        )}
-                    </motion.button>
-                </div>
+                        </div>
+                    )}
+                </motion.button>
+            </div>
         </>
     );
 }

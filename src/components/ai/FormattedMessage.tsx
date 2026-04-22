@@ -12,7 +12,7 @@ interface FormattedMessageProps {
     role?: "user" | "assistant";
 }
 
-export default function FormattedMessage({ content, className, role = "assistant" }: FormattedMessageProps) {
+export const FormattedMessage = React.memo(function FormattedMessage({ content, className, role = "assistant" }: FormattedMessageProps) {
     if (!content) return null;
 
     // Split content into blocks by triple backticks
@@ -35,7 +35,11 @@ export default function FormattedMessage({ content, className, role = "assistant
             })}
         </div>
     );
-}
+});
+
+FormattedMessage.displayName = "FormattedMessage";
+
+export default FormattedMessage;
 
 function renderMath(expression: string, key: string, displayMode = false) {
     try {

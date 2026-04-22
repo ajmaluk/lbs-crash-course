@@ -517,6 +517,17 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                         <option key={r} value={r}>{r}x</option>
                                     ))}
                                 </select>
+                                <select
+                                    value={quality}
+                                    onChange={(e) => applyQuality(e.target.value)}
+                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-[10px] px-2 py-1.5 text-white outline-none"
+                                >
+                                    {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                        <option key={q} value={q}>
+                                            {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     )}
@@ -583,14 +594,25 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                 </div>
 
                                 <div className="flex items-center gap-2 sm:gap-4">
-                                    <div className="sm:hidden flex items-center">
+                                    <div className="sm:hidden flex items-center gap-1">
                                         <select
                                             value={rate}
                                             onChange={(e) => applyRate(Number(e.target.value))}
-                                            className="bg-black/40 border border-white/10 rounded-lg text-[9px] px-1.5 py-1 text-white outline-none"
+                                            className="bg-black/40 border border-white/10 rounded-lg text-xs px-1.5 py-1 text-white outline-none"
                                         >
                                             {rates.map((r) => (
                                                 <option key={r} value={r}>{r}x</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={quality}
+                                            onChange={(e) => applyQuality(e.target.value)}
+                                            className="bg-black/40 border border-white/10 rounded-lg text-xs px-1.5 py-1 text-white outline-none"
+                                        >
+                                            {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                                <option key={q} value={q}>
+                                                    {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
