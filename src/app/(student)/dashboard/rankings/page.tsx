@@ -34,31 +34,59 @@ export default function RankingsPage() {
         let mockIds = new Set<string>();
         let rankingsRaw: RankData[] = [];
         let mockRankingsRaw: RankData[] = [];
+        let idsReady = false;
 
         const updateStates = () => {
-            setQuizRankings(rankingsRaw
+            // Normal filtering - only show if quiz/test ID exists
+            const filteredQuizRankings = rankingsRaw
                 .filter(r => r.quizId && quizIds.has(r.quizId))
-                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))
-            );
-            setMockRankings(mockRankingsRaw
+                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
+                
+            const filteredMockRankings = mockRankingsRaw
                 .filter(r => r.mockTestId && (mockIds.has(r.mockTestId) || r.mockTestId.startsWith("ai-practice-")))
-                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))
-            );
+                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
+
+            setQuizRankings(filteredQuizRankings);
+            setMockRankings(filteredMockRankings);
+
+            // FALLBACK: After IDs are loaded, also show orphaned rankings if no valid ones exist
+            // This handles case where quiz/test was deleted after rankings were generated
+            if (idsReady) {
+                if (filteredQuizRankings.length === 0 && rankingsRaw.length > 0) {
+                    setQuizRankings(rankingsRaw
+                        .filter(r => r.quizId)
+                        .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))
+                    );
+                }
+                if (filteredMockRankings.length === 0 && mockRankingsRaw.length > 0) {
+                    setMockRankings(mockRankingsRaw
+                        .filter(r => r.mockTestId && !r.mockTestId.startsWith("ai-practice-"))
+                        .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))
+                    );
+                }
+            }
         };
 
-        const unsubs = [
+        // Subscribe to quizzes and mockTests first
+        const unsubIds = [
             onValue(ref(db, "quizzes"), (s) => {
                 const ids = new Set<string>();
                 s.forEach(c => { ids.add(c.key!); });
                 quizIds = ids;
+                idsReady = true;
                 updateStates();
             }),
             onValue(ref(db, "mockTests"), (s) => {
                 const ids = new Set<string>();
                 s.forEach(c => { ids.add(c.key!); });
                 mockIds = ids;
+                idsReady = true;
                 updateStates();
             }),
+        ];
+
+        // Subscribe to rankings
+        const unsubRankings = [
             onValue(ref(db, "rankings"), (snapshot) => {
                 const list: RankData[] = [];
                 if (snapshot.exists()) {
@@ -97,7 +125,10 @@ export default function RankingsPage() {
             }),
         ];
 
-        return () => unsubs.forEach(u => u());
+        return () => {
+            unsubIds.forEach(u => u());
+            unsubRankings.forEach(u => u());
+        };
     }, []);
 
     // Effect to handle selection logic reactively

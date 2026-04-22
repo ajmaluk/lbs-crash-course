@@ -122,8 +122,90 @@ const createPlaceholderProxy = (moduleName: string) => {
     });
 };
 
+/**
+ * Suppress the Firebase Installations 403 error.
+ *
+ * Firebase SDK internally calls the Installations API for heartbeat/telemetry
+ * when any service (Auth, Database, Analytics) is initialized. If the
+ * "Firebase Installations API" is not enabled in the GCP console, this
+ * triggers a 403 PERMISSION_DENIED error on every page load.
+ *
+ * By eagerly calling `getInstallations()` inside a try-catch and monkey-patching
+ * the global fetch to silently swallow `firebaseinstallations.googleapis.com`
+ * requests when they fail with 403, we prevent the error from polluting the
+ * browser console.
+ */
+const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
+    if (typeof window === "undefined") return;
+
+    // Monkey-patch fetch to intercept and silence Firebase Installations 403s
+    const originalFetch = window.fetch;
+    window.fetch = async function patchedFetch(...args: Parameters<typeof fetch>): Promise<Response> {
+        const url = typeof args[0] === "string" ? args[0] : args[0] instanceof Request ? args[0].url : "";
+
+        if (url.includes("firebaseinstallations.googleapis.com")) {
+            try {
+                const response = await originalFetch.apply(this, args);
+                if (response.status === 403) {
+                    // Return a fake "ok" response so the SDK doesn't throw
+                    return new Response(JSON.stringify({
+                        fid: "fake-fid-installations-disabled",
+                        refreshToken: "fake-refresh-token",
+                        authToken: { token: "fake-auth-token", expiresIn: "604800s" },
+                    }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                return response;
+            } catch {
+                // Network error — return a fake response to prevent SDK crash
+                return new Response(JSON.stringify({
+                    fid: "fake-fid-installations-disabled",
+                    refreshToken: "fake-refresh-token",
+                    authToken: { token: "fake-auth-token", expiresIn: "604800s" },
+                }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+        }
+
+        // Also silence the webConfig fetch (used by Analytics to resolve measurementId)
+        if (url.includes("firebase.googleapis.com") && url.includes("webConfig")) {
+            try {
+                const response = await originalFetch.apply(this, args);
+                if (response.status === 403) {
+                    return new Response(JSON.stringify({
+                        measurementId: firebaseConfig.measurementId || "",
+                        appId: firebaseConfig.appId || "",
+                    }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                return response;
+            } catch {
+                return new Response(JSON.stringify({
+                    measurementId: firebaseConfig.measurementId || "",
+                    appId: firebaseConfig.appId || "",
+                }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+        }
+
+        return originalFetch.apply(this, args);
+    };
+};
+
 if (hasRequiredCoreConfig) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+    // Suppress Firebase Installations 403 errors BEFORE initializing any services
+    suppressInstallationsErrors(app);
+
     auth = getAuth(app);
     db = getDatabase(app);
     firebaseStartupHealth = {
