@@ -41,7 +41,10 @@ export default function RankingsPage() {
                 .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
                 
             const filteredMockRankings = mockRankingsRaw
-                .filter(r => r.mockTestId && (mockIds.has(r.mockTestId) || r.mockTestId.startsWith("ai-practice-")))
+                .filter(r => {
+                    const id = r.mockTestId || r.quizId || "";
+                    return id && (mockIds.has(id) || id.startsWith("ai-practice-"));
+                })
                 .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
 
             setQuizRankings(filteredQuizRankings);
@@ -57,7 +60,10 @@ export default function RankingsPage() {
                 }
                 if (filteredMockRankings.length === 0 && mockRankingsRaw.length > 0) {
                     setMockRankings(mockRankingsRaw
-                        .filter(r => r.mockTestId && !r.mockTestId.startsWith("ai-practice-"))
+                        .filter(r => {
+                            const id = r.mockTestId || r.quizId || "";
+                            return id && !id.startsWith("ai-practice-");
+                        })
                         .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))
                     );
                 }
@@ -113,6 +119,7 @@ export default function RankingsPage() {
                         list.push({ 
                             ...child.val(), 
                             quizId: child.key!,
+                            mockTestId: child.key!,
                             generatedAt: child.val().generatedAt || 0
                         });
                     });

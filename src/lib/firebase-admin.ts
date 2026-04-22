@@ -22,6 +22,8 @@ if (!admin.apps.length) {
   } else {
     console.warn("Firebase Admin: missing FIREBASE_PRIVATE_KEY or FIREBASE_CLIENT_EMAIL - admin features disabled");
   }
+} else {
+  isInitialized = true;
 }
 
 export const adminAuth = isInitialized ? admin.auth() : null;
