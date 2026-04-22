@@ -471,7 +471,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 <div 
                     ref={playerRootRef} 
                     className={`relative w-full bg-black flex items-center justify-center overflow-hidden group ${
-                        isFullscreen ? 'fixed inset-0 z-[999999] aspect-auto' : 'aspect-video'
+                        isFullscreen ? 'fixed inset-0 z-999999 aspect-auto' : 'aspect-video'
                     }`}
                     style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
                     onContextMenu={(e) => e.preventDefault()}
@@ -888,7 +888,7 @@ export default function RecordedClassesPage() {
                                                                                 setOpeningNoteId(cls.id);
                                                                                 const fbToken = await user?.getIdToken();
                                                                                 const token = await createMediaToken(cls.notesUrl || "", "note", fbToken);
-                                                                                router.push(`/player/note?token=${encodeURIComponent(token)}`);
+                                                                                router.push(`/player/note?token=${encodeURIComponent(token)}&title=${encodeURIComponent(cls.title)}`);
                                                                             } catch {
                                                                                 toast.error("Could not open notes content");
                                                                             } finally {

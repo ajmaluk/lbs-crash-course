@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
       if (!candidate) continue;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
         console.log(`[MEDIA_NOTE] Attempting candidate: ${candidate}`);
         const candidateResponse = await fetch(candidate, { ...requestInit, signal: controller.signal });
@@ -151,6 +151,17 @@ export async function GET(req: NextRequest) {
               }
             } else {
               console.warn(`[MEDIA_NOTE] No confirmation token found in HTML response.`);
+              // Some large files might just need confirm=t without a specific token if public
+              const fallbackBypassUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+              console.log(`[MEDIA_NOTE] Attempting fallback bypass: ${fallbackBypassUrl}`);
+              const fallbackResponse = await fetch(fallbackBypassUrl, { ...requestInit });
+              const fallbackContentType = (fallbackResponse.headers.get("content-type") || "").toLowerCase();
+              if (fallbackResponse.ok && fallbackResponse.body && !fallbackContentType.includes("text/html")) {
+                console.log(`[MEDIA_NOTE] Fallback bypass successful! Type: ${fallbackContentType}`);
+                streamingResponse = fallbackResponse;
+                clearTimeout(timeoutId);
+                break;
+              }
             }
           }
           clearTimeout(timeoutId);

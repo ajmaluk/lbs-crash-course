@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
+import { verifyAdmin } from "@/lib/auth-utils";
 
-export function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get('__session')?.value;
 
@@ -16,7 +17,6 @@ export function middleware(request: NextRequest) {
   if (isProtectedRoute && !session && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    // Preserve the original destination
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
@@ -42,17 +42,8 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

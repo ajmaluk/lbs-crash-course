@@ -337,22 +337,28 @@ export function RegisterForm() {
                                         )}
                                     </div>
                                     {formData.selectedPackage && (
-                                        <a
-                                            href={
-                                                formData.selectedPackage === "live_only"
-                                                    ? "/qr/live-only-qr.png"
-                                                    : formData.selectedPackage === "recorded_only"
-                                                        ? "/qr/record-only-qr.png"
-                                                        : "/qr/combo-qr.png"
-                                            }
-                                            download
-                                            aria-label="Download payment QR code"
-                                        >
-                                            <Button variant="outline" size="sm" className="mt-2">
-                                                <Download className="mr-1 h-4 w-4" />
-                                                Download QR
-                                            </Button>
-                                        </a>
+                                        <div className="mt-3 flex flex-col items-center gap-3">
+                                            <a
+                                                href={
+                                                    formData.selectedPackage === "live_only"
+                                                        ? "/qr/live-only-qr.png"
+                                                        : formData.selectedPackage === "recorded_only"
+                                                            ? "/qr/record-only-qr.png"
+                                                            : "/qr/combo-qr.png"
+                                                }
+                                                download
+                                                aria-label="Download payment QR code"
+                                            >
+                                                <Button variant="outline" size="sm">
+                                                    <Download className="mr-1 h-4 w-4" />
+                                                    Download QR
+                                                </Button>
+                                            </a>
+                                            <div className="text-sm font-medium">
+                                                <span className="text-muted-foreground">UPI ID: </span>
+                                                <span className="select-all rounded bg-primary/10 px-2 py-1 text-primary">asca2025@sbi</span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
 

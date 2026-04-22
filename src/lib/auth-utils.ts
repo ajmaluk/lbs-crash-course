@@ -37,15 +37,33 @@ export async function verifyActionSession() {
 }
 
 /**
- * High-level helper to verify admin role
- * Works for both API routes (pass req) and Server Actions (no req)
+ * Verifies a raw ID token
  */
-export async function verifyAdmin(req?: NextRequest) {
+export async function verifyToken(token: string) {
+    if (!adminAuth) return null;
+    try {
+        return await adminAuth.verifyIdToken(token);
+    } catch (error) {
+        console.error("[AUTH_UTILS] Token verification failed:", error);
+        return null;
+    }
+}
+
+/**
+ * High-level helper to verify admin role
+ * Supports:
+ * 1. Passing NextRequest (checks Bearer token)
+ * 2. Passing raw token string
+ * 3. No arguments (checks cookies for Server Actions)
+ */
+export async function verifyAdmin(source?: NextRequest | string) {
     let decodedToken;
     
-    if (req) {
-        const { user } = await verifySession(req);
+    if (source instanceof NextRequest) {
+        const { user } = await verifySession(source);
         decodedToken = user;
+    } else if (typeof source === "string") {
+        decodedToken = await verifyToken(source);
     } else {
         decodedToken = await verifyActionSession();
     }
@@ -58,7 +76,7 @@ export async function verifyAdmin(req?: NextRequest) {
         const userData = snapshot.val();
 
         if (userData?.role === "admin") {
-            return { ...decodedToken, role: "admin" as const };
+            return { ...decodedToken, ...userData, role: "admin" as const };
         }
         
         console.warn(`[SECURITY_ALERT] Non-admin access attempt by UID: ${decodedToken.uid}`);

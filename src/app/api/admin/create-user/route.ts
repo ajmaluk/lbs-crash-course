@@ -1,17 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, isInitialized } from "@/lib/firebase-admin";
+import { verifyAdmin } from "@/lib/auth-utils";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     if (!isInitialized || !adminAuth) {
         return NextResponse.json({ message: "Admin service unavailable" }, { status: 503 });
     }
 
     try {
-        const secret = process.env.ADMIN_API_SECRET;
-        const requestSecret = request.headers.get("x-admin-secret");
-
-        if (!secret || requestSecret !== secret) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        const admin = await verifyAdmin(request);
+        if (!admin) {
+            return NextResponse.json({ message: "Unauthorized. Admin privileges required." }, { status: 403 });
         }
 
         const { email, password, displayName } = await request.json();

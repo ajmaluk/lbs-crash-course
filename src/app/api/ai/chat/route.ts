@@ -118,14 +118,22 @@ export async function POST(req: NextRequest) {
     try {
         const { prompt: rawPrompt } = await req.json();
 
-        // 1. Unified Authentication Check (Optional for guest chat)
-        const { user } = await verifySession(req);
+        // 1. Authentication check removed to allow home page usage
+        // const { user, error } = await verifySession(req);
+        // if (error || !user) {
+        //     return NextResponse.json({ error: "Authentication required to use the AI Tutor." }, { status: 401 });
+        // }
 
         const prompt = typeof rawPrompt === 'string' 
             ? rawPrompt.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim() 
             : "";
 
-        const finalPrompt = (prompt.includes("CONTEXT:") || prompt.includes("SYSTEM:")) ? prompt : `${DEFAULT_SYSTEM_PROMPT}\n\n${prompt}`;
+        if (!prompt) {
+            return NextResponse.json({ error: "Empty prompt" }, { status: 400 });
+        }
+
+        // Use a more secure wrapping strategy to prevent prompt injection
+        const finalPrompt = `[INSTRUCTIONS]\n${DEFAULT_SYSTEM_PROMPT}\n\n[USER QUERY]\n${prompt}\n\n[RESPONSE]`;
         
         // Sequential Streaming Fallback Chain
         let stream = await callGeminiStream(finalPrompt);

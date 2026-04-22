@@ -26,33 +26,11 @@ import { db } from "@/lib/firebase";
 import type { PendingRegistration } from "@/lib/types";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
-import { approveRegistrationAction } from "@/app/actions/admin-actions";
+import { approveRegistrationAction, syncStatusToGoogleSheetAction } from "@/app/actions/admin-actions";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
-async function syncStatusToGoogleSheet(email: string, status: "Verified" | "Rejected") {
-    if (!APPS_SCRIPT_URL) return;
-    try {
-        const formData = new FormData();
-        formData.append("action", "updateStatus");
-        formData.append("email", email);
-        formData.append("status", status);
 
-        const response = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => "Unknown error");
-            console.error("Sheet sync failed:", errorText);
-        } else {
-            // Removed diagnostic log
-        }
-    } catch (e) {
-        console.error("Sheet sync network/system error:", e);
-    }
-}
 
 export default function RegistrationsPage() {
     const { user } = useAuth();
@@ -193,7 +171,7 @@ LBS MCA Team`;
                 rejectionReason: reason,
             });
 
-            syncStatusToGoogleSheet(selectedReg.email, "Rejected");
+            syncStatusToGoogleSheetAction(selectedReg.email, "Rejected");
 
             toast.success(`Registration rejected. Opening email client...`);
             sendRejectionEmail(selectedReg.email, selectedReg.name, reason);

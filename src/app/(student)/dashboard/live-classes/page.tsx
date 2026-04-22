@@ -358,7 +358,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                 <div 
                     ref={playerRootRef} 
                     className={`relative w-full bg-black flex items-center justify-center overflow-hidden border-b border-white/5 group ${
-                        isFullscreen ? 'fixed inset-0 z-[999999] aspect-auto' : 'aspect-video'
+                        isFullscreen ? 'fixed inset-0 z-999999 aspect-auto' : 'aspect-video'
                     }`}
                     style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
                     onContextMenu={(e) => e.preventDefault()}

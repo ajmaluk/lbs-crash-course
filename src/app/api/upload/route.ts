@@ -12,8 +12,30 @@ cloudinary.config({
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+// Simple in-memory rate limiter (resets on server restart/redeploy, but helps against basic spam)
+const uploadRateLimit = new Map<string, { count: number, lastUpload: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_UPLOADS_PER_WINDOW = 5;
+
 export async function POST(req: NextRequest) {
     try {
+        const clientIp = req.headers.get("x-forwarded-for") || "unknown";
+        const now = Date.now();
+        
+        // Basic Rate Limiting
+        const ipData = uploadRateLimit.get(clientIp) || { count: 0, lastUpload: now };
+        if (now - ipData.lastUpload < RATE_LIMIT_WINDOW) {
+            ipData.count++;
+        } else {
+            ipData.count = 1;
+            ipData.lastUpload = now;
+        }
+        uploadRateLimit.set(clientIp, ipData);
+
+        if (ipData.count > MAX_UPLOADS_PER_WINDOW) {
+            return NextResponse.json({ error: "Rate limit exceeded. Try again later." }, { status: 429 });
+        }
+
         const contentType = req.headers.get("content-type") || "";
         if (!contentType.includes("multipart/form-data")) {
             return NextResponse.json({ error: "Invalid Content-Type. Expected multipart/form-data" }, { status: 400 });
@@ -26,15 +48,18 @@ export async function POST(req: NextRequest) {
 
         // 1. Unified Security Logic
         if (source === "registration-flow") {
-            // Allow unauthenticated for registration, but check source header
-            // (Note: In a more advanced setup, we'd add rate limiting here)
+            // Check for registration secret to prevent public upload abuse
+            const regSecret = req.headers.get("x-registration-secret");
+            if (regSecret !== process.env.NEXT_PUBLIC_REGISTRATION_SECRET && process.env.NODE_ENV === "production") {
+                console.error(`[SEC_CRITICAL] Unauthorized Registration Upload Attempt: IP=${clientIp}`);
+                return NextResponse.json({ error: "Access Denied: Invalid Security Context" }, { status: 403 });
+            }
         } else if (source === "profile-upgrade" || source === "admin-action") {
             // MUST be authenticated for profile upgrades or admin actions
             const { error } = await verifySession(req);
             if (error) return error;
         } else {
             // Block everything else
-            const clientIp = req.headers.get("x-forwarded-for") || "unknown";
             console.error(`[SEC_CRITICAL] Unauthorized Upload Attempt: Source=${source}, IP=${clientIp}`);
             return NextResponse.json({ error: "Access Denied: Invalid Security Context" }, { status: 403 });
         }

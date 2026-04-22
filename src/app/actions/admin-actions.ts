@@ -31,13 +31,6 @@ async function generateUniqueLoginId(): Promise<string> {
     return `LBS-${Math.floor(10000 + Math.random() * 90000)}`;
 }
 
-function generateSecurePassword(length: number = 12): string {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
-    const array = new Uint32Array(length);
-    crypto.getRandomValues(array);
-    return Array.from(array, (v) => charset[v % charset.length]).join("");
-}
-
 export async function approveRegistrationAction(
     registrationId: string,
     regData: {
@@ -62,7 +55,7 @@ export async function approveRegistrationAction(
         const adminUid = adminUser.uid;
 
         const loginId = await generateUniqueLoginId();
-        const tempPassword = generateSecurePassword();
+        const tempPassword = regData.phone; // Using mobile number as default password
         
         let uid: string;
         try {
@@ -117,6 +110,14 @@ export async function approveRegistrationAction(
 
         await adminDb.ref().update(updates);
 
+        // Sync to Google Sheet server-side to avoid CORS issues
+        try {
+            await syncStatusToGoogleSheetAction(regData.email, "Verified");
+        } catch (e) {
+            console.error("Failed to sync to Google Sheet:", e);
+            // We don't fail the whole action if sync fails, but we log it
+        }
+
         revalidatePath("/admin/registrations");
 
         return {
@@ -135,4 +136,38 @@ export async function approveRegistrationAction(
             message: err.message || "Failed to approve registration"
         };
     }
+}
+
+export async function syncStatusToGoogleSheetAction(email: string, status: "Verified" | "Rejected") {
+    const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+    if (!APPS_SCRIPT_URL) return { success: false, message: "Apps Script URL not configured" };
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append("action", "updateStatus");
+        formData.append("email", email);
+        formData.append("status", status);
+
+        const response = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Sheet sync failed with status ${response.status}`);
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Server-side Sheet sync error:", error);
+        return { success: false, message: (error as Error).message };
+    }
+}
+
+export async function testAction() {
+    console.log("Test Action called successfully");
+    return { success: true, timestamp: Date.now() };
 }

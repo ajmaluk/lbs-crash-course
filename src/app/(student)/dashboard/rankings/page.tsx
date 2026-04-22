@@ -426,7 +426,7 @@ export default function RankingsPage() {
 
                             {/* Expanded Leaderboard */}
                             <div className={`overflow-hidden transition-all duration-400 ease-in-out ${
-                                isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                                isExpanded ? "max-h-500 opacity-100" : "max-h-0 opacity-0"
                             }`}>
                                 <div className="border-2 border-t-0 border-primary/40 rounded-b-2xl bg-card p-4 sm:p-6">
                                     {/* Quick stats bar */}

@@ -13,6 +13,7 @@ function NoteViewerInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token") || "";
+  const noteTitle = searchParams.get("title") || "Class Notes";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -89,13 +90,16 @@ function NoteViewerInner() {
     };
   }, [token]);
 
-  // Auto-fit zoom to width on first load
+  // Auto-fit zoom to width
   useEffect(() => {
-    if (!pdfDoc || !shellRef.current || initialZoomSet) return;
+    if (!pdfDoc || !shellRef.current) return;
+
+    let timeoutId: NodeJS.Timeout;
 
     const calculateFitZoom = async () => {
       try {
         const page = await pdfDoc.getPage(1);
+        // Reset scale to 1 to get baseline dimensions
         const viewport = page.getViewport({ scale: 1 });
         const containerWidth = shellRef.current?.clientWidth || window.innerWidth;
         
@@ -103,15 +107,30 @@ function NoteViewerInner() {
         const effectiveWidth = isFullscreen ? containerWidth : containerWidth - (window.innerWidth < 640 ? 40 : 80);
         
         const fitScale = Number((effectiveWidth / viewport.width).toFixed(2));
-        setZoom(Math.max(0.5, Math.min(fitScale, 2.0)));
+        setZoom(Math.max(0.5, Math.min(fitScale, 3.0)));
         setInitialZoomSet(true);
       } catch (err) {
         console.error("Failed to calculate fit zoom:", err);
       }
     };
 
+    // Calculate immediately on first load or when fullscreen state changes
     calculateFitZoom();
-  }, [pdfDoc, isFullscreen, initialZoomSet]);
+
+    // Re-calculate on window resize (debounced)
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(calculateFitZoom, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, [pdfDoc, isFullscreen]);
+
+  const renderTaskRef = useRef<any>(null);
 
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current || viewerError) return;
@@ -119,6 +138,16 @@ function NoteViewerInner() {
 
     const renderPage = async () => {
       setIsLoading(true);
+      
+      // Wait for previous render task to fully complete/cancel before starting new one
+      if (renderTaskRef.current) {
+        try {
+          await renderTaskRef.current.promise;
+        } catch (e) {
+          // ignore previous cancellations
+        }
+      }
+      
       try {
         const page = await pdfDoc.getPage(pageNumber);
         if (cancelled || !canvasRef.current) return;
@@ -143,8 +172,14 @@ function NoteViewerInner() {
           canvas,
           transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined
         });
+        
+        renderTaskRef.current = renderTask;
         await renderTask.promise;
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === "RenderingCancelledException") {
+          // This is expected when zoom/page changes mid-render
+          return;
+        }
         if (!cancelled) {
           console.error("Render error:", err);
           setViewerError("Failed to render this page. Please try opening the note again.");
@@ -158,6 +193,9 @@ function NoteViewerInner() {
 
     return () => {
       cancelled = true;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
     };
   }, [pdfDoc, pageNumber, zoom, viewerError]);
 
@@ -264,7 +302,7 @@ function NoteViewerInner() {
               </Button>
               <div className="min-w-0">
                 <p className="hidden xs:block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Secure Notes Viewer</p>
-                <h1 className="truncate text-base sm:text-lg font-bold">Class Notes</h1>
+                <h1 className="truncate text-base sm:text-lg font-bold">{noteTitle}</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -392,6 +430,7 @@ function NoteViewerInner() {
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
                   <p className="font-semibold">Unable to open this note</p>
                   <p className="mt-1 text-sm text-muted-foreground">{viewerError}</p>
+                  <p className="mt-3 text-sm font-medium text-amber-500">If this issue persists, please try with another browser.</p>
                   <Button className="mt-6 rounded-xl" onClick={() => router.back()}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Go Back
