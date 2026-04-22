@@ -30,6 +30,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { TransactionIdHelper } from "@/components/payment/TransactionIdHelper";
+import { submitRegistrationToSheetAction } from "@/app/actions/registration-actions";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
@@ -166,29 +167,13 @@ export function RegisterForm() {
                 return;
             }
 
-            if (APPS_SCRIPT_URL) {
-                try {
-                    const formPayload = new FormData();
-                    formPayload.append("name", formData.name);
-                    formPayload.append("email", formData.email);
-                    formPayload.append("phone", formData.phone);
-                    formPayload.append("whatsapp", formData.whatsapp);
-                    formPayload.append("graduationYear", formData.graduationYear);
-                    formPayload.append("selectedPackage", formData.selectedPackage);
-                    formPayload.append("transactionId", formData.transactionId);
-                    formPayload.append("screenshotUrl", cloudinaryUrl);
-
-                    const response = await fetch(APPS_SCRIPT_URL, {
-                        method: "POST",
-                        body: formPayload,
-                    });
-
-                    if (!response.ok) {
-                        console.warn("Apps Script sync responded with error status:", response.status);
-                    }
-                } catch (sheetErr) {
-                    console.error("Apps Script Sync Error:", sheetErr);
-                }
+            try {
+                await submitRegistrationToSheetAction({
+                    ...formData,
+                    screenshotUrl: cloudinaryUrl
+                });
+            } catch (sheetErr) {
+                console.error("Sheet Sync Error:", sheetErr);
             }
 
             const pendingRef = push(ref(db, "pendingRegistrations"));
@@ -354,9 +339,12 @@ export function RegisterForm() {
                                                     Download QR
                                                 </Button>
                                             </a>
-                                            <div className="text-sm font-medium">
-                                                <span className="text-muted-foreground">UPI ID: </span>
-                                                <span className="select-all rounded bg-primary/10 px-2 py-1 text-primary">asca2025@sbi</span>
+                                            <div className="mt-4 w-full p-4 rounded-2xl bg-primary/5 border border-primary/20 text-center animate-pulse-subtle">
+                                                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">UPI ID for Payment</p>
+                                                <span className="select-all text-lg font-mono font-bold text-primary px-3 py-1 bg-white/50 dark:bg-black/20 rounded-lg border border-primary/10 shadow-sm">
+                                                    asca2025@sbi
+                                                </span>
+                                                <p className="text-[10px] text-muted-foreground mt-2">Tap to copy or scan the QR above</p>
                                             </div>
                                         </div>
                                     )}

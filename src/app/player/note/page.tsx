@@ -16,6 +16,7 @@ function NoteViewerInner() {
   const noteTitle = searchParams.get("title") || "Class Notes";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewerError, setViewerError] = useState("");
@@ -99,15 +100,20 @@ function NoteViewerInner() {
     const calculateFitZoom = async () => {
       try {
         const page = await pdfDoc.getPage(1);
-        // Reset scale to 1 to get baseline dimensions
         const viewport = page.getViewport({ scale: 1 });
-        const containerWidth = shellRef.current?.clientWidth || window.innerWidth;
         
-        // Subtract padding (p-4 = 32px, p-8 = 64px)
-        const effectiveWidth = isFullscreen ? containerWidth : containerWidth - (window.innerWidth < 640 ? 40 : 80);
+        // Use the actual content area width if available, fallback to window
+        const containerWidth = viewportRef.current?.clientWidth || (window.innerWidth < 1280 ? window.innerWidth : 1280);
         
-        const fitScale = Number((effectiveWidth / viewport.width).toFixed(2));
-        setZoom(Math.max(0.5, Math.min(fitScale, 3.0)));
+        // Accurate padding calculation
+        // Standard view: p-4 (32px total) or p-8 (64px total)
+        // Fullscreen: p-0
+        const padding = isFullscreen ? 0 : (window.innerWidth < 640 ? 32 : 64);
+        const availableWidth = containerWidth - padding;
+        
+        const fitScale = Number((availableWidth / viewport.width).toFixed(2));
+        // Clamp zoom to reasonable values
+        setZoom(Math.max(0.4, Math.min(fitScale, 2.5)));
         setInitialZoomSet(true);
       } catch (err) {
         console.error("Failed to calculate fit zoom:", err);
@@ -169,8 +175,7 @@ function NoteViewerInner() {
         const renderTask = page.render({ 
           canvasContext: context, 
           viewport, 
-          canvas,
-          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined
+          canvas
         });
         
         renderTaskRef.current = renderTask;
@@ -346,23 +351,23 @@ function NoteViewerInner() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-lg p-0"
-                    onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.1).toFixed(2))))}
-                    disabled={zoom <= 0.5 || isLoading || Boolean(viewerError)}
+                    className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg p-0"
+                    onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
+                    disabled={zoom <= 0.4 || isLoading || Boolean(viewerError)}
                   >
-                    <ZoomOut className="h-3.5 w-3.5" />
+                    <ZoomOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
-                  <span className="min-w-9 text-center text-[10px] font-mono font-bold text-muted-foreground">
+                  <span className="min-w-10 text-center text-[10px] font-mono font-bold text-muted-foreground">
                     {Math.round(zoom * 100)}%
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-lg p-0"
-                    onClick={() => setZoom((z) => Math.min(3.0, Number((z + 0.1).toFixed(2))))}
-                    disabled={zoom >= 3.0 || isLoading || Boolean(viewerError)}
+                    className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg p-0"
+                    onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
+                    disabled={zoom >= 2.5 || isLoading || Boolean(viewerError)}
                   >
-                    <ZoomIn className="h-3.5 w-3.5" />
+                    <ZoomIn className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
                 </div>
 
@@ -372,23 +377,23 @@ function NoteViewerInner() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-lg p-0"
+                    className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg p-0"
                     onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                     disabled={pageNumber <= 1 || isLoading || Boolean(viewerError)}
                   >
-                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <ChevronLeft className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
-                  <span className="min-w-12 text-center text-[10px] font-mono font-bold text-muted-foreground">
-                    {totalPages > 0 ? `${pageNumber}/${totalPages}` : "-/-"}
+                  <span className="min-w-14 text-center text-[10px] font-mono font-bold text-muted-foreground">
+                    {totalPages > 0 ? `${pageNumber} / ${totalPages}` : "- / -"}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 rounded-lg p-0"
+                    className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg p-0"
                     onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
                     disabled={pageNumber >= totalPages || isLoading || totalPages === 0 || Boolean(viewerError)}
                   >
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -407,7 +412,7 @@ function NoteViewerInner() {
             {userData?.email && (
               <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-10 sm:gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-xs sm:text-sm">
-                  {Array.from({ length: 18 }).map((_, i) => (
+                  {Array.from({ length: 12 }).map((_, i) => (
                     <span key={i}>{userData.email}</span>
                   ))}
                 </div>
@@ -428,10 +433,15 @@ function NoteViewerInner() {
               <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/95">
                 <div className="max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-xl mx-4">
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
-                  <p className="font-semibold">Unable to open this note</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{viewerError}</p>
-                  <p className="mt-3 text-sm font-medium text-amber-500">If this issue persists, please try with another browser.</p>
-                  <Button className="mt-6 rounded-xl" onClick={() => router.back()}>
+                  <p className="font-semibold text-lg">Unable to open this note</p>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{viewerError}</p>
+                  
+                  <div className="mt-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <p className="text-xs font-bold uppercase tracking-widest mb-1">Recommended Action</p>
+                    <p className="text-sm font-medium">Please try opening this link in a different browser (like Chrome or Safari) if you are currently using an in-app browser.</p>
+                  </div>
+
+                  <Button className="mt-6 w-full rounded-xl h-11 gradient-primary border-0 shadow-lg shadow-blue-500/20" onClick={() => router.back()}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Go Back
                   </Button>
@@ -440,7 +450,8 @@ function NoteViewerInner() {
             )}
 
             <div 
-              className={cn("h-full w-full overflow-auto scroll-smooth select-none", isFullscreen ? "p-0" : "p-4 sm:p-8")}
+              ref={viewportRef}
+              className={cn("h-full w-full overflow-auto scroll-smooth select-none scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10", isFullscreen ? "p-0" : "p-4 sm:p-8")}
               onTouchStart={(e) => {
                 if (e.touches.length === 2) {
                   const dist = Math.hypot(
