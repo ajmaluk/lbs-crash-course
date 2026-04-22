@@ -53,7 +53,7 @@ export default function RouteGuard({
             }
             
             // First Login Check
-            if (userData.firstLogin && pathname !== "/change-password") {
+            if (userData.firstLogin && !isAdmin && pathname !== "/change-password") {
                 router.replace("/change-password");
                 return;
             }

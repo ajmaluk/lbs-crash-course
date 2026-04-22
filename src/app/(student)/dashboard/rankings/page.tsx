@@ -8,10 +8,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
-import { Trophy, Medal, Crown, Award, Loader2, Timer, Info } from "lucide-react";
+import { Trophy, Medal, Crown, Award, Loader2, Timer, Info, ChevronDown, ChevronRight, Star, Users, Target, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-
-import { Select } from "@/components/ui/select";
 
 import type { RankData } from "@/lib/types";
 
@@ -25,7 +23,7 @@ export default function RankingsPage() {
     const [mockRankings, setMockRankings] = useState<RankData[]>([]);
     const [loadingQuizzes, setLoadingQuizzes] = useState(true);
     const [loadingMocks, setLoadingMocks] = useState(true);
-    const [selectedId, setSelectedId] = useState<string>("");
+    const [expandedId, setExpandedId] = useState<string>("");
     
     const requestedTestId = searchParams.get("testId") || searchParams.get("aiPracticeId") || "";
 
@@ -50,7 +48,6 @@ export default function RankingsPage() {
             setMockRankings(filteredMockRankings);
 
             // FALLBACK: After IDs are loaded, also show orphaned rankings if no valid ones exist
-            // This handles case where quiz/test was deleted after rankings were generated
             if (idsReady) {
                 if (filteredQuizRankings.length === 0 && rankingsRaw.length > 0) {
                     setQuizRankings(rankingsRaw
@@ -102,7 +99,6 @@ export default function RankingsPage() {
                 updateStates();
                 setLoadingQuizzes(false);
             }, (error) => {
-                // permission_denied is expected when Firebase rules haven't been deployed
                 if (String(error).includes("permission_denied")) {
                     console.warn("[Rankings] No permission to read /rankings — ensure database rules are deployed.");
                 } else {
@@ -140,54 +136,30 @@ export default function RankingsPage() {
         };
     }, []);
 
-    // Effect to handle selection logic reactively
+    // Auto-expand requested test from URL params
     useEffect(() => {
-        if (tab === "quizzes") {
-            if (quizRankings.length > 0) {
-                if (!selectedId || !quizRankings.find(r => r.quizId === selectedId)) {
-                    setSelectedId(quizRankings[0].quizId || "");
+        if (requestedTestId) {
+            const allRankings = [...quizRankings, ...mockRankings];
+            const match = allRankings.find(r => r.quizId === requestedTestId);
+            if (match) {
+                setExpandedId(requestedTestId);
+                // Determine which tab it belongs to
+                if (mockRankings.find(r => r.quizId === requestedTestId)) {
+                    setTab("mockTests");
+                } else {
+                    setTab("quizzes");
                 }
-            } else {
-                setSelectedId("");
-            }
-        } else if (tab === "mockTests") {
-            if (mockRankings.length > 0) {
-                if (requestedTestId) {
-                    const requested = mockRankings.find(r => r.quizId === requestedTestId);
-                    if (requested && selectedId !== requestedTestId) {
-                        setSelectedId(requestedTestId);
-                        return;
-                    }
-                }
-                if (!selectedId || !mockRankings.find(r => r.quizId === selectedId)) {
-                    setSelectedId(mockRankings[0].quizId || "");
-                }
-            } else {
-                setSelectedId("");
             }
         }
-    }, [tab, quizRankings, mockRankings, requestedTestId, selectedId]);
+    }, [requestedTestId, quizRankings, mockRankings]);
 
+    const toggleExpand = (id: string) => {
+        setExpandedId(prev => prev === id ? "" : id);
+    };
 
-    const aiPracticeRankings = useMemo(
-        () => mockRankings.filter((item) => item.quizId && item.quizId.startsWith("ai-practice-")),
-        [mockRankings]
-    );
-
-    const jumpToAiPractice = () => {
-        if (aiPracticeRankings.length === 0) {
-            toast.error("AI Practice leaderboard not available yet.");
-            return;
-        }
-
-        const withMe = aiPracticeRankings.find((ranking) =>
-            ranking.entries?.some((entry) => entry.userId === userData?.uid)
-        );
-
-        const target = withMe || aiPracticeRankings[0];
-        setTab("mockTests");
-        setSelectedId(target.quizId || "");
-        toast.success("Opened AI Practice leaderboard");
+    const getUserRankAndScore = (rankData: RankData) => {
+        if (!userData?.uid || !rankData.entries) return null;
+        return rankData.entries.find(e => e.userId === userData.uid);
     };
 
     const getRankStyles = (rank: number) => {
@@ -213,7 +185,7 @@ export default function RankingsPage() {
         };
     };
 
-    const renderRankingContent = (rankData: RankData) => {
+    const renderPodium = (rankData: RankData) => {
         if (!rankData.entries || rankData.entries.length === 0) {
             return (
                 <div className="p-12 text-center text-muted-foreground bg-card rounded-2xl border border-dashed border-border shadow-sm">
@@ -226,10 +198,8 @@ export default function RankingsPage() {
 
         const top3 = rankData.entries.slice(0, 3);
 
-
-
         return (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Podium View */}
                 <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end pt-8 pb-4">
                     {/* Rank 2 */}
@@ -292,7 +262,7 @@ export default function RankingsPage() {
                     </div>
                 </div>
 
-                {/* List View for Others */}
+                {/* Full Rankings List */}
                 <Card className="overflow-hidden border shadow-xl rounded-3xl bg-card/50 backdrop-blur-sm">
                     <div className="p-6 border-b flex items-center justify-between">
                         <h3 className="font-bold flex items-center gap-2">
@@ -341,14 +311,149 @@ export default function RankingsPage() {
         );
     };
 
+    const renderQuizList = (rankings: RankData[]) => {
+        if (rankings.length === 0) {
+            return (
+                <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
+                    <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <h3 className="text-lg font-semibold">No results published</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Leaderboard is visible once admin publishes the results.
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-3">
+                {rankings.map((rankData, index) => {
+                    const isExpanded = expandedId === rankData.quizId;
+                    const myEntry = getUserRankAndScore(rankData);
+                    const participantCount = rankData.entries?.length || 0;
+                    const topScorer = rankData.entries?.[0];
+                    const isAiPractice = rankData.quizId?.startsWith("ai-practice-");
+
+                    return (
+                        <div key={rankData.quizId} className="animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${index * 50}ms` }}>
+                            {/* Quiz/Test List Item */}
+                            <button
+                                onClick={() => toggleExpand(rankData.quizId || "")}
+                                className={`w-full text-left rounded-2xl border-2 p-4 sm:p-5 transition-all duration-300 group cursor-pointer ${
+                                    isExpanded 
+                                        ? "border-primary/40 bg-primary/5 shadow-lg shadow-primary/5 rounded-b-none" 
+                                        : "border-border hover:border-primary/20 hover:bg-muted/30 hover:shadow-md bg-card"
+                                }`}
+                            >
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                    {/* Index badge */}
+                                    <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center shrink-0 rounded-xl transition-all ${
+                                        isExpanded 
+                                            ? "bg-primary text-white shadow-md" 
+                                            : isAiPractice 
+                                                ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600"
+                                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+                                    }`}>
+                                        {isAiPractice 
+                                            ? <Sparkles className="h-5 w-5" />
+                                            : <Trophy className="h-5 w-5" />
+                                        }
+                                    </div>
+
+                                    {/* Title & meta */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className={`text-sm sm:text-base font-bold truncate ${isExpanded ? "text-primary" : ""}`}>
+                                                {rankData.quizTitle}
+                                            </h3>
+                                            {isAiPractice && (
+                                                <Badge variant="secondary" className="text-[9px] h-4 bg-purple-100 text-purple-700 border-purple-200">AI Practice</Badge>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+                                            <span className="flex items-center gap-1">
+                                                <Users className="h-3 w-3" />
+                                                {participantCount} participants
+                                            </span>
+                                            {topScorer && (
+                                                <span className="flex items-center gap-1">
+                                                    <Crown className="h-3 w-3 text-yellow-500" />
+                                                    {topScorer.userName}
+                                                </span>
+                                            )}
+                                            {rankData.generatedAt > 0 && (
+                                                <span className="hidden sm:flex items-center gap-1">
+                                                    <Timer className="h-3 w-3" />
+                                                    {new Date(rankData.generatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* My score badge (if attempted) */}
+                                    {myEntry && (
+                                        <div className="hidden sm:flex flex-col items-end gap-1">
+                                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
+                                                <Target className="h-3.5 w-3.5 text-primary" />
+                                                <span className="text-xs font-black text-primary">{myEntry.score}/{myEntry.totalQuestions}</span>
+                                            </div>
+                                            <span className="text-[9px] text-muted-foreground font-semibold">
+                                                Rank #{myEntry.rank}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Mobile score */}
+                                    {myEntry && (
+                                        <div className="sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
+                                            <Star className="h-3 w-3 text-primary fill-primary" />
+                                            <span className="text-[10px] font-black text-primary">{myEntry.score}/{myEntry.totalQuestions}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Expand/Collapse icon */}
+                                    <div className={`shrink-0 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}>
+                                        <ChevronDown className={`h-5 w-5 ${isExpanded ? "text-primary" : "text-muted-foreground"}`} />
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* Expanded Leaderboard */}
+                            <div className={`overflow-hidden transition-all duration-400 ease-in-out ${
+                                isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                            }`}>
+                                <div className="border-2 border-t-0 border-primary/40 rounded-b-2xl bg-card p-4 sm:p-6">
+                                    {/* Quick stats bar */}
+                                    {rankData.entries && rankData.entries.length > 0 && (
+                                        <div className="grid grid-cols-3 gap-3 mb-6">
+                                            <div className="text-center p-3 rounded-xl bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200/50">
+                                                <p className="text-lg sm:text-xl font-black text-yellow-600">{rankData.entries[0]?.userName || "—"}</p>
+                                                <p className="text-[9px] uppercase tracking-widest font-bold text-yellow-600/60">Top Scorer</p>
+                                            </div>
+                                            <div className="text-center p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50">
+                                                <p className="text-lg sm:text-xl font-black text-blue-600">{participantCount}</p>
+                                                <p className="text-[9px] uppercase tracking-widest font-bold text-blue-600/60">Participants</p>
+                                            </div>
+                                            <div className="text-center p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-200/50">
+                                                <p className="text-lg sm:text-xl font-black text-green-600">
+                                                    {Math.round(rankData.entries.reduce((acc, curr) => acc + (curr.score / curr.totalQuestions), 0) / rankData.entries.length * 100)}%
+                                                </p>
+                                                <p className="text-[9px] uppercase tracking-widest font-bold text-green-600/60">Avg Score</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {renderPodium(rankData)}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     const currentRankings = tab === "quizzes" ? quizRankings : mockRankings;
     const isLoading = tab === "quizzes" ? loadingQuizzes : loadingMocks;
-    const activeRanking = currentRankings.find(r => r.quizId === selectedId);
-
-    const rankingOptions = currentRankings.map(r => ({
-        value: r.quizId || "",
-        label: r.quizTitle
-    }));
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
@@ -362,45 +467,7 @@ export default function RankingsPage() {
                 </div>
             </div>
 
-            {/* Global Stats Highlights */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
-                <Card className="bg-linear-to-br from-primary/10 to-primary/5 border-primary/20 shadow-sm overflow-hidden relative group">
-                    <div className="absolute -right-4 -top-4 opacity-10 group-hover:scale-110 transition-transform">
-                        <Crown className="h-24 w-24" />
-                    </div>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Top Performer</p>
-                        <h3 className="text-2xl font-black truncate">{activeRanking?.entries?.[0]?.userName || "N/A"}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">Current Leader for {activeRanking?.quizTitle || "selected test"}</p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-linear-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20 shadow-sm overflow-hidden relative group">
-                    <div className="absolute -right-4 -top-4 opacity-10 group-hover:scale-110 transition-transform">
-                        <Award className="h-24 w-24" />
-                    </div>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-bold text-amber-600 uppercase tracking-wider mb-2">Total Participants</p>
-                        <h3 className="text-3xl font-black">{activeRanking?.entries?.length || 0}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">Active members in this category</p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-linear-to-br from-green-500/10 to-green-500/5 border-green-500/20 shadow-sm overflow-hidden relative group">
-                    <div className="absolute -right-4 -top-4 opacity-10 group-hover:scale-110 transition-transform">
-                        <Info className="h-24 w-24" />
-                    </div>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-bold text-green-600 uppercase tracking-wider mb-2">Average Score</p>
-                        <h3 className="text-3xl font-black">
-                            {activeRanking?.entries?.length 
-                                ? Math.round(activeRanking.entries.reduce((acc, curr) => acc + (curr.score / curr.totalQuestions), 0) / activeRanking.entries.length * 100)
-                                : 0}%
-                        </h3>
-                        <p className="text-xs text-muted-foreground mt-1">Overall group accuracy</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Tabs value={tab} onValueChange={setTab} className="w-full">
+            <Tabs value={tab} onValueChange={(v) => { setTab(v); setExpandedId(""); }} className="w-full">
                 <TabsList className="p-1 h-auto bg-muted/50 border gap-1 rounded-xl w-full max-w-sm mb-6">
                     <TabsTrigger value="mockTests" className="flex-1 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">Mock Tests</TabsTrigger>
                     <TabsTrigger value="quizzes" className="flex-1 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">Quizzes</TabsTrigger>
@@ -411,55 +478,10 @@ export default function RankingsPage() {
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         <p className="text-sm text-muted-foreground">Fetching rankings...</p>
                     </div>
-                ) : currentRankings.length === 0 ? (
-                    <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
-                        <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <h3 className="text-lg font-semibold">No results published</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Leaderboard is visible once admin publishes the results.
-                        </p>
-                    </div>
                 ) : (
-                    <div className="space-y-6">
-                        <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-                                    Select Test/Quiz Result
-                                </label>
-                                {tab === "mockTests" && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={jumpToAiPractice}
-                                        className="h-8 rounded-lg border-primary/30 text-primary hover:bg-primary/5"
-                                    >
-                                        <Trophy className="mr-1.5 h-3.5 w-3.5" />
-                                        AI Practice Leaderboard
-                                    </Button>
-                                )}
-                            </div>
-                            <Select
-                                value={selectedId}
-                                onChange={(e) => setSelectedId(e.target.value)}
-                                options={rankingOptions}
-                                className="h-11"
-                            />
-                        </div>
-
-                        {activeRanking ? (
-                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                {renderRankingContent(activeRanking)}
-                            </div>
-                        ) : (
-                            <div className="py-20 text-center text-muted-foreground">
-                                <p>Please select a result from the dropdown above.</p>
-                            </div>
-                        )}
-                    </div>
+                    renderQuizList(currentRankings)
                 )}
             </Tabs>
         </div>
     );
 }
-
-

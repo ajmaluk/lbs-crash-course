@@ -68,6 +68,15 @@ export async function approveRegistrationAction(
         try {
             const existingUser = await adminAuth.getUserByEmail(regData.email);
             uid = existingUser.uid;
+            
+            // Check if existing user is an admin to prevent overwriting their account
+            const existingUserSnapshot = await adminDb.ref(`users/${uid}`).get();
+            if (existingUserSnapshot.exists()) {
+                const existingData = existingUserSnapshot.val();
+                if (existingData.role === "admin") {
+                    return { success: false, message: "Cannot approve registration for an email address that belongs to an admin." };
+                }
+            }
         } catch (error: unknown) {
             const firebaseError = error as { code?: string };
             if (firebaseError.code === 'auth/user-not-found') {
