@@ -94,37 +94,63 @@ export async function GET(req: NextRequest) {
     let streamingResponse: Response | null = null;
     const fileId = extractGoogleDriveFileId(sourceUrl) || extractGoogleDriveFileId(targetUrl);
     const candidateUrls = isDriveUrl(sourceUrl)
-      ? buildGoogleDriveCandidates(fileId || "")
+      ? [
+          ...buildGoogleDriveCandidates(fileId || ""),
+          `https://docs.google.com/uc?id=${fileId}&export=download`,
+          `https://drive.google.com/u/0/uc?id=${fileId}&export=download`
+        ]
       : [targetUrl];
+
+    console.log(`[MEDIA_NOTE] Starting fetch for fileId: ${fileId || "N/A"}`);
 
     for (const candidate of candidateUrls) {
       if (!candidate) continue;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
 
+        console.log(`[MEDIA_NOTE] Attempting candidate: ${candidate}`);
         const candidateResponse = await fetch(candidate, { ...requestInit, signal: controller.signal });
+        
         if (!candidateResponse.ok || !candidateResponse.body) {
+          console.warn(`[MEDIA_NOTE] Candidate failed with status ${candidateResponse.status}: ${candidate}`);
           clearTimeout(timeoutId);
           continue;
         }
 
-        const contentType = (candidateResponse.headers.get("content-type") || "application/pdf").toLowerCase();
-        
+        const contentType = (candidateResponse.headers.get("content-type") || "").toLowerCase();
+        console.log(`[MEDIA_NOTE] Candidate content-type: ${contentType}`);
+
         if (contentType.includes("text/html")) {
           if (isDriveUrl(candidate)) {
             const html = await candidateResponse.text();
-            const confirmMatch = html.match(/confirm=([a-zA-Z0-9_-]+)/);
+            
+            // Look for confirmation token in various patterns
+            const confirmMatch = html.match(/confirm=([a-zA-Z0-9_-]+)/) || 
+                                html.match(/name="confirm"\s+value="([a-zA-Z0-9_-]+)"/);
+            
+            const uuidMatch = html.match(/name="uuid"\s+value="([a-zA-Z0-9_-]+)"/);
+
             if (confirmMatch) {
-              const confirmToken = confirmMatch[1];
-              const bypassUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${confirmToken}`;
+              const confirmToken = confirmMatch[1] || confirmMatch[2];
+              const uuidToken = uuidMatch ? `&uuid=${uuidMatch[1]}` : "";
+              
+              const bypassUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=${confirmToken}${uuidToken}`;
+              
+              console.log(`[MEDIA_NOTE] Found bypass token, attempting: ${bypassUrl}`);
               const bypassResponse = await fetch(bypassUrl, { ...requestInit });
               const bypassContentType = (bypassResponse.headers.get("content-type") || "").toLowerCase();
-              if (bypassResponse.ok && !bypassContentType.includes("text/html") && !bypassContentType.includes("application/json")) {
+              
+              if (bypassResponse.ok && bypassResponse.body && !bypassContentType.includes("text/html")) {
+                console.log(`[MEDIA_NOTE] Bypass successful! Type: ${bypassContentType}`);
                 streamingResponse = bypassResponse;
                 clearTimeout(timeoutId);
                 break;
+              } else {
+                console.warn(`[MEDIA_NOTE] Bypass failed or returned HTML. Status: ${bypassResponse.status}`);
               }
+            } else {
+              console.warn(`[MEDIA_NOTE] No confirmation token found in HTML response.`);
             }
           }
           clearTimeout(timeoutId);
@@ -132,30 +158,33 @@ export async function GET(req: NextRequest) {
         }
 
         if (contentType.includes("application/json")) {
+          console.warn(`[MEDIA_NOTE] Candidate returned JSON instead of binary data.`);
           clearTimeout(timeoutId);
           continue;
         }
 
-        // We can't easily check the magic number without consuming the stream, 
-        // but for PDFs we can trust the content-type if it's not HTML/JSON 
-        // or we can peek the first few bytes if we really wanted to.
-        // For simplicity and streaming performance, we'll pipe the body directly.
+        // Success!
+        console.log(`[MEDIA_NOTE] Successfully retrieved binary data from: ${candidate}`);
         streamingResponse = candidateResponse;
         clearTimeout(timeoutId);
         break;
       } catch (err) {
-        console.warn(`Failed to retrieve note from candidate ${candidate}:`, err);
+        console.warn(`[MEDIA_NOTE] Error for candidate ${candidate}:`, err instanceof Error ? err.message : String(err));
       }
     }
 
     if (!streamingResponse || !streamingResponse.body) {
+      console.error(`[MEDIA_NOTE] All candidates failed for source: ${sourceUrl}`);
       return errorResponse("The note could not be retrieved. Please ensure the link is public and points to a valid PDF file.", 404);
     }
 
+    const sourceContentType = (streamingResponse.headers.get("content-type") || "application/pdf").toLowerCase();
+    
     const headers = new Headers();
-    headers.set("Content-Type", "application/pdf");
+    // Prefer actual content type if it seems like a valid document/media, otherwise fallback to PDF
+    headers.set("Content-Type", sourceContentType.includes("pdf") ? "application/pdf" : sourceContentType);
     headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
-    headers.set("Content-Disposition", "inline; filename=notes.pdf");
+    headers.set("Content-Disposition", `inline; filename="note-${Date.now()}.${sourceContentType.includes("pdf") ? "pdf" : "bin"}"`);
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Cross-Origin-Resource-Policy", "same-origin");
     headers.set("X-Frame-Options", "SAMEORIGIN");

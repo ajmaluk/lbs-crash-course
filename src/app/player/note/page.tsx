@@ -21,7 +21,10 @@ function NoteViewerInner() {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [zoom, setZoom] = useState(1.25);
+  const [zoom, setZoom] = useState(1.0);
+  const [initialZoomSet, setInitialZoomSet] = useState(false);
+  const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
+  const [showRotatePrompt, setShowRotatePrompt] = useState(false);
 
   useEffect(() => {
     const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -86,6 +89,30 @@ function NoteViewerInner() {
     };
   }, [token]);
 
+  // Auto-fit zoom to width on first load
+  useEffect(() => {
+    if (!pdfDoc || !shellRef.current || initialZoomSet) return;
+
+    const calculateFitZoom = async () => {
+      try {
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const containerWidth = shellRef.current?.clientWidth || window.innerWidth;
+        
+        // Subtract padding (p-4 = 32px, p-8 = 64px)
+        const effectiveWidth = isFullscreen ? containerWidth : containerWidth - (window.innerWidth < 640 ? 40 : 80);
+        
+        const fitScale = Number((effectiveWidth / viewport.width).toFixed(2));
+        setZoom(Math.max(0.5, Math.min(fitScale, 2.0)));
+        setInitialZoomSet(true);
+      } catch (err) {
+        console.error("Failed to calculate fit zoom:", err);
+      }
+    };
+
+    calculateFitZoom();
+  }, [pdfDoc, isFullscreen, initialZoomSet]);
+
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current || viewerError) return;
     let cancelled = false;
@@ -96,20 +123,30 @@ function NoteViewerInner() {
         const page = await pdfDoc.getPage(pageNumber);
         if (cancelled || !canvasRef.current) return;
 
-        const viewport = page.getViewport({ scale: zoom });
+        // Use a higher scale for sharper rendering on high-DPI screens, then scale down with CSS
+        const dpr = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({ scale: zoom * dpr });
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
         if (!context) throw new Error("canvas context unavailable");
 
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        
+        // The style width/height should be the "un-DPR'd" size
+        canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
 
-        const renderTask = page.render({ canvasContext: context, viewport, canvas });
+        const renderTask = page.render({ 
+          canvasContext: context, 
+          viewport, 
+          canvas,
+          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined
+        });
         await renderTask.promise;
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          console.error("Render error:", err);
           setViewerError("Failed to render this page. Please try opening the note again.");
         }
       } finally {
@@ -126,15 +163,38 @@ function NoteViewerInner() {
 
   const enterFullscreen = async () => {
     try {
-      await shellRef.current?.requestFullscreen?.();
-    } catch {
-      /* noop */
+      if (shellRef.current?.requestFullscreen) {
+        await shellRef.current.requestFullscreen();
+      } else if ((shellRef.current as any)?.webkitRequestFullscreen) {
+        await (shellRef.current as any).webkitRequestFullscreen();
+      }
+
+      // Try to lock orientation to landscape on mobile
+      if (window.innerWidth < 1024 && (screen.orientation as any)?.lock) {
+        try {
+          await (screen.orientation as any).lock("landscape");
+        } catch (e) {
+          console.warn("Orientation lock failed:", e);
+          setShowRotatePrompt(true);
+          setTimeout(() => setShowRotatePrompt(false), 3000);
+        }
+      }
+    } catch (err) {
+      console.error("Fullscreen error:", err);
     }
   };
 
   const exitFullscreen = async () => {
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if ((document as any).webkitFullscreenElement) {
+        await (document as any).webkitExitFullscreen();
+      }
+      
+      if ((screen.orientation as any)?.unlock) {
+        (screen.orientation as any).unlock();
+      }
     } catch {
       /* noop */
     }
@@ -203,14 +263,14 @@ function NoteViewerInner() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Secure Notes Viewer</p>
-                <h1 className="truncate text-lg font-bold sm:text-xl">Class Notes</h1>
+                <p className="hidden xs:block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Secure Notes Viewer</p>
+                <h1 className="truncate text-base sm:text-lg font-bold">Class Notes</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={enterFullscreen} className="rounded-xl">
-                <Maximize2 className="mr-2 h-4 w-4" />
-                Fullscreen
+              <Button variant="outline" size="sm" onClick={enterFullscreen} className="rounded-xl h-9 px-3 sm:px-4">
+                <Maximize2 className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Fullscreen</span>
               </Button>
             </div>
           </div>
@@ -231,38 +291,44 @@ function NoteViewerInner() {
         >
           {/* Internal Info/Tools bar - Hidden in fullscreen */}
           {!isFullscreen && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border px-4 py-3 sm:px-6 gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2 sm:px-6 sm:py-3 gap-3">
+              <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <FileText className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">Notes are opened inside this website for privacy and readability.</span>
-                <span className="sm:hidden">Secure Reader Active</span>
+                <span>Notes are opened inside this website for privacy and readability.</span>
               </div>
-              <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              
+              {/* Mobile Info */}
+              <div className="md:hidden flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                <span>Secure Reader</span>
+              </div>
+
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 w-8 rounded-lg p-0"
-                    onClick={() => setZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))}
-                    disabled={zoom <= 0.75 || isLoading || Boolean(viewerError)}
+                    onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.1).toFixed(2))))}
+                    disabled={zoom <= 0.5 || isLoading || Boolean(viewerError)}
                   >
-                    <ZoomOut className="h-4 w-4" />
+                    <ZoomOut className="h-3.5 w-3.5" />
                   </Button>
-                  <span className="min-w-10 text-center text-[10px] font-mono font-bold text-muted-foreground">
+                  <span className="min-w-9 text-center text-[10px] font-mono font-bold text-muted-foreground">
                     {Math.round(zoom * 100)}%
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 w-8 rounded-lg p-0"
-                    onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
-                    disabled={zoom >= 2.5 || isLoading || Boolean(viewerError)}
+                    onClick={() => setZoom((z) => Math.min(3.0, Number((z + 0.1).toFixed(2))))}
+                    disabled={zoom >= 3.0 || isLoading || Boolean(viewerError)}
                   >
-                    <ZoomIn className="h-4 w-4" />
+                    <ZoomIn className="h-3.5 w-3.5" />
                   </Button>
                 </div>
 
-                <div className="h-5 w-px bg-border shrink-0" />
+                <div className="h-4 w-px bg-border" />
 
                 <div className="flex items-center gap-1">
                   <Button
@@ -272,10 +338,10 @@ function NoteViewerInner() {
                     onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                     disabled={pageNumber <= 1 || isLoading || Boolean(viewerError)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   </Button>
-                  <span className="min-w-16 text-center text-[10px] font-mono font-bold text-muted-foreground">
-                    {totalPages > 0 ? `${pageNumber} / ${totalPages}` : "- / -"}
+                  <span className="min-w-12 text-center text-[10px] font-mono font-bold text-muted-foreground">
+                    {totalPages > 0 ? `${pageNumber}/${totalPages}` : "-/-"}
                   </span>
                   <Button
                     variant="outline"
@@ -284,7 +350,7 @@ function NoteViewerInner() {
                     onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
                     disabled={pageNumber >= totalPages || isLoading || totalPages === 0 || Boolean(viewerError)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -334,16 +400,73 @@ function NoteViewerInner() {
               </div>
             )}
 
-            <div className={cn("h-full w-full overflow-auto scroll-smooth no-scrollbar", isFullscreen ? "p-0" : "p-4 sm:p-8")}>
+            <div 
+              className={cn("h-full w-full overflow-auto scroll-smooth select-none", isFullscreen ? "p-0" : "p-4 sm:p-8")}
+              onTouchStart={(e) => {
+                if (e.touches.length === 2) {
+                  const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                  );
+                  setTouchStartDist(dist);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (e.touches.length === 2 && touchStartDist !== null) {
+                  const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                  );
+                  const delta = dist / touchStartDist;
+                  const newZoom = Number((zoom * delta).toFixed(2));
+                  if (newZoom >= 0.3 && newZoom <= 4) {
+                    setZoom(newZoom);
+                    setTouchStartDist(dist);
+                  }
+                }
+              }}
+              onTouchEnd={() => setTouchStartDist(null)}
+            >
               <div
                 className={cn(
-                  "mx-auto w-fit transition-all duration-500",
-                  isFullscreen ? "my-0" : "my-4 rounded-xl bg-background/80 p-2 shadow-2xl"
+                  "mx-auto w-fit transition-all duration-300",
+                  isFullscreen ? "my-0" : "my-4 rounded-xl bg-background/80 p-1.5 sm:p-2 shadow-2xl"
                 )}
               >
-                <canvas ref={canvasRef} className="block max-w-full h-auto" />
+                <canvas ref={canvasRef} className="block h-auto max-w-none" />
               </div>
+
+              {/* Mobile Side Tap Navigation (Only in fullscreen or zoomed in) */}
+              {!isLoading && !viewerError && totalPages > 1 && (
+                <>
+                  <div 
+                    className="absolute left-0 top-0 bottom-0 w-12 z-20 cursor-pointer hidden sm:block opacity-0 hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); setPageNumber(p => Math.max(1, p - 1)); }}
+                  >
+                    <div className="h-full flex items-center justify-center bg-linear-to-r from-black/20 to-transparent">
+                      <ChevronLeft className="h-10 w-10 text-white" />
+                    </div>
+                  </div>
+                  <div 
+                    className="absolute right-0 top-0 bottom-0 w-12 z-20 cursor-pointer hidden sm:block opacity-0 hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); setPageNumber(p => Math.min(totalPages, p + 1)); }}
+                  >
+                    <div className="h-full flex items-center justify-center bg-linear-to-l from-black/20 to-transparent">
+                      <ChevronRight className="h-10 w-10 text-white" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Rotation Prompt Overlay */}
+            {showRotatePrompt && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md text-white p-6 text-center animate-in fade-in duration-300">
+                <Maximize2 className="h-12 w-12 mb-4 animate-pulse" />
+                <p className="text-xl font-bold">Please Rotate Your Device</p>
+                <p className="text-sm opacity-80 mt-2">Landscape view is recommended for the best reading experience.</p>
+              </div>
+            )}
 
             {/* Floating Navigation Bar for Fullscreen */}
             {isFullscreen && (
