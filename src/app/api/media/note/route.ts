@@ -110,7 +110,28 @@ export async function GET(req: NextRequest) {
         }
 
         const contentType = (candidateResponse.headers.get("content-type") || "application/pdf").toLowerCase();
-        if (contentType.includes("text/html") || contentType.includes("application/json")) {
+        
+        if (contentType.includes("text/html")) {
+          if (isDriveUrl(candidate)) {
+            const html = await candidateResponse.text();
+            const confirmMatch = html.match(/confirm=([a-zA-Z0-9_-]+)/);
+            if (confirmMatch) {
+              const confirmToken = confirmMatch[1];
+              const bypassUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${confirmToken}`;
+              const bypassResponse = await fetch(bypassUrl, { ...requestInit });
+              const bypassContentType = (bypassResponse.headers.get("content-type") || "").toLowerCase();
+              if (bypassResponse.ok && !bypassContentType.includes("text/html") && !bypassContentType.includes("application/json")) {
+                streamingResponse = bypassResponse;
+                clearTimeout(timeoutId);
+                break;
+              }
+            }
+          }
+          clearTimeout(timeoutId);
+          continue;
+        }
+
+        if (contentType.includes("application/json")) {
           clearTimeout(timeoutId);
           continue;
         }
