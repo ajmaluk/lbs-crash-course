@@ -430,7 +430,18 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
         // Fast Path: Check for predefined responses
         const quickResponse = getPredefinedResponse(messages);
         if (quickResponse) {
-            yield quickResponse;
+            // Artificial delay to feel more natural (800ms)
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Simulate streaming for predefined responses
+            const words = quickResponse.split(" ");
+            let current = "";
+            for (let i = 0; i < words.length; i++) {
+                current += (i === 0 ? "" : " ") + words[i];
+                yield current;
+                // Variable delay for a "typing" feel
+                await new Promise(resolve => setTimeout(resolve, 20 + Math.random() * 30));
+            }
             return;
         }
 

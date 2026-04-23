@@ -36,10 +36,13 @@ async function migrateFromLocalStorage(): Promise<ChatSession[] | null> {
 export async function loadSessions(): Promise<ChatSession[]> {
     if (typeof window === "undefined") return [];
     try {
-        // Try to load from IndexedDB
-        let parsed = await cacheDB.get<any[]>(STORAGE_KEY);
+        // Try to load from IndexedDB with a strict timeout (Safari safety)
+        const idbPromise = cacheDB.get<any[]>(STORAGE_KEY);
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
         
-        // Fallback/Migration from localStorage
+        let parsed = await Promise.race([idbPromise, timeoutPromise]);
+        
+        // Fallback/Migration from localStorage if IDB failed or timed out
         if (!parsed) {
             const migrated = await migrateFromLocalStorage();
             if (migrated) parsed = migrated;

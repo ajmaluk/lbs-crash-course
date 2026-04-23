@@ -11,9 +11,11 @@ import {
     ChevronDown,
     Brain,
     Check,
-    Copy as CopyIcon
+    Copy as CopyIcon,
+    ArrowUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
     Dialog, 
@@ -105,55 +107,42 @@ export default function DashboardAIChatPage() {
 
         const init = async () => {
             try {
-                const storedSessions = await loadSessions();
-                setSessions(storedSessions);
+                // Safari/iOS Safety: Wrap IDB initialization in a timeout
+                const initPromise = (async () => {
+                    const storedSessions = await loadSessions();
+                    setSessions(storedSessions);
 
-                if (storedSessions.length > 0) {
-                    setActiveSessionId(storedSessions[0].id);
-                } else {
-                    const newSession = createNewSession();
-                    setSessions([newSession]);
-                    setActiveSessionId(newSession.id);
-                    await saveSessions([newSession]);
-                }
-
-                // Load feedback
-                try {
-                    const storedFeedback = await cacheDB.get<Record<string, Record<string, MessageFeedback>>>(MESSAGE_FEEDBACK_STORAGE_KEY);
-                    if (!storedFeedback) {
-                        const fallbackFeedback = localStorage.getItem(MESSAGE_FEEDBACK_STORAGE_KEY);
-                        if (fallbackFeedback) {
-                            const parsed = JSON.parse(fallbackFeedback);
-                            await cacheDB.set(MESSAGE_FEEDBACK_STORAGE_KEY, parsed);
-                            setFeedbackBySession(parsed);
-                            localStorage.removeItem(MESSAGE_FEEDBACK_STORAGE_KEY);
-                        }
+                    if (storedSessions.length > 0) {
+                        setActiveSessionId(storedSessions[0].id);
                     } else {
-                        setFeedbackBySession(storedFeedback);
+                        const newSession = createNewSession();
+                        setSessions([newSession]);
+                        setActiveSessionId(newSession.id);
+                        await saveSessions([newSession]);
                     }
-                } catch (e) {
-                    console.error("Failed to load feedback", e);
-                }
 
-                // Load study notes
-                try {
-                    const storedNotes = await cacheDB.get<StudyNote[]>(STUDY_NOTES_STORAGE_KEY);
-                    if (!storedNotes) {
-                        const fallbackNotes = localStorage.getItem(STUDY_NOTES_STORAGE_KEY);
-                        if (fallbackNotes) {
-                            const parsed = JSON.parse(fallbackNotes);
-                            await cacheDB.set(STUDY_NOTES_STORAGE_KEY, parsed);
-                            setStudyNotes(parsed);
-                            localStorage.removeItem(STUDY_NOTES_STORAGE_KEY);
-                        }
-                    } else {
-                        setStudyNotes(storedNotes);
+                    // Load feedback and study notes
+                    try {
+                        const [storedFeedback, storedNotes] = await Promise.all([
+                            cacheDB.get<FeedbackBySession>(MESSAGE_FEEDBACK_STORAGE_KEY),
+                            cacheDB.get<StudyNote[]>(STUDY_NOTES_STORAGE_KEY)
+                        ]);
+                        
+                        if (storedFeedback) setFeedbackBySession(storedFeedback);
+                        if (storedNotes) setStudyNotes(storedNotes);
+                    } catch (e) {
+                        console.error("Secondary data load failed", e);
                     }
-                } catch (e) {
-                    console.error("Failed to load study notes", e);
-                }
+                })();
+
+                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
+                await Promise.race([initPromise, timeoutPromise]);
             } catch (e) {
                 console.error("[AI_CHAT] Initialization error:", e);
+                // Fallback to empty state
+                const fallback = createNewSession();
+                setSessions([fallback]);
+                setActiveSessionId(fallback.id);
             } finally {
                 didFinish = true;
                 setInitializing(false);
@@ -357,7 +346,22 @@ export default function DashboardAIChatPage() {
     // Chat Logic
     const sendMessage = async (overridePrompt?: string) => {
         const text = overridePrompt || input;
-        if (!text.trim() || !activeSessionId) return;
+        if (!text.trim()) return;
+
+        let currentSessionId = activeSessionId;
+        let initialMessages: ChatMessage[] = [];
+
+        // Create session if none exists
+        if (!currentSessionId) {
+            const newSession = createNewSession();
+            setSessions(prev => [newSession, ...prev]);
+            setActiveSessionId(newSession.id);
+            currentSessionId = newSession.id;
+            initialMessages = newSession.messages;
+        } else {
+            const existingSession = sessions.find(s => s.id === currentSessionId);
+            initialMessages = existingSession?.messages || [];
+        }
 
         // Cancel previous request if any
         if (abortControllerRef.current) {
@@ -368,61 +372,48 @@ export default function DashboardAIChatPage() {
         if (!overridePrompt) setInput("");
         setIsLoading(true);
 
+        // If it's a quick prompt, add a small intentional delay for better UX
+        if (overridePrompt) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+
         const userMsg: ChatMessage = { role: "user", content: text };
+        const assistantMsg: ChatMessage = { role: "assistant", content: "" };
         
-        // Find session in a way that handles the state properly
-        let currentSession: ChatSession | undefined;
+        // Add both messages at once to avoid race conditions and ensure visibility
         setSessions(prev => {
-            const session = prev.find(s => s.id === activeSessionId);
-            if (!session) return prev;
-            
-            currentSession = { 
-                ...session, 
-                messages: [...session.messages, userMsg],
-                updatedAt: Date.now()
-            };
-            
-            const updated = prev.map(s => s.id === activeSessionId ? currentSession! : s);
+            const updated = prev.map(s => {
+                if (s.id === currentSessionId) {
+                    return {
+                        ...s,
+                        messages: [...s.messages, userMsg, assistantMsg],
+                        updatedAt: Date.now()
+                    };
+                }
+                return s;
+            });
             saveSessions(updated);
             return updated;
         });
 
-        // Small delay to ensure state is updated before continuing
-        await new Promise(resolve => setTimeout(resolve, 0));
-        if (!currentSession) {
-            setIsLoading(false);
-            return;
-        }
-
+        const previousMessages = initialMessages;
+        const currentTitle = sessions.find(s => s.id === currentSessionId)?.title || "New Chat";
+        
         // Auto-title if it's the first message
-        if (currentSession.title === "New Chat" && currentSession.messages.filter(m => m.role !== "system").length === 1) {
+        if ((!currentTitle || currentTitle === "New Chat") && previousMessages.filter(m => m.role !== "system").length === 0) {
             const newTitle = text.slice(0, 30) + (text.length > 30 ? "..." : "");
-            handleRenameSession(activeSessionId, newTitle);
+            handleRenameSession(currentSessionId, newTitle);
         }
 
         try {
             const context = await getUserContext(userData?.uid || user?.uid || "");
             const token = await user?.getIdToken();
             
-            // Initial placeholder assistant message for streaming
-            const assistantMsg: ChatMessage = { role: "assistant", content: "" };
-            
-            setSessions(prev => {
-                const session = prev.find(s => s.id === activeSessionId);
-                if (!session) return prev;
-                const updated = prev.map(s => 
-                    s.id === activeSessionId 
-                        ? { ...s, messages: [...s.messages, assistantMsg], updatedAt: Date.now() } 
-                        : s
-                );
-                return updated;
-            });
-
-            // Start streaming
             // Prepare messages with user context for hyper-personalization
             const messagesWithContext: ChatMessage[] = [
                 { role: "system", content: `${SYSTEM_PROMPT}\n\n${context}` },
-                ...currentSession.messages.filter(m => m.role !== "system")
+                ...previousMessages.filter(m => m.role !== "system"),
+                userMsg
             ];
 
             // Start streaming with proper idToken
@@ -430,39 +421,43 @@ export default function DashboardAIChatPage() {
             
             let fullResponse = "";
             for await (const chunk of chatStream) {
-                fullResponse += chunk;
+                // chunk is the FULL accumulated response from chatWithAI
+                fullResponse = chunk;
                 
                 // Update assistant message in sessions
                 setSessions(prev => {
-                    const session = prev.find(s => s.id === activeSessionId);
-                    if (!session) return prev;
-                    
-                    const updatedMessages = [...session.messages];
-                    const lastMsg = updatedMessages[updatedMessages.length - 1];
-                    
-                    if (lastMsg && lastMsg.role === "assistant") {
-                        updatedMessages[updatedMessages.length - 1] = { 
-                            ...lastMsg, 
-                            content: fullResponse 
-                        };
-                    }
-                    
-                    return prev.map(s => 
-                        s.id === activeSessionId 
-                            ? { ...s, messages: updatedMessages, updatedAt: Date.now() } 
-                            : s
-                    );
+                    return prev.map(s => {
+                        if (s.id === currentSessionId) {
+                            const msgs = [...s.messages];
+                            if (msgs.length > 0 && msgs[msgs.length - 1].role === "assistant") {
+                                msgs[msgs.length - 1] = { role: "assistant", content: fullResponse };
+                            }
+                            return { ...s, messages: msgs };
+                        }
+                        return s;
+                    });
                 });
-                
-                scrollToBottom("auto");
             }
-            
-            // Final save to localStorage
-            setSessions(prev => {
-                saveSessions(prev);
-                return prev;
-            });
 
+            // Final sync to persistence
+            const finalMessages: ChatMessage[] = [
+                ...previousMessages, 
+                userMsg, 
+                { role: "assistant" as const, content: fullResponse }
+            ];
+            await updateSession(currentSessionId, finalMessages);
+
+            setSessions(prev => {
+                const updated = prev.map(s => 
+                    s.id === currentSessionId 
+                        ? { ...s, messages: finalMessages, updatedAt: Date.now() } 
+                        : s
+                );
+                saveSessions(updated);
+                return updated;
+            });
+            
+            scrollToBottom("auto");
         } catch (error: any) {
             if (error.name === "AbortError") {
                 console.log("Chat aborted");
@@ -493,6 +488,8 @@ export default function DashboardAIChatPage() {
         );
     }
 
+    const isEmpty = !activeSession?.messages || activeSession.messages.filter(m => m.role !== "system").length === 0;
+
     return (
         <div className="relative flex h-[calc(100vh-(--spacing(16)))] w-full flex-col overflow-hidden bg-background">
             <ChatHeader
@@ -509,52 +506,55 @@ export default function DashboardAIChatPage() {
                 onNewChat={handleNewChat}
             />
 
-            <div className="relative flex-1 overflow-hidden">
-                <div 
-                    ref={scrollRef}
-                    onScroll={handleScroll}
-                    className="h-full overflow-y-auto px-4 py-6 sm:px-6 md:py-8 scrollbar-hide"
-                >
-                    <MessageList
-                        messages={activeSession?.messages || []}
-                        reactions={reactions}
-                        studyNotes={studyNotes}
-                        copiedStates={copiedStates}
-                        isLoading={isLoading}
-                        onCopy={copyMessage}
-                        onToggleBookmark={toggleStudyNote}
-                        onSetFeedback={setFeedback}
-                    />
+            <div className="relative flex-1 overflow-hidden flex flex-col">
+                {!isEmpty && (
+                    <div 
+                        ref={scrollRef}
+                        onScroll={handleScroll}
+                        className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:py-8 scrollbar-hide"
+                    >
+                        <MessageList
+                            messages={activeSession?.messages || []}
+                            reactions={reactions}
+                            studyNotes={studyNotes}
+                            copiedStates={copiedStates}
+                            isLoading={isLoading}
+                            onCopy={copyMessage}
+                            onToggleBookmark={toggleStudyNote}
+                            onSetFeedback={setFeedback}
+                        />
 
-                    {/* Scroll to Bottom Button */}
-                    <AnimatePresence>
-                        {showScrollBottom && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                className="sticky bottom-4 left-1/2 -translate-x-1/2 z-20"
-                            >
-                                <Button
-                                    size="icon"
-                                    onClick={() => scrollToBottom()}
-                                    className="h-10 w-10 rounded-full bg-background/80 shadow-lg ring-1 ring-border backdrop-blur-sm hover:bg-background"
+                        {/* Scroll to Bottom Button */}
+                        <AnimatePresence>
+                            {showScrollBottom && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                    className="sticky bottom-4 left-1/2 -translate-x-1/2 z-20"
                                 >
-                                    <ChevronDown className="h-5 w-5" />
-                                </Button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
+                                    <Button
+                                        size="icon"
+                                        onClick={() => scrollToBottom()}
+                                        className="h-10 w-10 rounded-full bg-background/80 shadow-lg ring-1 ring-border backdrop-blur-sm hover:bg-background"
+                                    >
+                                        <ChevronDown className="h-5 w-5" />
+                                    </Button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                )}
 
-            <ChatComposer
-                input={input}
-                setInput={setInput}
-                onSend={() => sendMessage()}
-                isLoading={isLoading}
-                inputRef={inputRef}
-            />
+                <ChatComposer
+                    input={input}
+                    setInput={setInput}
+                    onSend={() => sendMessage()}
+                    isLoading={isLoading}
+                    inputRef={inputRef}
+                    isCentered={isEmpty}
+                />
+            </div>
 
             {/* Overlays and Dialogs */}
             <HistoryOverlay

@@ -72,7 +72,6 @@ Your registration for the LBS MCA Crash Course has been fully approved!
 
 You can now log in to the portal using your credentials:
 
-Login ID: ${loginId}
 Email: ${email}
 Password: ${password}
 
