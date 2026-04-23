@@ -12,6 +12,7 @@ import ContactSection from "../components/landing/ContactSection";
 import RedirectManager from "../components/landing/RedirectManager";
 import { NavbarWrapper, CTAWrapper } from "../components/landing/ClientWrappers";
 import JsonLd, { schemas } from "@/components/seo/JsonLd";
+import Footer from "../components/landing/Footer";
 
 export const metadata: Metadata = {
     title: "LBS MCA Entrance 2026 - Best Online Coaching for Kerala & South India",
@@ -62,35 +63,7 @@ export default function LandingPage() {
             </main>
 
             {/* Footer */}
-            <footer className="border-t border-border py-8">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5 text-primary" />
-                        <span className="text-sm font-semibold">LBS MCA Entrance Learning Platform</span>
-                    </div>
-                    <div className="flex items-center gap-6 text-sm">
-                        <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-                            Blog
-                        </Link>
-                        <Link href="/download" className="text-primary font-bold hover:opacity-80 transition-all flex items-center gap-1.5">
-                            <Smartphone className="h-4 w-4" />
-                            Download App
-                        </Link>
-                        <Link href="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">
-                            Privacy Policy
-                        </Link>
-                        <Link href="/terms-of-service" className="text-muted-foreground hover:text-foreground transition-colors">
-                            Terms of Service
-                        </Link>
-                        <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                            Contact Us
-                        </Link>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                        © 2026 LBS MCA. All rights reserved.
-                    </p>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }

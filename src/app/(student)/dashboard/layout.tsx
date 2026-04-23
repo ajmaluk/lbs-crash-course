@@ -22,6 +22,7 @@ import {
     X,
     ChevronRight,
     Sparkles,
+    Code,
 } from "lucide-react";
 
 const navItems = [
@@ -36,6 +37,7 @@ const navItems = [
     { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
     { href: "/dashboard/ai-chat", label: "AI Assistant", icon: Sparkles },
     { href: "/dashboard/profile", label: "Profile", icon: User },
+    { href: "/developers", label: "Developers", icon: Code },
 ];
 
 export default function StudentDashboardLayout({

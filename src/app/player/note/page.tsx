@@ -1,5 +1,31 @@
 "use client";
 
+// Polyfill Promise.try and Promise.withResolvers for older browsers (like Safari/iOS)
+if (typeof window !== "undefined") {
+  if (!(Promise as any).try) {
+    (Promise as any).try = function (fn: () => any) {
+      return new Promise((resolve, reject) => {
+        try {
+          resolve(fn());
+        } catch (err) {
+          reject(err);
+        }
+      });
+    };
+  }
+  if (!(Promise as any).withResolvers) {
+    (Promise as any).withResolvers = function () {
+      let resolve, reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+  }
+}
+
+
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Maximize2, Minimize2, FileText, Shield, Loader2, AlertCircle, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
@@ -60,7 +86,7 @@ function NoteViewerInner() {
         const pdfBytes = await response.arrayBuffer();
         const pdfjs = await import("pdfjs-dist");
         if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-          pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+          pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
         }
 
         const loadingTask = pdfjs.getDocument({

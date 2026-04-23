@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NavbarWrapper } from "@/components/landing/ClientWrappers";
+import Footer from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
     title: "Download App | LBS MCA Entrance Learning Platform",
@@ -24,23 +26,10 @@ export const metadata: Metadata = {
 
 export default function DownloadPage() {
     return (
-        <div className="min-h-screen bg-background selection:bg-primary/20 pb-20">
-            {/* Header / Branding */}
-            <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
-                <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary transition-transform group-hover:rotate-6">
-                            <GraduationCap className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="font-bold text-xl tracking-tight">LBS MCA</span>
-                    </Link>
-                    <Link href="/login">
-                        <Button variant="ghost" className="rounded-full">Go to Login</Button>
-                    </Link>
-                </div>
-            </header>
+        <div className="min-h-screen bg-background selection:bg-primary/20 flex flex-col">
+            <NavbarWrapper />
 
-            <main className="mx-auto max-w-5xl px-4 pt-12 md:pt-20">
+            <main className="flex-1 mx-auto max-w-5xl px-4 pt-12 md:pt-20 pb-20">
                 <div className="text-center mb-16 space-y-4">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest mb-4">
                         <Sparkles className="h-3 w-3" />
@@ -176,6 +165,8 @@ export default function DownloadPage() {
                     </div>
                 </div>
             </main>
+
+            <Footer />
         </div>
     );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ArrowRight, Sparkles, Home, Info, PhoneCall, BookOpen, Smartphone } from "lucide-react";
+import { Menu, X, ArrowRight, Sparkles, Home, Info, PhoneCall, BookOpen, Smartphone, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { User } from "firebase/auth";
@@ -49,8 +49,9 @@ export default function Navbar({ user, userData, isAdmin, dashboardLink }: Navba
                             <Smartphone className="h-4 w-4" />
                             Download
                         </Link>
-                        <Link href="#features" className="text-white/80 hover:text-white transition-colors">About</Link>
-                        <Link href="#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
+                        <Link href="/#features" className="text-white/80 hover:text-white transition-colors">About</Link>
+                        <Link href="/developers" className="text-white/80 hover:text-white transition-colors">Developers</Link>
+                        <Link href="/#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="hidden sm:block">
@@ -141,17 +142,23 @@ export default function Navbar({ user, userData, isAdmin, dashboardLink }: Navba
                                     </div>
                                     Download App
                                 </Link>
-                                <Link href="#features" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 text-base font-semibold group text-foreground/80 hover:text-primary transition-colors">
+                                <Link href="/#features" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 text-base font-semibold group text-foreground/80 hover:text-primary transition-colors">
                                     <div className="p-2.5 rounded-xl bg-secondary group-hover:bg-primary/10 group-hover:text-primary transition-colors text-muted-foreground">
                                         <Info className="h-5 w-5" />
                                     </div>
                                     About
                                 </Link>
-                                <Link href="#contact" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 text-base font-semibold group text-foreground/80 hover:text-primary transition-colors">
+                                <Link href="/#contact" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 text-base font-semibold group text-foreground/80 hover:text-primary transition-colors">
                                     <div className="p-2.5 rounded-xl bg-secondary group-hover:bg-primary/10 group-hover:text-primary transition-colors text-muted-foreground">
                                         <PhoneCall className="h-5 w-5" />
                                     </div>
                                     Contact
+                                </Link>
+                                <Link href="/developers" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 text-base font-semibold group text-foreground/80 hover:text-primary transition-colors">
+                                    <div className="p-2.5 rounded-xl bg-secondary group-hover:bg-primary/10 group-hover:text-primary transition-colors text-muted-foreground">
+                                        <Code className="h-5 w-5" />
+                                    </div>
+                                    Developers
                                 </Link>
 
                                 <div className="mt-8 pt-8 border-t border-border">
