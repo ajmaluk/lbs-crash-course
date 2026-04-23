@@ -132,7 +132,8 @@ export default function ProfilePage() {
                 ? "Recorded Only"
                 : "None";
 
-    const canUpgrade = !(userData?.is_live && userData?.is_record_class);
+    const bothEnabled = process.env.NEXT_PUBLIC_BOTH_PACKAGE === "true";
+    const canUpgrade = bothEnabled && !(userData?.is_live && userData?.is_record_class);
 
     return (
         <div className="mx-auto max-w-5xl space-y-6 animate-fade-in">

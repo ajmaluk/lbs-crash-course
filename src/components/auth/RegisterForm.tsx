@@ -91,6 +91,15 @@ export function RegisterForm() {
     };
 
     useEffect(() => {
+        if (formData.selectedPackage && !packageOptions.find(p => p.value === formData.selectedPackage)) {
+            setFormData(prev => ({ ...prev, selectedPackage: "" }));
+        }
+        if (!formData.selectedPackage && packageOptions.length === 1) {
+            setFormData(prev => ({ ...prev, selectedPackage: packageOptions[0].value }));
+        }
+    }, [packageOptions, formData.selectedPackage]);
+
+    useEffect(() => {
         if (mobileStep !== "payment") return;
         const id = window.setTimeout(() => {
             paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
