@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ref, onValue, update, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
-import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Copy, MessageCircle } from "lucide-react";
+import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Copy, MessageCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +72,33 @@ export default function AdminUsersPage() {
         } finally {
             setProcessing(null);
         }
+    };
+
+    const handleDownloadMobileNumbers = () => {
+        const mobileNumbers = users
+            .filter((u) => u.status === "verified")
+            .map((u) => u.whatsapp)
+            .filter(Boolean)
+            // Remove duplicates and trim
+            .map(num => num!.trim())
+            .filter((num, index, self) => self.indexOf(num) === index);
+
+        if (mobileNumbers.length === 0) {
+            toast.error("No verified WhatsApp numbers to export");
+            return;
+        }
+
+        const content = mobileNumbers.join("\n");
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `verified_whatsapp_numbers_${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success(`Successfully exported ${mobileNumbers.length} verified WhatsApp numbers`);
     };
 
     const verified = users.filter((u) => u.status === "verified");
@@ -218,14 +245,25 @@ export default function AdminUsersPage() {
                         Manage {verified.length} verified and {rejected.length} rejected students
                     </p>
                 </div>
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search by name, email or phone..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 h-11 rounded-xl bg-card"
-                    />
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <Button
+                        onClick={handleDownloadMobileNumbers}
+                        variant="outline"
+                        className="h-11 rounded-xl bg-card border-dashed border-2 hover:border-green-500 hover:text-green-600 transition-all gap-2 px-4 shadow-sm group"
+                    >
+                        <Download className="h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
+                        <span className="hidden sm:inline">Export Numbers</span>
+                        <span className="sm:hidden inline">Export</span>
+                    </Button>
+                    <div className="relative flex-1 sm:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search users..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 h-11 rounded-xl bg-card"
+                        />
+                    </div>
                 </div>
             </div>
 
