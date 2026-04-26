@@ -80,8 +80,8 @@ function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingEl
     return <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props} />;
 }
 
-function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-    return <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
+function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+    return <div className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

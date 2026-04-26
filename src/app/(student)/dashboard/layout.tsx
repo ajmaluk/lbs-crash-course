@@ -24,17 +24,19 @@ import {
     Sparkles,
     Code,
 } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { ref, onValue, query, orderByChild, limitToLast } from "firebase/database";
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/live-classes", label: "Live Classes", icon: Video },
     { href: "/dashboard/recorded-classes", label: "Recorded Classes", icon: MonitorPlay },
     { href: "/dashboard/syllabus", label: "Syllabus", icon: BookOpen },
-    { href: "/dashboard/quizzes", label: "Quizzes", icon: FileText },
+    { href: "/dashboard/quizzes", label: "Quizzes", icon: FileText, notifyKey: "quizzes" },
     { href: "/dashboard/papers", label: "Previous Papers", icon: FileText },
-    { href: "/dashboard/mock-tests", label: "Mock Tests", icon: FileText },
+    { href: "/dashboard/mock-tests", label: "Mock Tests", icon: FileText, notifyKey: "mockTests" },
     { href: "/dashboard/rankings", label: "Leaderboard & Rankings", icon: Trophy },
-    { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone, notifyKey: "announcements" },
     { href: "/dashboard/ai-chat", label: "AI Assistant", icon: Sparkles },
     { href: "/dashboard/profile", label: "Profile", icon: User },
     { href: "/developers", label: "Developers", icon: Code },
@@ -50,12 +52,69 @@ export default function StudentDashboardLayout({
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userDataTimedOut, setUserDataTimedOut] = useState(false);
+    const [unread, setUnread] = useState<Record<string, boolean>>({
+        quizzes: false,
+        mockTests: false,
+        announcements: false
+    });
 
     useEffect(() => {
         const openSidebar = () => setSidebarOpen(true);
         window.addEventListener("student-sidebar:open", openSidebar);
         return () => window.removeEventListener("student-sidebar:open", openSidebar);
     }, []);
+
+    // Listen to updates for notification dots
+    useEffect(() => {
+        if (!user) return;
+
+        const getStored = () => {
+            try {
+                const raw = localStorage.getItem("lastSeenUpdates");
+                return raw ? JSON.parse(raw) : {};
+            } catch { return {}; }
+        };
+
+        const unsubs = [
+            onValue(query(ref(db, "quizzes"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+                let latest = 0;
+                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                const stored = getStored();
+                setUnread(prev => ({ ...prev, quizzes: latest > (stored.quizzes || 0) && pathname !== "/dashboard/quizzes" }));
+            }),
+            onValue(query(ref(db, "mockTests"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+                let latest = 0;
+                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                const stored = getStored();
+                setUnread(prev => ({ ...prev, mockTests: latest > (stored.mockTests || 0) && pathname !== "/dashboard/mock-tests" }));
+            }),
+            onValue(query(ref(db, "announcements"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+                let latest = 0;
+                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                const stored = getStored();
+                setUnread(prev => ({ ...prev, announcements: latest > (stored.announcements || 0) && pathname !== "/dashboard/announcements" }));
+            }),
+        ];
+
+        return () => unsubs.forEach(u => u());
+    }, [user, pathname]);
+
+    // Update last seen when pathname changes
+    useEffect(() => {
+        const updateStored = (key: string) => {
+            try {
+                const raw = localStorage.getItem("lastSeenUpdates");
+                const data = raw ? JSON.parse(raw) : {};
+                data[key] = Date.now();
+                localStorage.setItem("lastSeenUpdates", JSON.stringify(data));
+                setUnread(prev => ({ ...prev, [key]: false }));
+            } catch { }
+        };
+
+        if (pathname === "/dashboard/quizzes") updateStored("quizzes");
+        if (pathname === "/dashboard/mock-tests") updateStored("mockTests");
+        if (pathname === "/dashboard/announcements") updateStored("announcements");
+    }, [pathname]);
 
     // Detect when auth loading finished but userData is still null.
     // This can happen if the RTDB fetch failed/hung (common in Safari).
@@ -75,7 +134,7 @@ export default function StudentDashboardLayout({
     }, [loading, userData, user]);
 
     if (loading) return <PageLoader />;
-    
+
     // If userData hasn't loaded but we have a user, show a retry prompt instead of infinite spinner
     if (!userData) {
         if (userDataTimedOut && user) {
@@ -151,13 +210,15 @@ export default function StudentDashboardLayout({
                             // Hide recorded classes if user doesn't have recorded access
                             if (item.href === "/dashboard/recorded-classes" && !userData.is_record_class) return null;
 
+                            const showDot = item.notifyKey && unread[item.notifyKey];
+
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     onClick={() => setSidebarOpen(false)}
                                     className={cn(
-                                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 relative",
                                         isActive
                                             ? "bg-primary/10 text-primary"
                                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -165,6 +226,9 @@ export default function StudentDashboardLayout({
                                 >
                                     <item.icon className="h-5 w-5 shrink-0" />
                                     {item.label}
+                                    {showDot && (
+                                        <span className="absolute left-6 top-2.5 flex h-2 w-2 shrink-0 rounded-full bg-red-500 ring-2 ring-card shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                    )}
                                     {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
                                 </Link>
                             );

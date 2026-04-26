@@ -145,7 +145,12 @@ const suppressInstallationsErrors = (firebaseApp: FirebaseApp) => {
 
         if (url.includes("firebaseinstallations.googleapis.com") || url.includes("/installations")) {
             try {
-                const response = await originalFetch.apply(this, args);
+                // Add a 5s timeout to avoid hanging the entire app on blocked heartbeat calls
+                const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
+                const response = await Promise.race([
+                    originalFetch.apply(this, args),
+                    timeoutPromise
+                ]) as Response;
                 if (response.status === 403 || response.status === 401) {
                     // Return a fake "ok" response so the SDK doesn't throw
                     return new Response(JSON.stringify({

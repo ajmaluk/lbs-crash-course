@@ -84,19 +84,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get OneSignal ID
     const getOneSignalId = async (): Promise<string | null> => {
         try {
+            // Skip OneSignal if on insecure origin that isn't localhost
+            if (typeof window !== 'undefined' && 
+                window.location.protocol !== 'https:' && 
+                window.location.hostname !== 'localhost' && 
+                window.location.hostname !== '127.0.0.1') {
+                return null;
+            }
+
             interface OneSignalLike {
-                User?: { PushSubscription?: { id?: Promise<string> } };
+                User?: { PushSubscription?: { id?: string | Promise<string> } };
             }
             const w = window as unknown as { OneSignal?: OneSignalLike };
             if (typeof window !== 'undefined' && w.OneSignal) {
                 const OneSignal = w.OneSignal;
-                if (OneSignal?.User?.PushSubscription?.id) {
-                    const id = await OneSignal.User.PushSubscription.id;
+                const pushId = OneSignal?.User?.PushSubscription?.id;
+                if (pushId) {
+                    // Wrap with 1.5s timeout to prevent hanging login
+                    const id = await Promise.race([
+                        Promise.resolve(pushId),
+                        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500))
+                    ]);
                     return id || null;
                 }
             }
         } catch (error) {
-            console.error("Failed to get OneSignal subscription ID:", error);
+            console.warn("OneSignal ID retrieval failed or timed out:", error);
         }
         return null;
     };
@@ -123,7 +136,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     try {
                         // Set cookie for middleware
                         const token = await firebaseUser.getIdToken();
-                        document.cookie = `__session=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+                        const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+                        document.cookie = `__session=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
                     } catch (tokenErr) {
                         console.warn("[AUTH] Failed to get ID token for cookie:", tokenErr);
                     }
@@ -136,7 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             const data = snapshot.val() as Partial<UserData>;
                             const role = data.role || "student";
                             try {
-                                document.cookie = `__role=${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+                                const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+                                document.cookie = `__role=${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
                             } catch { /* cookie write may fail in some contexts */ }
                             setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
                         }

@@ -182,7 +182,11 @@ export default function RootLayout({
             window.OneSignalDeferred = window.OneSignalDeferred || [];
             OneSignalDeferred.push(async function(OneSignal) {
               try {
-                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const isSecure = window.location.protocol === 'https:' || 
+                               window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
+                               
+                if (isSecure) {
                   await OneSignal.init({
                     appId: "${ONESIGNAL_APP_ID}",
                     safari_web_id: "${ONESIGNAL_SAFARI_ID}",
