@@ -76,15 +76,25 @@ export default function StudentDashboardLayout({
         };
 
         const unsubs = [
-            onValue(query(ref(db, "quizzes"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+            onValue(query(ref(db, "quizzes"), orderByChild("createdAt"), limitToLast(5)), (snap) => {
                 let latest = 0;
-                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                snap.forEach(c => { 
+                    const data = c.val();
+                    if (data.status === "published") {
+                        latest = Math.max(latest, data.createdAt || 0);
+                    }
+                });
                 const stored = getStored();
                 setUnread(prev => ({ ...prev, quizzes: latest > (stored.quizzes || 0) && pathname !== "/dashboard/quizzes" }));
             }),
-            onValue(query(ref(db, "mockTests"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+            onValue(query(ref(db, "mockTests"), orderByChild("createdAt"), limitToLast(5)), (snap) => {
                 let latest = 0;
-                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                snap.forEach(c => { 
+                    const data = c.val();
+                    if (data.status === "published") {
+                        latest = Math.max(latest, data.createdAt || 0);
+                    }
+                });
                 const stored = getStored();
                 setUnread(prev => ({ ...prev, mockTests: latest > (stored.mockTests || 0) && pathname !== "/dashboard/mock-tests" }));
             }),
@@ -225,11 +235,11 @@ export default function StudentDashboardLayout({
                                     )}
                                 >
                                     <item.icon className="h-5 w-5 shrink-0" />
-                                    {item.label}
+                                    <span className="truncate">{item.label}</span>
                                     {showDot && (
-                                        <span className="absolute left-6 top-2.5 flex h-2 w-2 shrink-0 rounded-full bg-red-500 ring-2 ring-card shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                        <span className="absolute left-6 top-2.5 flex h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 ring-2 ring-card shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
                                     )}
-                                    {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
+                                    {isActive && <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
                                 </Link>
                             );
                         })}
@@ -252,14 +262,20 @@ export default function StudentDashboardLayout({
             <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Mobile header */}
                 {pathname !== "/dashboard/ai-chat" && (
-                    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:hidden">
+                    <header className="flex h-16 items-center gap-3 border-b border-border bg-card px-4 lg:hidden sticky top-0 z-30">
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="rounded-lg p-2 hover:bg-muted cursor-pointer"
+                            className="rounded-lg p-2 hover:bg-muted cursor-pointer shrink-0"
                         >
                             <Menu className="h-5 w-5" />
                         </button>
-                        <span className="font-semibold">LBS MCA</span>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="font-bold text-sm text-primary shrink-0">LBS MCA</span>
+                            <div className="h-4 w-[1px] bg-border shrink-0" />
+                            <span className="font-semibold text-sm truncate uppercase tracking-wider text-muted-foreground">
+                                {navItems.find(n => n.href === pathname)?.label || "Dashboard"}
+                            </span>
+                        </div>
                     </header>
                 )}
 

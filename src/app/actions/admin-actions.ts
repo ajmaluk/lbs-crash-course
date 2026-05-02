@@ -12,6 +12,19 @@ interface ApprovalResult {
     tempPassword?: string;
 }
 
+function toPackageLabel(selectedPackage: string) {
+    switch (selectedPackage) {
+        case "recorded_only":
+            return "Recorded Only";
+        case "live_only":
+            return "Live Only";
+        case "both":
+            return "Live + Recorded";
+        default:
+            return selectedPackage;
+    }
+}
+
 async function generateUniqueLoginId(): Promise<string> {
     if (!adminDb) throw new Error("Database not available");
     
@@ -122,6 +135,16 @@ export async function approveRegistrationAction(
         // Sync to Google Sheet server-side to avoid CORS issues
         try {
             await syncStatusToGoogleSheetAction(regData.email, "Verified");
+            await syncApprovedUserToGoogleSheetAction({
+                name: regData.name,
+                email: regData.email,
+                phoneNo: regData.phone,
+                whatsappPhoneNo: regData.whatsapp,
+                transactionId: regData.transactionId ?? "",
+                screenshotUrl: regData.screenshotUrl ?? "",
+                graduationYear: regData.graduationYear,
+                selectedPackage: toPackageLabel(regData.selectedPackage),
+            });
         } catch (e) {
             console.error("Failed to sync to Google Sheet:", e);
             // We don't fail the whole action if sync fails, but we log it
@@ -163,6 +186,42 @@ export async function syncStatusToGoogleSheetAction(email: string, status: "Veri
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Sheet sync failed with status ${response.status}`);
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Server-side Sheet sync error:", error);
+        return { success: false, message: (error as Error).message };
+    }
+}
+
+export async function syncApprovedUserToGoogleSheetAction(payload: {
+    name: string;
+    email: string;
+    phoneNo: string;
+    whatsappPhoneNo: string;
+    transactionId: string;
+    screenshotUrl: string;
+    graduationYear: string;
+    selectedPackage: string;
+}) {
+    const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+    if (!APPS_SCRIPT_URL) return { success: false, message: "Apps Script URL not configured" };
+
+    try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                action: "addApprovedUser",
+                ...payload,
+            }),
         });
 
         if (!response.ok) {

@@ -208,12 +208,12 @@ export default function MockTestsPage() {
 
                 <Card className="border-2 transition-all shadow-lg overflow-hidden">
                     <div className={`h-1.5 w-full ${reviewMode ? (isCorrect ? "bg-green-500" : userAnswer === -1 ? "bg-gray-300" : "bg-red-500") : "bg-transparent"}`} />
-                    <CardContent className="p-6 sm:p-8">
-                        <div className="flex items-start gap-4 mb-8">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 font-bold font-mono">
+                    <CardContent className="p-4 sm:p-8">
+                        <div className="flex items-start gap-3 sm:gap-4 mb-6 sm:mb-8">
+                            <span className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 font-bold text-sm sm:text-base">
                                 {currentQ + 1}
                             </span>
-                            <p className="text-xl font-medium leading-relaxed">{question.question}</p>
+                            <p className="text-lg sm:text-xl font-medium leading-tight sm:leading-relaxed">{question.question}</p>
                         </div>
 
                         <div className="space-y-4">
@@ -242,13 +242,13 @@ export default function MockTestsPage() {
                                         key={idx}
                                         disabled={reviewMode}
                                         onClick={() => selectAnswer(idx)}
-                                        className={`w-full text-left rounded-xl border-2 p-5 transition-all flex items-center justify-between gap-4 ${style} ${!reviewMode && "cursor-pointer active:scale-95"}`}
+                                        className={`w-full text-left rounded-xl border-2 p-3.5 sm:p-5 transition-all flex items-center justify-between gap-3 sm:gap-4 ${style} ${!reviewMode && "cursor-pointer active:scale-95"}`}
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${userAnswer === idx ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-500"}`}>
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <span className={`inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-bold transition-colors ${userAnswer === idx ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-500"}`}>
                                                 {String.fromCharCode(65 + idx)}
                                             </span>
-                                            <span className="text-base">{opt}</span>
+                                            <span className="text-sm sm:text-base leading-snug">{opt}</span>
                                         </div>
                                         {icon}
                                     </button>
@@ -302,7 +302,7 @@ export default function MockTestsPage() {
                 </Card>
 
                 {/* Question navigator */}
-                <div className="bg-card p-4 rounded-2xl shadow-sm border flex flex-wrap justify-center gap-2.5">
+                <div className="bg-card p-3 sm:p-4 rounded-2xl shadow-sm border flex flex-wrap justify-center gap-2 sm:gap-2.5">
                     {activeTest.questions.map((_, idx) => {
                         let style = "bg-muted text-muted-foreground border-transparent";
                         if (idx === currentQ) {
@@ -329,11 +329,11 @@ export default function MockTestsPage() {
                             <button
                                 key={idx}
                                 onClick={() => setCurrentQ(idx)}
-                                className={`h-10 w-10 rounded-xl text-sm font-bold transition-all border flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 relative ${style}`}
+                                className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all border flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 relative ${style}`}
                             >
                                 {idx + 1}
                                 {isMarked && (
-                                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-amber-500 rounded-full border-2 border-white shadow-sm" />
+                                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-amber-500 rounded-full border-2 border-white shadow-sm" />
                                 )}
                             </button>
                         );
@@ -480,48 +480,48 @@ export default function MockTestsPage() {
                     <p className="font-medium">No mock tests available</p>
                 </div>
             ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {mockTests.map((test) => {
                         const attempted = myAttempts[test.id];
                         return (
                             <Card 
                                 key={test.id} 
-                                className={`hover:border-primary/30 transition-all ${attempted ? "cursor-pointer hover:shadow-md" : ""}`}
+                                className={cn("hover:border-primary/30 transition-all overflow-hidden", attempted && "cursor-pointer hover:shadow-md")}
                                 onClick={() => attempted && handleReviewClick(test, attempted)}
                             >
-                                <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <CardTitle className="text-base">{test.title}</CardTitle>
-                                            <CardDescription>{test.subject}</CardDescription>
+                                <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <CardTitle className="text-sm sm:text-base truncate">{test.title}</CardTitle>
+                                            <CardDescription className="text-xs sm:text-sm truncate">{test.subject}</CardDescription>
                                         </div>
-                                        <Badge variant={test.status === "published" ? "default" : "secondary"}>{test.status}</Badge>
+                                        <Badge variant={test.status === "published" ? "default" : "secondary"} className="text-[10px] sm:text-xs shrink-0">{test.status}</Badge>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                                        <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{test.questions?.length || 0} questions</span>
-                                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{test.duration || 60} min</span>
+                                <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                                    <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-sm text-muted-foreground mb-4">
+                                        <span className="flex items-center gap-1"><FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />{test.questions?.length || 0} Qs</span>
+                                        <span className="flex items-center gap-1"><Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />{test.duration || 60}m</span>
                                     </div>
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         {attempted && (
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2 p-2 rounded-lg bg-success/5 border border-success/10">
-                                                    <CheckCircle className="h-4 w-4 text-success" />
-                                                    <span className="text-sm font-medium text-success">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-success/5 border border-success/10">
+                                                    <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success shrink-0" />
+                                                    <span className="text-xs sm:text-sm font-bold text-success">
                                                         Score: {attempted.score}/{attempted.totalQuestions}
                                                     </span>
                                                 </div>
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
-                                                    className="w-full rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50"
+                                                    className="w-full h-8 sm:h-9 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs sm:text-sm"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleReviewClick(test, attempted);
                                                     }}
                                                 >
-                                                    <Info className="h-3.5 w-3.5 mr-2" /> Review Answers
+                                                    <Info className="h-3.5 w-3.5 mr-2" /> Review
                                                 </Button>
                                             </div>
                                         )}
@@ -532,7 +532,7 @@ export default function MockTestsPage() {
                                                     e.stopPropagation();
                                                     handleStartClick(test);
                                                 }} 
-                                                className="w-full gradient-primary border-0" 
+                                                className="w-full h-8 sm:h-9 gradient-primary border-0 text-xs sm:text-sm text-white" 
                                                 size="sm"
                                             >
                                                 Start Test
@@ -541,10 +541,33 @@ export default function MockTestsPage() {
 
                                         {test.status === "closed" && (
                                             <div className="space-y-2">
-                                                {!attempted && <p className="text-sm text-muted-foreground">Test closed</p>}
-                                                <Link href={`/dashboard/rankings?testId=${test.id}`} onClick={(e) => e.stopPropagation()}>
-                                                    <Button variant="outline" size="sm" className="w-full">
-                                                        View Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
+                                                {!attempted && (
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-muted border border-border">
+                                                            <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                                                            <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                                                                Not Attempted (0/{test.questions?.length || 0})
+                                                            </span>
+                                                        </div>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="w-full h-8 sm:h-9 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs sm:text-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveTest(test);
+                                                                setAnswers(new Array(test.questions.length).fill(-1));
+                                                                setResult({ score: 0, total: test.questions.length });
+                                                                setReviewMode(true);
+                                                            }}
+                                                        >
+                                                            <Info className="h-3.5 w-3.5 mr-2" /> Review
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                <Link href={`/dashboard/rankings?testId=${test.id}`} onClick={(e) => e.stopPropagation()} className="block">
+                                                    <Button variant="outline" size="sm" className="w-full h-8 sm:h-9 text-xs sm:text-sm">
+                                                        Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
                                                     </Button>
                                                 </Link>
                                             </div>
