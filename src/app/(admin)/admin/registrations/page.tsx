@@ -131,6 +131,8 @@ LBS MCA Team`;
                 whatsapp: selectedReg.whatsapp,
                 graduationYear: selectedReg.graduationYear,
                 selectedPackage: selectedReg.selectedPackage,
+                transactionId: selectedReg.transactionId,
+                screenshotUrl: selectedReg.screenshotUrl,
             });
 
             if (!result.success) {

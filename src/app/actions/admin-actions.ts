@@ -40,6 +40,8 @@ export async function approveRegistrationAction(
         whatsapp: string;
         graduationYear: string;
         selectedPackage: string;
+        transactionId?: string;
+        screenshotUrl?: string;
     }
 ): Promise<ApprovalResult> {
     if (!isInitialized || !adminDb || !adminAuth) {
@@ -70,6 +72,11 @@ export async function approveRegistrationAction(
                     return { success: false, message: "Cannot approve registration for an email address that belongs to an admin." };
                 }
             }
+
+            // Ensure the user can log in with the default approval password.
+            await adminAuth.updateUser(uid, {
+                password: tempPassword,
+            });
         } catch (error: unknown) {
             const firebaseError = error as { code?: string };
             if (firebaseError.code === 'auth/user-not-found') {
@@ -101,6 +108,8 @@ export async function approveRegistrationAction(
             activeSessionId: "",
             firstLogin: true,
             loginId,
+            transactionId: regData.transactionId ?? null,
+            screenshotUrl: regData.screenshotUrl ?? null,
             createdAt: Date.now(),
         };
         updates[`loginIdEmails/${loginId}`] = regData.email;

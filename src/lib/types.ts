@@ -24,6 +24,8 @@ export interface UserData {
     activeSessionId: string;
     firstLogin: boolean;
     loginId?: string;
+    transactionId?: string;
+    screenshotUrl?: string;
     banned?: boolean;
     createdAt: number;
     rejectionReason?: string;
@@ -39,7 +41,7 @@ export interface PendingRegistration {
     selectedPackage: PackageType;
     screenshotUrl: string;
     submittedAt: number;
-    status: "pending" | "rejected";
+    status: "pending" | "approved" | "rejected";
     rejectionReason?: string;
     transactionId?: string;
 }
