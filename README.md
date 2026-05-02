@@ -1664,3 +1664,7 @@ END OF SPECIFICATION
 =============================================================================
 
 This comprehensive specification covers all aspects of the LBS MCA Entrance Exam Preparation website. Implementation should follow the suggested phases and ensure all testing is completed before launch. Regular monitoring and maintenance will ensure smooth operation and user satisfaction.
+
+
+
+Ajmal
