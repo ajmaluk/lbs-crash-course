@@ -11,6 +11,7 @@ import type { Quiz, QuizAttempt } from "@/lib/types";
 import { FileText, Clock, CheckCircle, Trophy, Timer, AlertCircle, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function MockTestsPage() {
     const { userData } = useAuth();

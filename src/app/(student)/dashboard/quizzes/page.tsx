@@ -9,6 +9,7 @@ import { ref, onValue, query, orderByChild, push, set, equalTo } from "firebase/
 import { db } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { BookOpen, Clock, CheckCircle, Trophy, AlertCircle, Timer, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { toast } from "sonner";
 import Link from "next/link";
