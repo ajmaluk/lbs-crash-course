@@ -9,6 +9,7 @@ import {
     User,
     EmailAuthProvider,
     reauthenticateWithCredential,
+    sendPasswordResetEmail,
 } from "firebase/auth";
 import {
     ref,
@@ -17,7 +18,7 @@ import {
     onValue,
     update,
 } from "firebase/database";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, hasValidConfig } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
 
 interface AuthContextType {
@@ -27,6 +28,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+    resetPassword: (email: string) => Promise<void>;
     isAdmin: boolean;
     isVerified: boolean;
 }
@@ -116,9 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen to auth state changes
     useEffect(() => {
-        // Safety timeout: if Firebase auth doesn't resolve within 10s,
-        // force-clear the loading state so the UI doesn't hang forever.
-        // This handles Safari ITP blocking, slow networks, and hung Firebase connections.
         const AUTH_SAFETY_TIMEOUT_MS = 10_000;
         const safetyTimer = setTimeout(() => {
             setLoading((prev) => {
@@ -129,12 +128,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
         }, AUTH_SAFETY_TIMEOUT_MS);
 
+        if (!hasValidConfig) {
+            console.warn("[AUTH] Firebase config is invalid or missing.");
+            if (process.env.NODE_ENV === "development") {
+                const getCookie = (name: string) => {
+                    if (typeof document === "undefined") return null;
+                    const value = `; ${document.cookie}`;
+                    const parts = value.split(`; ${name}=`);
+                    if (parts.length === 2) return parts.pop()?.split(";").shift();
+                    return null;
+                };
+
+                const mockSession = getCookie("__session");
+                if (mockSession === "mock-token-dev") {
+                    console.info("[AUTH] Restoring mock developer session.");
+                    const mockUser = {
+                        uid: "dev-admin-123",
+                        email: "admin@test.com",
+                        getIdToken: async () => "mock-token-dev",
+                    } as unknown as User;
+                    setUser(mockUser);
+                    setUserData({
+                        uid: "dev-admin-123",
+                        name: "Dev Admin",
+                        email: "admin@test.com",
+                        phone: "0000000000",
+                        whatsapp: "0000000000",
+                        graduationYear: "2026",
+                        role: "admin",
+                        status: "verified",
+                        is_live: true,
+                        is_record_class: true,
+                        activeSessionId: "dev-session",
+                        firstLogin: false,
+                        createdAt: Date.now(),
+                    } as UserData);
+                }
+            }
+            setLoading(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             try {
                 setUser(firebaseUser);
                 if (firebaseUser) {
                     try {
-                        // Set cookie for middleware
                         const token = await firebaseUser.getIdToken();
                         const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
                         document.cookie = `__session=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
@@ -143,7 +182,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
 
                     try {
-                        // Fetch user data to get role for edge-side middleware check
                         const userRef = ref(db, `users/${firebaseUser.uid}`);
                         const snapshot = await get(userRef);
                         if (snapshot.exists()) {
@@ -152,26 +190,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             try {
                                 const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
                                 document.cookie = `__role=${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
-                            } catch { /* cookie write may fail in some contexts */ }
+                            } catch { /* cookie write may fail */ }
                             setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
                         }
                     } catch (dbErr) {
                         console.warn("[AUTH] Failed to fetch user data from RTDB:", dbErr);
-                        // User is authenticated but we couldn't load their profile yet.
-                        // The onValue listener (session check) will pick it up later.
                     }
                 } else {
                     setUserData(null);
-                    // Clear cookies
                     try {
                         document.cookie = "__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                         document.cookie = "__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                    } catch { /* ignore cookie failures */ }
+                    } catch { /* ignore */ }
                 }
             } catch (err) {
                 console.error("[AUTH] Unexpected error in onAuthStateChanged:", err);
             } finally {
-                // ALWAYS clear loading, even if something above threw.
                 clearTimeout(safetyTimer);
                 setLoading(false);
             }
@@ -183,9 +217,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    // Listen for session invalidation (single-device enforcement) & Ban status
     useEffect(() => {
-        if (!user) return;
+        if (!user || !hasValidConfig) return;
 
         const userRef = ref(db, `users/${user.uid}`);
         const unsubscribe = onValue(userRef, (snapshot) => {
@@ -195,21 +228,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             setUserData((prev) => ({ ...(prev ?? {}), ...data, uid: user.uid, activeSessionId: data.activeSessionId ?? "" } as UserData));
 
-            // 1. Check Ban status
             if (data.banned === true) {
                 void forceLogoutWithReason("banned");
                 return;
             }
 
-            // 2. Check Session status (single-device, students only)
-            if (data.role === "admin") {
-                return;
-            }
+            if (data.role === "admin") return;
 
             const currentSessionId = getStoredSessionId();
             const activeSessionId = data.activeSessionId;
 
-            // Enforce strict match; missing local token is treated as invalid session.
             if (activeSessionId && currentSessionId !== activeSessionId) {
                 void forceLogoutWithReason("session_expired");
             }
@@ -219,11 +247,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [forceLogoutWithReason, getStoredSessionId, user]);
 
     const login = useCallback(async (email: string, password: string) => {
+        if (!hasValidConfig) {
+            if (process.env.NODE_ENV === "development") {
+                console.warn("[AUTH] Developer bypass: Logging in with mock account.");
+                const mockUser = {
+                    uid: "dev-admin-123",
+                    email: email || "admin@test.com",
+                    getIdToken: async () => "mock-token-dev",
+                } as unknown as User;
+
+                const mockUserData: UserData = {
+                    uid: "dev-admin-123",
+                    name: "Dev Admin",
+                    email: email || "admin@test.com",
+                    phone: "0000000000",
+                    whatsapp: "0000000000",
+                    graduationYear: "2026",
+                    role: "admin",
+                    status: "verified",
+                    is_live: true,
+                    is_record_class: true,
+                    activeSessionId: "dev-session",
+                    firstLogin: false,
+                    createdAt: Date.now(),
+                };
+
+                setUser(mockUser);
+                setUserData(mockUserData);
+                document.cookie = `__session=mock-token-dev; path=/; max-age=3600; SameSite=Lax`;
+                document.cookie = `__role=admin; path=/; max-age=3600; SameSite=Lax`;
+                return;
+            }
+            throw new Error("Authentication is currently unavailable.");
+        }
         suppressSessionCheckRef.current = true;
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
-
-            // Fetch role first so admins can bypass single-device enforcement.
             const userRef = ref(db, `users/${result.user.uid}`);
             const snapshot = await get(userRef);
             const data = snapshot.exists() ? (snapshot.val() as Partial<UserData>) : null;
@@ -235,9 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await set(ref(db, `users/${result.user.uid}/activeSessionId`), null);
                 nextSessionId = "";
             } else {
-                // Students stay on strict single-device policy.
                 const oneSignalId = await getOneSignalId();
-                // Validate OneSignal ID is non-empty string before using as session ID
                 const sessionId = (oneSignalId && typeof oneSignalId === "string" && oneSignalId.trim().length > 0) 
                     ? oneSignalId 
                     : generateSessionId();
@@ -246,7 +303,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await update(ref(db, `users/${result.user.uid}`), {
                     activeSessionId: sessionId,
                 });
-
                 nextSessionId = sessionId;
             }
 
@@ -259,33 +315,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [clearStoredSessionId, persistSessionId]);
 
     const logout = useCallback(async () => {
+        if (!hasValidConfig) {
+            setUserData(null);
+            return;
+        }
         clearStoredSessionId();
-
         if (user) {
-            // Clear session ID in DB for real users
             await set(ref(db, `users/${user.uid}/activeSessionId`), null);
         }
-
         await signOut(auth);
         setUserData(null);
     }, [clearStoredSessionId, user]);
 
     const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-        if (!user || !user.email) throw new Error("No user logged in");
-
-        // Re-authenticate first
+        if (!hasValidConfig || !user || !user.email) throw new Error("No user logged in.");
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
         await reauthenticateWithCredential(user, credential);
-
-        // Update password
         await updatePassword(user, newPassword);
-
-        // Mark first login complete
         if (userData?.firstLogin) {
             await update(ref(db, `users/${user.uid}`), { firstLogin: false });
             setUserData((prev) => prev ? { ...prev, firstLogin: false } : null);
         }
     }, [user, userData]);
+
+    const resetPassword = useCallback(async (email: string) => {
+        if (!hasValidConfig) {
+            if (process.env.NODE_ENV === "development") {
+                console.info(`[AUTH_DEV] Mock password reset link sent to: ${email}`);
+                // Simulate a slight delay for realism
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return;
+            }
+            throw new Error("Reset unavailable (Missing Configuration).");
+        }
+
+        try {
+            const actionCodeSettings = (typeof window !== "undefined")
+                ? { url: `${window.location.origin}/reset-password`, handleCodeInApp: false }
+                : undefined;
+
+            if (actionCodeSettings) {
+                await sendPasswordResetEmail(auth, email, actionCodeSettings as any);
+            } else {
+                await sendPasswordResetEmail(auth, email);
+            }
+        } catch (err: any) {
+            const code = err?.code as string | undefined;
+            if (code === "auth/user-not-found") throw new Error("No account found for that email or login ID.");
+            if (code === "auth/invalid-email") throw new Error("Invalid email address.");
+            if (code === "auth/too-many-requests") throw new Error("Too many requests. Please try again later.");
+            throw err;
+        }
+    }, []);
 
     const isAdmin = userData?.role === "admin";
     const isVerified = userData?.status === "verified";
@@ -299,6 +380,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 login,
                 logout,
                 changePassword,
+                resetPassword,
                 isAdmin,
                 isVerified,
             }}

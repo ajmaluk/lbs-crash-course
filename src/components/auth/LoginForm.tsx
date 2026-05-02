@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { PageLoader } from "@/components/ui/loading";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { db } from "@/lib/firebase";
+import { db, hasValidConfig } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
 
 export function LoginForm() {
@@ -20,11 +20,14 @@ export function LoginForm() {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { login, user, userData, loading: authLoading } = useAuth();
+    const { login, user, userData, loading: authLoading, resetPassword } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const sessionExpired = searchParams.get("reason") === "session_expired";
     const [showExpiredPopup, setShowExpiredPopup] = useState(sessionExpired);
+    const [showForgotModal, setShowForgotModal] = useState(false);
+    const [forgotEmail, setForgotEmail] = useState("");
+    const [forgotLoading, setForgotLoading] = useState(false);
 
     useEffect(() => {
         if (authLoading) return;
@@ -51,16 +54,23 @@ export function LoginForm() {
             const loginIdentifier = email.trim();
             let actualEmail = loginIdentifier;
 
-            if (!loginIdentifier.includes("@")) {
-                const lookupRef = ref(db, `loginIdEmails/${loginIdentifier}`);
-                const snapshot = await get(lookupRef);
-                if (snapshot.exists()) {
-                    actualEmail = snapshot.val();
-                } else {
-                    toast.error("Invalid Login ID or User not found.");
-                    setLoading(false);
-                    return;
+            // Skip Firebase DB lookups if config is missing (Dev Bypass)
+            if (hasValidConfig) {
+                if (!loginIdentifier.includes("@")) {
+                    const lookupRef = ref(db, `loginIdEmails/${loginIdentifier}`);
+                    const snapshot = await get(lookupRef);
+                    if (snapshot.exists()) {
+                        actualEmail = snapshot.val();
+                    } else {
+                        toast.error("Invalid Login ID or User not found.");
+                        setLoading(false);
+                        return;
+                    }
                 }
+            } else if (process.env.NODE_ENV !== "development") {
+                toast.error("Configuration missing.");
+                setLoading(false);
+                return;
             }
 
             await login(actualEmail, password);
@@ -76,6 +86,47 @@ export function LoginForm() {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!forgotEmail) {
+            toast.error("Please enter your login ID or email");
+            return;
+        }
+
+        setForgotLoading(true);
+        try {
+            let actualEmail = forgotEmail.trim();
+            
+            // Resolve Login ID to Email if needed
+            if (!actualEmail.includes("@")) {
+                if (hasValidConfig) {
+                    const lookupRef = ref(db, `loginIdEmails/${actualEmail}`);
+                    const snapshot = await get(lookupRef);
+                    if (snapshot.exists()) {
+                        actualEmail = snapshot.val();
+                    } else {
+                        toast.error("Invalid Login ID.");
+                        setForgotLoading(false);
+                        return;
+                    }
+                } else if (process.env.NODE_ENV === "development") {
+                    // Mock resolution for development
+                    console.info(`[AUTH_DEV] Resolving mock Login ID: ${actualEmail}`);
+                    actualEmail = `${actualEmail.toLowerCase()}@test.com`;
+                }
+            }
+
+            await resetPassword(actualEmail);
+            toast.success("Password reset email sent! Check your inbox.");
+            setShowForgotModal(false);
+            setForgotEmail("");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to send reset email.");
+        } finally {
+            setForgotLoading(false);
         }
     };
 
@@ -171,6 +222,15 @@ export function LoginForm() {
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForgotModal(true)}
+                                    className="text-xs text-primary hover:underline font-medium"
+                                >
+                                    Forgot password?
+                                </button>
+                            </div>
                         </div>
 
                         <Button
@@ -202,6 +262,37 @@ export function LoginForm() {
                     </form>
                 </CardContent>
             </Card>
+
+            <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
+                <DialogContent className="sm:max-w-md">
+                    <form onSubmit={handleForgotPassword}>
+                        <DialogHeader>
+                            <DialogTitle>Reset Password</DialogTitle>
+                            <DialogDescription>
+                                Enter your Login ID or registered email. We&apos;ll send you a link to reset your password.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="forgot-email">Login ID or Email</Label>
+                                <Input
+                                    id="forgot-email"
+                                    placeholder="LBS-XXXX or your@email.com"
+                                    value={forgotEmail}
+                                    onChange={(e) => setForgotEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit" disabled={forgotLoading} className="w-full">
+                                {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Send Reset Link
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

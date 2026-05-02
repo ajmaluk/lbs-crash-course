@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ref, onValue } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { db, hasValidConfig } from "@/lib/firebase";
 import { UserPlus, Users, Video, BookOpen, ArrowUpCircle, Megaphone, FileText, Activity } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -24,6 +24,8 @@ export default function AdminOverview() {
     const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
 
     useEffect(() => {
+        if (!hasValidConfig) return;
+
         const listeners: (() => void)[] = [];
 
         const countNode = (path: string, key: string, filter?: (val: Record<string, unknown>) => boolean) => {

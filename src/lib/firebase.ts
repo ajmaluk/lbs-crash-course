@@ -111,15 +111,33 @@ let analytics: Analytics | null = null;
 
 // Initialize placeholder services to avoid crashes during static builds or misconfigured environments.
 const createPlaceholderProxy = (moduleName: string) => {
-    return new Proxy({} as any, {
-        get: (_, prop) => {
-            if (prop === "moduleName") return moduleName;
-            return () => {
-                console.warn(`Firebase [${moduleName}] is not initialized. Property [${String(prop)}] was accessed.`);
-                return null;
-            };
+    const noop: any = () => noop;
+    noop.moduleName = moduleName;
+    
+    // Database internal property that the modular SDK checks
+    noop._checkNotDeleted = () => {};
+    noop._repo = { app: { options: {} } };
+    noop._isActivated = true;
+    
+    // Auth internal property
+    noop.currentUser = null;
+    
+    const handler: ProxyHandler<any> = {
+        get: (target, prop) => {
+            if (prop in target) return target[prop];
+            if (prop === Symbol.toPrimitive) return () => `[FirebaseMock ${moduleName}]`;
+            if (prop === "toString" || prop === "valueOf") return () => `[FirebaseMock ${moduleName}]`;
+            
+            // For any other property, return a proxy that is also callable
+            return new Proxy(noop, handler);
         },
-    });
+        apply: () => {
+            // console.warn(`Firebase [${moduleName}] mock function called.`);
+            return new Proxy(noop, handler);
+        }
+    };
+    
+    return new Proxy(noop, handler);
 };
 
 /**
