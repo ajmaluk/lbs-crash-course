@@ -24,7 +24,9 @@ export default function DevelopersPage() {
     {
       name: "Abhijith Sudhakaran",
       profiles: [
-        { icon: Github, label: "GitHub", href: "https://github.com/abhijthx" },
+        { icon: Github, label: "GitHub", href: "https://github.com/abhijithx" },
+        { icon: Linkedin, label: "LinkedIn", href: "https://www.linkedin.com/in/abhijith-sudhakaran-79677321a" },
+        { icon: Instagram, label: "Instagram", href: "https://instagram.com/abhiiijth" },
       ],
     },
   ];

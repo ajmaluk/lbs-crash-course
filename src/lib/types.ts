@@ -27,6 +27,7 @@ export interface UserData {
     transactionId?: string;
     screenshotUrl?: string;
     banned?: boolean;
+    hasSubmittedFeedback?: boolean;
     createdAt: number;
     rejectionReason?: string;
 }

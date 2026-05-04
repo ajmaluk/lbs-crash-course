@@ -192,7 +192,7 @@ export function LoginForm() {
                             <Input
                                 id="email"
                                 type="text"
-                                placeholder="LBS-XXXX or your@email.com"
+                                placeholder="your@email.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -225,7 +225,10 @@ export function LoginForm() {
                             <div className="flex justify-end">
                                 <button
                                     type="button"
-                                    onClick={() => setShowForgotModal(true)}
+                                    onClick={() => {
+                                        setForgotEmail(email);
+                                        setShowForgotModal(true);
+                                    }}
                                     className="text-xs text-primary hover:underline font-medium"
                                 >
                                     Forgot password?
@@ -277,7 +280,7 @@ export function LoginForm() {
                                 <Label htmlFor="forgot-email">Login ID or Email</Label>
                                 <Input
                                     id="forgot-email"
-                                    placeholder="LBS-XXXX or your@email.com"
+                                    placeholder="your@email.com"
                                     value={forgotEmail}
                                     onChange={(e) => setForgotEmail(e.target.value)}
                                     required

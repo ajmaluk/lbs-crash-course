@@ -23,6 +23,7 @@ import {
     X,
     ChevronRight,
     Shield,
+    MessageSquare,
 } from "lucide-react";
 import ThemeSelector from "@/components/theme/ThemeSelector";
 
@@ -39,6 +40,7 @@ const navItems = [
     { href: "/admin/syllabus", label: "Syllabus", icon: FileText },
     { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 export default function AdminDashboardLayout({

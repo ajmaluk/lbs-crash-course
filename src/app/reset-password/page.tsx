@@ -24,8 +24,7 @@ export default function ResetPasswordPage() {
 
     useEffect(() => {
         if (!oobCode) {
-            setVerifying(false);
-            toast.error("Missing reset code.");
+            router.replace("/login");
             return;
         }
 

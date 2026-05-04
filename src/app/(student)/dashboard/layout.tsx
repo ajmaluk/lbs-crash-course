@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { ref, onValue, query, orderByChild, limitToLast } from "firebase/database";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -288,6 +289,7 @@ export default function StudentDashboardLayout({
                     </div>
                 </main>
             </div>
+            <FeedbackModal />
         </div>
     );
 }
