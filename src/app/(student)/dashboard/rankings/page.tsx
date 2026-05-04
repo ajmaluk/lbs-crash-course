@@ -33,129 +33,148 @@ export default function RankingsPage() {
     const [tab, setTab] = useState<"quizzes" | "mockTests">("quizzes");
     const [viewMode, setViewMode] = useState<"global" | "individual">("global");
     
-    const [quizRankings, setQuizRankings] = useState<RankData[]>([]);
-    const [mockRankings, setMockRankings] = useState<RankData[]>([]);
-    const [loadingQuizzes, setLoadingQuizzes] = useState(true);
-    const [loadingMocks, setLoadingMocks] = useState(true);
+    const [quizzes, setQuizzes] = useState<Record<string, any>>({});
+    const [mockTests, setMockTests] = useState<Record<string, any>>({});
+    const [allUsers, setAllUsers] = useState<Record<string, any>>({});
+    const [allQuizAttempts, setAllQuizAttempts] = useState<any[]>([]);
+    const [allMockAttempts, setAllMockAttempts] = useState<any[]>([]);
+    const [loaded, setLoaded] = useState({
+        quizzes: false,
+        mocks: false,
+        quizAtts: false,
+        mockAtts: false,
+        users: false
+    });
     const [expandedId, setExpandedId] = useState<string>("");
+
+    // Show spinner until we get attempt data or timeout hits
+    const isFetching = !loaded.quizAtts || !loaded.mockAtts;
     
     const requestedTestId = searchParams.get("testId") || searchParams.get("aiPracticeId") || "";
 
     useEffect(() => {
-        let quizIds = new Set<string>();
-        let mockIds = new Set<string>();
-        let rankingsRaw: RankData[] = [];
-        let mockRankingsRaw: RankData[] = [];
-        let idsReady = false;
+        const unsubQuizzes = onValue(ref(db, "quizzes"), (s) => {
+            const data: Record<string, any> = {};
+            s.forEach(c => { data[c.key!] = { ...c.val(), id: c.key! }; });
+            setQuizzes(data);
+            setLoaded(prev => ({ ...prev, quizzes: true }));
+        }, () => setLoaded(prev => ({ ...prev, quizzes: true })));
 
-        const updateStates = () => {
-            const filteredQuizRankings = rankingsRaw
-                .filter(r => r.quizId && quizIds.has(r.quizId))
-                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
-                
-            const filteredMockRankings = mockRankingsRaw
-                .filter(r => {
-                    const id = r.mockTestId || r.quizId || "";
-                    return id && (mockIds.has(id) || id.startsWith("ai-practice-"));
-                })
-                .sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
+        const unsubMocks = onValue(ref(db, "mockTests"), (s) => {
+            const data: Record<string, any> = {};
+            s.forEach(c => { data[c.key!] = { ...c.val(), id: c.key! }; });
+            setMockTests(data);
+            setLoaded(prev => ({ ...prev, mocks: true }));
+        }, () => setLoaded(prev => ({ ...prev, mocks: true })));
 
-            setQuizRankings(filteredQuizRankings);
-            setMockRankings(filteredMockRankings);
-
-            if (idsReady) {
-                if (filteredQuizRankings.length === 0 && rankingsRaw.length > 0) {
-                    setQuizRankings(rankingsRaw.filter(r => r.quizId).sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0)));
-                }
-                if (filteredMockRankings.length === 0 && mockRankingsRaw.length > 0) {
-                    setMockRankings(mockRankingsRaw.filter(r => r.mockTestId || r.quizId).sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0)));
-                }
+        const unsubQuizAtts = onValue(ref(db, "quizAttempts"), (s) => {
+            const list: any[] = [];
+            if (s.exists()) {
+                s.forEach(c => { list.push({ ...c.val(), id: c.key! }); });
             }
-        };
+            setAllQuizAttempts(list);
+            setLoaded(prev => ({ ...prev, quizAtts: true }));
+        }, () => setLoaded(prev => ({ ...prev, quizAtts: true })));
 
-        const unsubIds = [
-            onValue(ref(db, "quizzes"), (s) => {
-                const ids = new Set<string>();
-                s.forEach(c => { ids.add(c.key!); });
-                quizIds = ids;
-                idsReady = true;
-                updateStates();
-            }),
-            onValue(ref(db, "mockTests"), (s) => {
-                const ids = new Set<string>();
-                s.forEach(c => { ids.add(c.key!); });
-                mockIds = ids;
-                idsReady = true;
-                updateStates();
-            }),
-        ];
+        const unsubMockAtts = onValue(ref(db, "mockAttempts"), (s) => {
+            const list: any[] = [];
+            if (s.exists()) {
+                s.forEach(c => { list.push({ ...c.val(), id: c.key! }); });
+            }
+            setAllMockAttempts(list);
+            setLoaded(prev => ({ ...prev, mockAtts: true }));
+        }, () => setLoaded(prev => ({ ...prev, mockAtts: true })));
 
-        const unsubRankings = [
-            onValue(ref(db, "rankings"), (snapshot) => {
-                const list: RankData[] = [];
-                if (snapshot.exists()) {
-                    snapshot.forEach((child) => {
-                        list.push({ ...child.val(), quizId: child.key!, generatedAt: child.val().generatedAt || 0 });
-                    });
-                }
-                rankingsRaw = list;
-                updateStates();
-                setLoadingQuizzes(false);
-            }),
-            onValue(ref(db, "mockRankings"), (snapshot) => {
-                const list: RankData[] = [];
-                if (snapshot.exists()) {
-                    snapshot.forEach((child) => {
-                        list.push({ ...child.val(), quizId: child.key!, mockTestId: child.key!, generatedAt: child.val().generatedAt || 0 });
-                    });
-                }
-                mockRankingsRaw = list;
-                updateStates();
-                setLoadingMocks(false);
-            }),
-        ];
+        const unsubUsers = onValue(ref(db, "users"), (s) => {
+            const data: Record<string, any> = {};
+            s.forEach(c => { data[c.key!] = { ...c.val(), id: c.key! }; });
+            setAllUsers(data);
+            setLoaded(prev => ({ ...prev, users: true }));
+        }, () => setLoaded(prev => ({ ...prev, users: true })));
+
+        // Safety Timeout: Force loading to end after 3s if Firebase is unresponsive
+        const timer = setTimeout(() => {
+            setLoaded({
+                quizzes: true, mocks: true, quizAtts: true, mockAtts: true, users: true
+            });
+        }, 3000);
 
         return () => {
-            unsubIds.forEach(u => u());
-            unsubRankings.forEach(u => u());
+            unsubQuizzes();
+            unsubMocks();
+            unsubQuizAtts();
+            unsubMockAtts();
+            unsubUsers();
+            clearTimeout(timer);
         };
     }, []);
 
+    // Compute Individual Rankings for each test
+    const individualRankings = useMemo(() => {
+        const tests = tab === "quizzes" ? quizzes : mockTests;
+        const attempts = tab === "quizzes" ? allQuizAttempts : allMockAttempts;
+        const testIdKey = tab === "quizzes" ? "quizId" : "mockTestId";
+
+        return Object.values(tests).map(test => {
+            const testAttempts = attempts
+                .filter(a => a[testIdKey] === test.id || (tab === "mockTests" && a.quizId === test.id))
+                .sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return (a.submittedAt || 0) - (b.submittedAt || 0); // Tie-break: earlier is better
+                })
+                .map((a, i) => ({ ...a, rank: i + 1 }));
+
+            return {
+                id: test.id,
+                title: test.title,
+                participants: testAttempts.length,
+                entries: testAttempts
+            };
+        }).sort((a, b) => b.participants - a.participants); // Show most popular tests first
+    }, [tab, quizzes, mockTests, allQuizAttempts, allMockAttempts, allUsers]);
+
     // Global Rankings Computation
     const globalRankings = useMemo(() => {
-        const sourceData = tab === "quizzes" ? quizRankings : mockRankings;
-        const userMap = new Map<string, GlobalRankingEntry>();
+        const sourceAttempts = tab === "quizzes" ? allQuizAttempts : allMockAttempts;
+        const userMap = new Map<string, GlobalRankingEntry & { lastSubmission: number }>();
 
-        sourceData.forEach(test => {
-            test.entries?.forEach(entry => {
-                const existing = userMap.get(entry.userId) || {
-                    userId: entry.userId,
-                    userName: entry.userName,
-                    score: 0,
-                    totalQuestions: 0,
-                    rank: 0,
-                    testsTaken: 0
-                };
-                existing.score += entry.score;
-                existing.totalQuestions += entry.totalQuestions;
-                existing.testsTaken += 1;
-                userMap.set(entry.userId, existing);
-            });
+        sourceAttempts.forEach(attempt => {
+            if (!attempt.userId) return;
+            const user = allUsers[attempt.userId];
+            const userName = user?.name || attempt.userName || "Student";
+            
+            const existing = userMap.get(attempt.userId) || {
+                userId: attempt.userId,
+                userName: userName,
+                score: 0,
+                totalQuestions: 0,
+                rank: 0,
+                testsTaken: 0,
+                lastSubmission: 0
+            };
+            existing.score += (Number(attempt.score) || 0);
+            existing.totalQuestions += (Number(attempt.totalQuestions) || 0);
+            existing.testsTaken += 1;
+            existing.lastSubmission = Math.max(existing.lastSubmission, Number(attempt.submittedAt) || 0);
+            userMap.set(attempt.userId, existing);
         });
 
         return Array.from(userMap.values())
-            .sort((a, b) => b.score - a.score)
+            .sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return a.lastSubmission - b.lastSubmission; // Tie-break: earlier total achieved is better
+            })
             .map((e, i) => ({ ...e, rank: i + 1 }));
-    }, [tab, quizRankings, mockRankings]);
+    }, [tab, allQuizAttempts, allMockAttempts]);
 
     useEffect(() => {
         if (requestedTestId) {
             setViewMode("individual");
             setExpandedId(requestedTestId);
-            const isMock = mockRankings.some(r => r.quizId === requestedTestId || r.mockTestId === requestedTestId);
-            setTab(isMock ? "mockTests" : "quizzes");
+            const isMock = !!mockTests[requestedTestId];
+            if (isMock) setTab("mockTests");
         }
-    }, [requestedTestId, quizRankings, mockRankings]);
+    }, [requestedTestId, mockTests]);
 
     const getRankStyles = (rank: number) => {
         if (rank === 1) return { 
@@ -332,10 +351,10 @@ export default function RankingsPage() {
                     </div>
                 </div>
 
-                {(tab === "quizzes" ? loadingQuizzes : loadingMocks) ? (
+                {isFetching ? (
                     <div className="flex flex-col items-center justify-center py-20 space-y-4">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Fetching rankings...</p>
+                        <p className="text-sm text-muted-foreground">Fetching real-time rankings...</p>
                     </div>
                 ) : (
                     <div className="animate-in fade-in duration-500">
@@ -347,38 +366,41 @@ export default function RankingsPage() {
                                         {renderList(globalRankings)}
                                     </>
                                 ) : (
-                                    <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
-                                        <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                        <h3 className="text-lg font-semibold">No data yet</h3>
-                                        <p className="text-sm text-muted-foreground mt-1">Complete some tests to see your global rank!</p>
+                                    <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border animate-in fade-in duration-700">
+                                        <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20 text-primary" />
+                                        <h3 className="text-lg font-semibold">Leaderboard Empty</h3>
+                                        <p className="text-sm text-muted-foreground mt-1 max-w-[250px] mx-auto">
+                                            No {tab === "quizzes" ? "quizzes" : "mock tests"} have been completed yet.
+                                            Scores will appear here as soon as students finish their tests!
+                                        </p>
                                     </div>
                                 )}
                             </>
                         ) : (
                             <div className="space-y-3">
-                                {(tab === "quizzes" ? quizRankings : mockRankings).length > 0 ? (
-                                    (tab === "quizzes" ? quizRankings : mockRankings).map((rankData, idx) => (
-                                        <div key={rankData.quizId || idx}>
+                                {individualRankings.length > 0 ? (
+                                    individualRankings.map((testData, idx) => (
+                                        <div key={testData.id || idx}>
                                             <button
-                                                onClick={() => setExpandedId(expandedId === rankData.quizId ? "" : (rankData.quizId || ""))}
+                                                onClick={() => setExpandedId(expandedId === testData.id ? "" : (testData.id || ""))}
                                                 className={cn("w-full text-left rounded-2xl border-2 p-4 sm:p-5 transition-all duration-300 group cursor-pointer",
-                                                    expandedId === rankData.quizId ? "border-primary/40 bg-primary/5 shadow-lg rounded-b-none" : "border-border hover:border-primary/20 hover:bg-muted/30 bg-card")}
+                                                    expandedId === testData.id ? "border-primary/40 bg-primary/5 shadow-lg rounded-b-none" : "border-border hover:border-primary/20 hover:bg-muted/30 bg-card")}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", expandedId === rankData.quizId ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                                                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", expandedId === testData.id ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                                                         <Star className="h-5 w-5" />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <h3 className={cn("font-bold", expandedId === rankData.quizId && "text-primary")}>{rankData.quizTitle}</h3>
-                                                        <p className="text-xs text-muted-foreground">{rankData.entries?.length || 0} participants</p>
+                                                        <h3 className={cn("font-bold", expandedId === testData.id && "text-primary")}>{testData.title}</h3>
+                                                        <p className="text-xs text-muted-foreground">{testData.participants} participants</p>
                                                     </div>
-                                                    <ChevronDown className={cn("h-5 w-5 transition-transform", expandedId === rankData.quizId && "rotate-180 text-primary")} />
+                                                    <ChevronDown className={cn("h-5 w-5 transition-transform", expandedId === testData.id && "rotate-180 text-primary")} />
                                                 </div>
                                             </button>
-                                            {expandedId === rankData.quizId && (
+                                            {expandedId === testData.id && (
                                                 <div className="border-2 border-t-0 border-primary/40 rounded-b-2xl bg-card p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
-                                                    {renderPodium(rankData.entries)}
-                                                    {renderList(rankData.entries)}
+                                                    {renderPodium(testData.entries)}
+                                                    {renderList(testData.entries)}
                                                 </div>
                                             )}
                                         </div>
@@ -394,6 +416,15 @@ export default function RankingsPage() {
                     </div>
                 )}
             </Tabs>
+
+            {/* Diagnostic Data Counter (Subtle) */}
+            <div className="mt-8 flex justify-center opacity-30 hover:opacity-100 transition-opacity">
+                <p className="text-[10px] font-mono text-muted-foreground flex gap-4">
+                    <span>Q-ATT: {allQuizAttempts.length}</span>
+                    <span>M-ATT: {allMockAttempts.length}</span>
+                    <span>USERS: {Object.keys(allUsers).length}</span>
+                </p>
+            </div>
         </div>
     );
 }

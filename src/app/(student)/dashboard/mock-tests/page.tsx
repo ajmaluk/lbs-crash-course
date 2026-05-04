@@ -524,6 +524,11 @@ export default function MockTestsPage() {
                                                 >
                                                     <Info className="h-3.5 w-3.5 mr-2" /> Review
                                                 </Button>
+                                                <Link href={`/dashboard/rankings?testId=${test.id}`} onClick={(e) => e.stopPropagation()} className="block">
+                                                    <Button variant="outline" size="sm" className="w-full h-8 sm:h-9 text-xs sm:text-sm">
+                                                        Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
+                                                    </Button>
+                                                </Link>
                                             </div>
                                         )}
 
@@ -540,32 +545,28 @@ export default function MockTestsPage() {
                                             </Button>
                                         )}
 
-                                        {test.status === "closed" && (
-                                            <div className="space-y-2">
-                                                {!attempted && (
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-muted border border-border">
-                                                            <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                                                            <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                                                                Not Attempted (0/{test.questions?.length || 0})
-                                                            </span>
-                                                        </div>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="w-full h-8 sm:h-9 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs sm:text-sm"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActiveTest(test);
-                                                                setAnswers(new Array(test.questions.length).fill(-1));
-                                                                setResult({ score: 0, total: test.questions.length });
-                                                                setReviewMode(true);
-                                                            }}
-                                                        >
-                                                            <Info className="h-3.5 w-3.5 mr-2" /> Review
-                                                        </Button>
-                                                    </div>
-                                                )}
+                                        {test.status === "closed" && !attempted && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-muted border border-border">
+                                                    <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                                                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                                                        Not Attempted (0/{test.questions?.length || 0})
+                                                    </span>
+                                                </div>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="w-full h-8 sm:h-9 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs sm:text-sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveTest(test);
+                                                        setAnswers(new Array(test.questions.length).fill(-1));
+                                                        setResult({ score: 0, total: test.questions.length });
+                                                        setReviewMode(true);
+                                                    }}
+                                                >
+                                                    <Info className="h-3.5 w-3.5 mr-2" /> Review
+                                                </Button>
                                                 <Link href={`/dashboard/rankings?testId=${test.id}`} onClick={(e) => e.stopPropagation()} className="block">
                                                     <Button variant="outline" size="sm" className="w-full h-8 sm:h-9 text-xs sm:text-sm">
                                                         Leaderboard <Trophy className="h-3 w-3 ml-2 text-yellow-500" />
