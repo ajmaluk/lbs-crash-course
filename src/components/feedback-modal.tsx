@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, X, Send, CheckCircle2 } from "lucide-react";
+import { Star, Send, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ref, get } from "firebase/database";
+import { db } from "@/lib/firebase";
 
 export function FeedbackModal() {
     const { user, userData } = useAuth();
@@ -20,20 +22,60 @@ export function FeedbackModal() {
     useEffect(() => {
         // Show modal only if user is logged in, verified, and hasn't submitted feedback yet
         if (userData && userData.status === "verified" && !userData.hasSubmittedFeedback) {
-            // Check localStorage as well for immediate performance
             const localSubmitted = localStorage.getItem(`feedback_submitted_${userData.uid}`);
             if (!localSubmitted) {
-                // Small delay for better UX
-                const timer = setTimeout(() => setIsOpen(true), 2000);
-                return () => clearTimeout(timer);
+                // Check video progress before showing
+                void (async () => {
+                    try {
+                        const progSnap = await get(ref(db, `users/${userData.uid}/video_progress`));
+                        const progressMap = progSnap.val();
+                        
+                        let hasWatchedEnough = false;
+                        if (progressMap) {
+                            hasWatchedEnough = Object.values(progressMap).some((p: any) => (p.progressPercent || 0) > 5);
+                        }
+
+                        if (hasWatchedEnough) {
+                            const timer = setTimeout(() => {
+                                setIsOpen(true);
+                                // Push a new state to history when modal opens to "trap" the back button
+                                window.history.pushState({ modalOpen: true }, "");
+                            }, 2000);
+                            return () => clearTimeout(timer);
+                        }
+                    } catch (err) {
+                        console.error("Error checking video progress for feedback:", err);
+                    }
+                })();
             }
         }
     }, [userData]);
+
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isOpen && !submitted) {
+                // If user clicks back button, push the state again to keep modal open
+                window.history.pushState({ modalOpen: true }, "");
+                toast.info("Please provide feedback to continue", {
+                    duration: 2000,
+                    id: "feedback-required-toast"
+                });
+            }
+        };
+
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, [isOpen, submitted]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (rating === 0) {
             toast.error("Please provide a rating");
+            return;
+        }
+
+        if (!message.trim()) {
+            toast.error("Please provide a comment");
             return;
         }
 
@@ -89,12 +131,6 @@ export function FeedbackModal() {
                     {/* Header Background */}
                     <div className="absolute top-0 left-0 w-full h-24 bg-linear-to-br from-primary/20 to-primary/5 -z-10" />
                     
-                    <button 
-                        onClick={() => setIsOpen(false)}
-                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted/80 text-muted-foreground transition-colors"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
 
                     <div className="p-6 sm:p-8">
                         {!submitted ? (
@@ -155,7 +191,7 @@ export function FeedbackModal() {
 
                                 <Button 
                                     type="submit" 
-                                    disabled={submitting || rating === 0}
+                                    disabled={submitting || rating === 0 || !message.trim()}
                                     className="w-full h-12 rounded-2xl gradient-primary border-0 text-white font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
                                 >
                                     {submitting ? (
@@ -190,13 +226,6 @@ export function FeedbackModal() {
                     </div>
                 </motion.div>
                 
-                {/* Backdrop closer */}
-                {!submitting && (
-                    <div 
-                        className="absolute inset-0 -z-10" 
-                        onClick={() => setIsOpen(false)} 
-                    />
-                )}
             </div>
         </AnimatePresence>
     );

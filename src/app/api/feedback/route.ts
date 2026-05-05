@@ -10,8 +10,8 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const { rating, message, userId, userName } = body;
 
-        if (!rating || !userId) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        if (!rating || !userId || !message?.trim()) {
+            return NextResponse.json({ error: "Missing required fields (rating, userId, and message)" }, { status: 400 });
         }
 
         // 1. Save to Firestore (Server-side bypass)

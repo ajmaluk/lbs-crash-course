@@ -113,9 +113,6 @@ export default function AdminFeedbackPage() {
                             <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
                         </div>
                         <h3 className="text-xl font-bold">No feedback yet</h3>
-                        <p className="text-muted-foreground max-w-sm mt-1">
-                            Feedback from students will appear here once they start sharing their experiences.
-                        </p>
                     </CardContent>
                 </Card>
             ) : (
@@ -178,7 +175,7 @@ export default function AdminFeedbackPage() {
                                                     
                                                     <div className="relative">
                                                         <p className="text-sm leading-relaxed text-foreground italic">
-                                                            &ldquo;{item.message || "No comments provided."}&rdquo;
+                                                            &ldquo;{item.message}&rdquo;
                                                         </p>
                                                     </div>
                                                 </div>

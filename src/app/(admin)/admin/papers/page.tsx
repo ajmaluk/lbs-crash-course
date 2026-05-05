@@ -75,11 +75,6 @@ export default function AdminPapersPage() {
       return;
     }
 
-    const duplicateYear = papers.some((paper) => paper.year === year && paper.id !== editing?.id);
-    if (duplicateYear) {
-      toast.error("Only one paper is allowed per year. Please edit the existing entry.");
-      return;
-    }
 
     if (!user) {
       toast.error("Authentication required. Please refresh.");
@@ -215,7 +210,6 @@ export default function AdminPapersPage() {
                 placeholder="e.g. 2023"
                 className="h-11 rounded-xl"
               />
-              <p className="text-xs text-muted-foreground">Only one paper is allowed per year.</p>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-semibold">PDF URL *</Label>
@@ -225,7 +219,6 @@ export default function AdminPapersPage() {
                 placeholder="https://drive.google.com/..."
                 className="h-11 rounded-xl"
               />
-              <p className="text-xs text-muted-foreground">Upload one combined paper file for the selected year.</p>
             </div>
             <DialogFooter className="gap-3 sm:gap-0 mt-4">
               <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 rounded-xl px-6">
