@@ -4,6 +4,8 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
+import { underMaintenance } from "@/lib/maintenance";
+import MaintenancePage from "@/app/maintenance/page";
 
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -214,7 +216,7 @@ export default function RootLayout({
         </Script>
 
         <AuthProvider>
-          {children}
+          {underMaintenance ? <MaintenancePage /> : children}
           <ToolPixOverlay />
           {process.env.NODE_ENV === "development" && <FirebaseHealthPanel />}
           <Analytics />

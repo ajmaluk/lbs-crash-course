@@ -131,7 +131,7 @@ export default function AdminAnalyticsPage() {
                 <h2 className="text-lg font-semibold mb-4">Detailed Metrics</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                     {metrics.map((metric) => (
-                        <Card key={metric.label} className="hover:border-(--primary)/20 transition-all duration-300">
+                        <Card key={metric.label} className="hover:border-primary/20 transition-all duration-300">
                             <CardContent className="p-4">
                                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br ${metric.color} mb-3`}>
                                     <metric.icon className="h-5 w-5 text-white" />

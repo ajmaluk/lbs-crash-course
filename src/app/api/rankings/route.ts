@@ -61,8 +61,8 @@ export async function GET(req: NextRequest) {
             }));
         };
 
-        let quizAttempts = processAttempts(quizAttsSnap);
-        let mockAttempts = processAttempts(mockAttsSnap);
+        const quizAttempts = processAttempts(quizAttsSnap);
+        const mockAttempts = processAttempts(mockAttsSnap);
 
         // If mode is global_top, we return a pre-aggregated list to save client CPU and bandwidth
         if (mode === "global_top") {

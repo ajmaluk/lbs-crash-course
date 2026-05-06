@@ -83,7 +83,7 @@ export default function UserDetailPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -97,7 +97,7 @@ export default function UserDetailPage() {
                     </Button>
                 </Link>
                 <Card>
-                    <CardContent className="py-12 text-center text-[var(--muted-foreground)]">
+                    <CardContent className="py-12 text-center text-muted-foreground">
                         <User className="h-10 w-10 mx-auto mb-2 opacity-50" />
                         <p className="font-medium">User not found</p>
                     </CardContent>
@@ -140,24 +140,24 @@ export default function UserDetailPage() {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 text-sm">
                                 {userData.loginId && (
-                                    <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
                                         <Hash className="h-4 w-4 shrink-0" />
-                                        <span className="font-mono font-semibold text-[var(--primary)]">{userData.loginId}</span>
+                                        <span className="font-mono font-semibold text-primary">{userData.loginId}</span>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <Mail className="h-4 w-4 shrink-0" />
                                     <span className="truncate">{userData.email}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <Phone className="h-4 w-4 shrink-0" />
                                     {userData.phone}
                                 </div>
-                                <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <GraduationCap className="h-4 w-4 shrink-0" />
                                     Graduation: {userData.graduationYear}
                                 </div>
-                                <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <Calendar className="h-4 w-4 shrink-0" />
                                     Joined: {format(new Date(userData.createdAt), "MMM d, yyyy")}
                                 </div>
@@ -177,28 +177,28 @@ export default function UserDetailPage() {
                     <CardContent className="p-4 text-center">
                         <BookOpen className="h-6 w-6 mx-auto mb-1 text-blue-500" />
                         <p className="text-2xl font-bold">{totalQuizzes}</p>
-                        <p className="text-xs text-[var(--muted-foreground)]">Quizzes Attempted</p>
+                        <p className="text-xs text-muted-foreground">Quizzes Attempted</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4 text-center">
                         <Trophy className="h-6 w-6 mx-auto mb-1 text-amber-500" />
                         <p className="text-2xl font-bold">{totalMocks}</p>
-                        <p className="text-xs text-[var(--muted-foreground)]">Mock Tests</p>
+                        <p className="text-xs text-muted-foreground">Mock Tests</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4 text-center">
                         <FileText className="h-6 w-6 mx-auto mb-1 text-green-500" />
                         <p className="text-2xl font-bold">{avgQuizScore}%</p>
-                        <p className="text-xs text-[var(--muted-foreground)]">Avg Quiz Score</p>
+                        <p className="text-xs text-muted-foreground">Avg Quiz Score</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4 text-center">
                         <FileText className="h-6 w-6 mx-auto mb-1 text-purple-500" />
                         <p className="text-2xl font-bold">{avgMockScore}%</p>
-                        <p className="text-xs text-[var(--muted-foreground)]">Avg Mock Score</p>
+                        <p className="text-xs text-muted-foreground">Avg Mock Score</p>
                     </CardContent>
                 </Card>
             </div>
@@ -213,27 +213,27 @@ export default function UserDetailPage() {
                 </CardHeader>
                 <CardContent>
                     {quizAttempts.length === 0 ? (
-                        <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No quiz attempts yet</p>
+                        <p className="text-sm text-muted-foreground text-center py-6">No quiz attempts yet</p>
                     ) : (
-                        <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+                        <div className="rounded-xl border border-border overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)]">Quiz</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)]">Score</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)] hidden sm:table-cell">Date</th>
+                                    <tr className="border-b border-border bg-muted/50">
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Quiz</th>
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Score</th>
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden sm:table-cell">Date</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--border)]">
+                                <tbody className="divide-y divide-border">
                                     {quizAttempts.map((a) => (
-                                        <tr key={a.id} className="hover:bg-[var(--muted)]/30 transition-colors">
+                                        <tr key={a.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-2.5 font-medium">{a.quizTitle || a.quizId}</td>
                                             <td className="px-4 py-2.5">
                                                 <Badge variant={a.score / a.totalQuestions >= 0.7 ? "default" : "secondary"}>
                                                     {a.score}/{a.totalQuestions} ({Math.round((a.score / a.totalQuestions) * 100)}%)
                                                 </Badge>
                                             </td>
-                                            <td className="px-4 py-2.5 hidden sm:table-cell text-[var(--muted-foreground)] text-xs">
+                                            <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground text-xs">
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="h-3 w-3" />
                                                     {format(new Date(a.submittedAt), "MMM d, yyyy h:mm a")}
@@ -258,27 +258,27 @@ export default function UserDetailPage() {
                 </CardHeader>
                 <CardContent>
                     {mockAttempts.length === 0 ? (
-                        <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No mock test attempts yet</p>
+                        <p className="text-sm text-muted-foreground text-center py-6">No mock test attempts yet</p>
                     ) : (
-                        <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+                        <div className="rounded-xl border border-border overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)]">Mock Test</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)]">Score</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-[var(--muted-foreground)] hidden sm:table-cell">Date</th>
+                                    <tr className="border-b border-border bg-muted/50">
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Mock Test</th>
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Score</th>
+                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden sm:table-cell">Date</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--border)]">
+                                <tbody className="divide-y divide-border">
                                     {mockAttempts.map((a) => (
-                                        <tr key={a.id} className="hover:bg-[var(--muted)]/30 transition-colors">
+                                        <tr key={a.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-2.5 font-medium">{a.mockTitle || a.mockTestId}</td>
                                             <td className="px-4 py-2.5">
                                                 <Badge variant={a.score / a.totalQuestions >= 0.7 ? "default" : "secondary"}>
                                                     {a.score}/{a.totalQuestions} ({Math.round((a.score / a.totalQuestions) * 100)}%)
                                                 </Badge>
                                             </td>
-                                            <td className="px-4 py-2.5 hidden sm:table-cell text-[var(--muted-foreground)] text-xs">
+                                            <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground text-xs">
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="h-3 w-3" />
                                                     {format(new Date(a.submittedAt), "MMM d, yyyy h:mm a")}
