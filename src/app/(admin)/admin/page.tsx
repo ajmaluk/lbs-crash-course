@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ref, onValue } from "firebase/database";
-import { db, hasValidConfig } from "@/lib/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+import { firestore, hasValidConfig } from "@/lib/firebase";
 import { UserPlus, Users, Video, BookOpen, ArrowUpCircle, Megaphone, FileText, Activity } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -26,56 +26,76 @@ export default function AdminOverview() {
     useEffect(() => {
         if (!hasValidConfig) return;
 
-        const listeners: (() => void)[] = [];
-
-        const countNode = (path: string, key: string, filter?: (val: Record<string, unknown>) => boolean) => {
-            const unsub = onValue(ref(db, path), (snapshot) => {
-                let count = 0;
-                if (filter) {
-                    snapshot.forEach((child) => { if (filter(child.val())) count++; });
-                } else {
-                    count = snapshot.size;
-                }
-                setStats((prev) => ({ ...prev, [key]: count }));
-            });
-            listeners.push(unsub);
-        };
-
-        countNode("pendingRegistrations", "pending", (v) => v.status === "pending");
-        countNode("users", "verified", (v) => v.status === "verified" && v.role !== "admin");
-        countNode("users", "rejected", (v) => v.status === "rejected");
-        countNode("upgradeRequests", "upgrades", (v) => v.status === "pending");
-        countNode("liveClasses", "liveClasses");
-        countNode("quizzes", "quizzes");
-        countNode("mockTests", "mockTests");
-        countNode("announcements", "announcements");
-
-        // Recent registrations
-        const regUnsub = onValue(ref(db, "pendingRegistrations"), (snapshot) => {
+        const unsubPending = onSnapshot(collection(firestore, "pendingRegistrations"), (snapshot) => {
+            let pendingCount = 0;
             const list: PendingRegistration[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
+            snapshot.forEach((childDoc) => {
+                const data = childDoc.data() as PendingRegistration;
                 if (data.status === "pending") {
-                    list.push({ ...data, id: child.key! });
+                    pendingCount++;
+                    list.push({ ...data, id: childDoc.id });
                 }
             });
+            setStats((prev) => ({ ...prev, pending: pendingCount }));
             list.sort((a, b) => b.submittedAt - a.submittedAt);
             setRecentRegistrations(list.slice(0, 5));
         });
-        listeners.push(regUnsub);
 
-        // Recent announcements
-        const annUnsub = onValue(ref(db, "announcements"), (snapshot) => {
+        const unsubUsers = onSnapshot(collection(firestore, "users"), (snapshot) => {
+            let verified = 0;
+            let rejected = 0;
+            snapshot.forEach((childDoc) => {
+                const data = childDoc.data();
+                if (data.status === "verified" && data.role !== "admin") {
+                    verified++;
+                } else if (data.status === "rejected") {
+                    rejected++;
+                }
+            });
+            setStats((prev) => ({ ...prev, verified, rejected }));
+        });
+
+        const unsubUpgrades = onSnapshot(collection(firestore, "upgradeRequests"), (snapshot) => {
+            let count = 0;
+            snapshot.forEach((childDoc) => {
+                if (childDoc.data().status === "pending") {
+                    count++;
+                }
+            });
+            setStats((prev) => ({ ...prev, upgrades: count }));
+        });
+
+        const unsubLive = onSnapshot(collection(firestore, "liveClasses"), (snapshot) => {
+            setStats((prev) => ({ ...prev, liveClasses: snapshot.size }));
+        });
+
+        const unsubQuizzes = onSnapshot(collection(firestore, "quizzes"), (snapshot) => {
+            setStats((prev) => ({ ...prev, quizzes: snapshot.size }));
+        });
+
+        const unsubMocks = onSnapshot(collection(firestore, "mockTests"), (snapshot) => {
+            setStats((prev) => ({ ...prev, mockTests: snapshot.size }));
+        });
+
+        const unsubAnnouncements = onSnapshot(collection(firestore, "announcements"), (snapshot) => {
+            setStats((prev) => ({ ...prev, announcements: snapshot.size }));
             const list: Announcement[] = [];
-            snapshot.forEach((child) => {
-                list.push({ ...child.val(), id: child.key! });
+            snapshot.forEach((childDoc) => {
+                list.push({ ...(childDoc.data() as Announcement), id: childDoc.id });
             });
             list.sort((a, b) => b.createdAt - a.createdAt);
             setRecentAnnouncements(list.slice(0, 3));
         });
-        listeners.push(annUnsub);
 
-        return () => listeners.forEach((u) => u());
+        return () => {
+            unsubPending();
+            unsubUsers();
+            unsubUpgrades();
+            unsubLive();
+            unsubQuizzes();
+            unsubMocks();
+            unsubAnnouncements();
+        };
     }, []);
 
     const cards = [

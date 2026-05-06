@@ -15,14 +15,16 @@ import {
     Loader2, 
     CheckCircle, 
     Copy, 
-    Mail
+    Mail,
+    Search
 } from "lucide-react";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, update } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, where, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { PendingRegistration } from "@/lib/types";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
@@ -47,23 +49,59 @@ export default function RegistrationsPage() {
     const [copied, setCopied] = useState(false);
 
     // Tab State
-    const [activeTab, setActiveTab] = useState<"pending" | "rejected">("pending");
+    const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">("pending");
+
+    // Search & Credential Lookup States
+    const [searchTerm, setSearchTerm] = useState("");
+    const [approvedUserCredentials, setApprovedUserCredentials] = useState<{ loginId: string; email: string; name: string } | null>(null);
+    const [loadingCredentials, setLoadingCredentials] = useState(false);
 
     useEffect(() => {
-        const regRef = ref(db, "pendingRegistrations");
-        const unsub = onValue(regRef, (snapshot) => {
+        const q = query(collection(firestore, "pendingRegistrations"), orderBy("submittedAt", "desc"));
+        const unsub = onSnapshot(q, (snapshot) => {
             const list: PendingRegistration[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
-                if (data.status === "pending" || data.status === "rejected") {
-                    list.push({ ...data, id: child.key! });
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data() as PendingRegistration;
+                if (data.status === "pending" || data.status === "rejected" || data.status === "approved") {
+                    list.push({ ...data, id: docSnap.id });
                 }
             });
-            list.sort((a, b) => b.submittedAt - a.submittedAt);
             setRegistrations(list);
+        }, (error) => {
+            console.error("Error fetching registrations:", error);
+            toast.error("Failed to load registrations.");
         });
         return () => unsub();
     }, []);
+
+    // Fetch user credentials if already approved
+    useEffect(() => {
+        if (selectedReg && selectedReg.status === "approved") {
+            setLoadingCredentials(true);
+            const usersRef = collection(firestore, "users");
+            const q = query(usersRef, where("email", "==", selectedReg.email));
+            getDocs(q).then((querySnapshot) => {
+                if (!querySnapshot.empty) {
+                    const userDoc = querySnapshot.docs[0];
+                    const userData = userDoc.data();
+                    setApprovedUserCredentials({
+                        loginId: userData.loginId || "",
+                        email: selectedReg.email,
+                        name: selectedReg.name,
+                    });
+                } else {
+                    setApprovedUserCredentials(null);
+                }
+            }).catch((err) => {
+                console.error("Error loading user credentials:", err);
+                setApprovedUserCredentials(null);
+            }).finally(() => {
+                setLoadingCredentials(false);
+            });
+        } else {
+            setApprovedUserCredentials(null);
+        }
+    }, [selectedReg]);
 
     const generateEmailTemplate = (name: string, loginId: string, email: string, password: string) => {
         return `Hi ${name},
@@ -167,7 +205,7 @@ LBS MCA Team`;
         setProcessing(true);
         try {
             const reason = rejectionReason.trim();
-            await update(ref(db, `pendingRegistrations/${selectedReg.id}`), {
+            await updateDoc(doc(firestore, "pendingRegistrations", selectedReg.id), {
                 status: "rejected",
                 rejectionReason: reason,
             });
@@ -197,11 +235,23 @@ LBS MCA Team`;
         }
     };
 
-    const filteredRegistrations = registrations.filter(r => r.status === activeTab);
+    const filteredRegistrations = registrations
+        .filter((r) => r.status === activeTab)
+        .filter((r) => {
+            if (!searchTerm.trim()) return true;
+            const term = searchTerm.toLowerCase();
+            return (
+                r.name?.toLowerCase().includes(term) ||
+                r.email?.toLowerCase().includes(term) ||
+                r.phone?.includes(term) ||
+                r.whatsapp?.includes(term) ||
+                r.transactionId?.toLowerCase().includes(term)
+            );
+        });
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <UserPlus className="h-6 w-6 text-amber-500" />
@@ -212,25 +262,46 @@ LBS MCA Team`;
                     </p>
                 </div>
 
-                <div className="flex p-1 bg-muted/50 border border-border rounded-lg">
-                    <button
-                        onClick={() => setActiveTab("pending")}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === "pending"
-                            ? "bg-white text-foreground shadow-sm dark:bg-background"
-                            : "text-muted-foreground hover:text-foreground"
-                            }`}
-                    >
-                        Pending ({registrations.filter(r => r.status === "pending").length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("rejected")}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === "rejected"
-                            ? "bg-white text-foreground shadow-sm dark:bg-background"
-                            : "text-muted-foreground hover:text-foreground"
-                            }`}
-                    >
-                        Rejected ({registrations.filter(r => r.status === "rejected").length})
-                    </button>
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-stretch sm:items-center">
+                    <div className="flex p-1 bg-muted/50 border border-border rounded-lg overflow-x-auto shrink-0">
+                        <button
+                            onClick={() => setActiveTab("pending")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${activeTab === "pending"
+                                ? "bg-white text-foreground shadow-sm dark:bg-background"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            Pending ({registrations.filter(r => r.status === "pending").length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("approved")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${activeTab === "approved"
+                                ? "bg-white text-foreground shadow-sm dark:bg-background"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            Approved ({registrations.filter(r => r.status === "approved").length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("rejected")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${activeTab === "rejected"
+                                ? "bg-white text-foreground shadow-sm dark:bg-background"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            Rejected ({registrations.filter(r => r.status === "rejected").length})
+                        </button>
+                    </div>
+
+                    <div className="relative flex-1 sm:w-64 md:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search registrations..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 h-9 rounded-lg bg-card"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -239,6 +310,8 @@ LBS MCA Team`;
                     <CardContent className="py-12 text-center text-muted-foreground">
                         {activeTab === "pending" ? (
                             <UserPlus className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        ) : activeTab === "approved" ? (
+                            <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-50 text-emerald-500" />
                         ) : (
                             <FileWarning className="h-10 w-10 mx-auto mb-2 opacity-50" />
                         )}
@@ -317,6 +390,10 @@ LBS MCA Team`;
                             {selectedReg?.status === "rejected" ? (
                                 <span className="text-red-500 font-medium flex items-center gap-1 mt-0.5">
                                     <FileWarning className="w-3.5 h-3.5" /> This application was previously rejected
+                                </span>
+                            ) : selectedReg?.status === "approved" ? (
+                                <span className="text-emerald-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <CheckCircle className="w-3.5 h-3.5" /> This application is approved
                                 </span>
                             ) : "Review the applicant's information"}
                         </DialogDescription>
@@ -404,19 +481,46 @@ LBS MCA Team`;
                                             Reject
                                         </Button>
                                     )}
-                                    <Button
-                                        onClick={handleAddUser}
-                                        disabled={processing}
-                                        className="gradient-primary border-0 h-10 rounded-lg px-6 shadow-lg shadow-blue-500/10 text-sm"
-                                    >
-                                        {processing ? (
-                                            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Processing...</>
-                                        ) : (
-                                            <><UserCheck className="h-3.5 w-3.5 mr-1.5" />
-                                                {selectedReg.status === "rejected" ? "Overrule & Approve" : "Approve User"}
-                                            </>
-                                        )}
-                                    </Button>
+                                    {selectedReg.status === "approved" ? (
+                                        <Button
+                                            onClick={() => {
+                                                if (approvedUserCredentials) {
+                                                    setCredentials({
+                                                        loginId: approvedUserCredentials.loginId,
+                                                        email: approvedUserCredentials.email,
+                                                        password: selectedReg.phone, // Default password is phone
+                                                        name: approvedUserCredentials.name,
+                                                    });
+                                                    setShowDetail(false);
+                                                    setShowCredentials(true);
+                                                } else {
+                                                    toast.error("User credentials not found in users database.");
+                                                }
+                                            }}
+                                            disabled={loadingCredentials || !approvedUserCredentials}
+                                            className="gradient-primary border-0 h-10 rounded-lg px-6 shadow-lg shadow-blue-500/10 text-sm"
+                                        >
+                                            {loadingCredentials ? (
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Fetching...</>
+                                            ) : (
+                                                <><CheckCircle className="h-3.5 w-3.5 mr-1.5" />Reshare Credentials</>
+                                            )}
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            onClick={handleAddUser}
+                                            disabled={processing}
+                                            className="gradient-primary border-0 h-10 rounded-lg px-6 shadow-lg shadow-blue-500/10 text-sm"
+                                        >
+                                            {processing ? (
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Processing...</>
+                                            ) : (
+                                                <><UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                                                    {selectedReg.status === "rejected" ? "Overrule & Approve" : "Approve User"}
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
                                 </DialogFooter>
                             </div>
                         </div>

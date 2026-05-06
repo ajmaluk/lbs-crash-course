@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { ref, onValue, query, orderByChild, push, set, equalTo } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy, where, addDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { BookOpen, Clock, CheckCircle, Trophy, AlertCircle, Timer, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,26 +32,26 @@ export default function QuizzesPage() {
     const [markedQuestions, setMarkedQuestions] = useState<number[]>([]);
 
     useEffect(() => {
-        const qRef = query(ref(db, "quizzes"), orderByChild("createdAt"));
-        const unsub = onValue(qRef, (snapshot) => {
+        const qRef = query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"));
+        const unsub = onSnapshot(qRef, (snapshot) => {
             const list: Quiz[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
+            snapshot.forEach((doc) => {
+                const data = doc.data() as Quiz;
                 if (data.status === "published" || data.status === "closed") {
-                    list.push({ ...data, id: child.key! });
+                    list.push({ ...data, id: doc.id });
                 }
             });
-            setQuizzes(list.reverse());
+            setQuizzes(list);
         });
 
         // Fetch user's attempts
         if (userData?.uid) {
-            const attRef = query(ref(db, "quizAttempts"), orderByChild("userId"), equalTo(userData.uid));
-            const unsubAtt = onValue(attRef, (snapshot) => {
+            const attRef = query(collection(firestore, "quizAttempts"), where("userId", "==", userData.uid));
+            const unsubAtt = onSnapshot(attRef, (snapshot) => {
                 const attempts: Record<string, QuizAttempt> = {};
-                snapshot.forEach((child) => {
-                    const data = child.val();
-                    attempts[data.quizId] = { ...data, id: child.key! };
+                snapshot.forEach((doc) => {
+                    const data = doc.data() as QuizAttempt;
+                    attempts[data.quizId] = { ...data, id: doc.id };
                 });
                 setMyAttempts(attempts);
             });
@@ -127,8 +127,7 @@ export default function QuizzesPage() {
                 if (answers[i] === q.correctAnswer) score++;
             });
 
-            const attemptRef = push(ref(db, "quizAttempts"));
-            await set(attemptRef, {
+            await addDoc(collection(firestore, "quizAttempts"), {
                 userId: userData.uid,
                 userName: userData.name,
                 quizId: activeQuiz.id,

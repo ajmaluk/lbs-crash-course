@@ -1,6 +1,6 @@
 "use server";
 
-import { adminAuth, adminDb, isInitialized } from "@/lib/firebase-admin";
+import { adminAuth, adminFirestore, isInitialized } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import { verifyAdmin } from "@/lib/auth-utils";
 
@@ -26,16 +26,16 @@ function toPackageLabel(selectedPackage: string) {
 }
 
 async function generateUniqueLoginId(): Promise<string> {
-    if (!adminDb) throw new Error("Database not available");
+    if (!adminFirestore) throw new Error("Database not available");
     
     const maxAttempts = 10;
     let attempts = 0;
 
     while (attempts < maxAttempts) {
         const id = `LBS-${Math.floor(1000 + Math.random() * 9000)}`;
-        const lookupRef = adminDb.ref(`loginIdEmails/${id}`);
-        const snapshot = await lookupRef.get();
-        if (!snapshot.exists()) {
+        const docRef = adminFirestore.collection("loginIdEmails").doc(id);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
             return id;
         }
         attempts++;
@@ -57,7 +57,7 @@ export async function approveRegistrationAction(
         screenshotUrl?: string;
     }
 ): Promise<ApprovalResult> {
-    if (!isInitialized || !adminDb || !adminAuth) {
+    if (!isInitialized || !adminFirestore || !adminAuth) {
         return { success: false, message: "Admin service unavailable. Please configure Firebase Admin credentials." };
     }
 
@@ -78,10 +78,10 @@ export async function approveRegistrationAction(
             uid = existingUser.uid;
             
             // Check if existing user is an admin to prevent overwriting their account
-            const existingUserSnapshot = await adminDb.ref(`users/${uid}`).get();
-            if (existingUserSnapshot.exists()) {
-                const existingData = existingUserSnapshot.val();
-                if (existingData.role === "admin") {
+            const existingUserDoc = await adminFirestore.collection("users").doc(uid).get();
+            if (existingUserDoc.exists) {
+                const existingData = existingUserDoc.data();
+                if (existingData && existingData.role === "admin") {
                     return { success: false, message: "Cannot approve registration for an email address that belongs to an admin." };
                 }
             }
@@ -107,8 +107,10 @@ export async function approveRegistrationAction(
         const is_live = regData.selectedPackage === "live_only" || regData.selectedPackage === "both";
         const is_record_class = regData.selectedPackage === "recorded_only" || regData.selectedPackage === "both";
 
-        const updates: Record<string, unknown> = {};
-        updates[`users/${uid}`] = {
+        const batch = adminFirestore.batch();
+        
+        const userRef = adminFirestore.collection("users").doc(uid);
+        batch.set(userRef, {
             name: regData.name,
             email: regData.email,
             phone: regData.phone,
@@ -124,13 +126,19 @@ export async function approveRegistrationAction(
             transactionId: regData.transactionId ?? null,
             screenshotUrl: regData.screenshotUrl ?? null,
             createdAt: Date.now(),
-        };
-        updates[`loginIdEmails/${loginId}`] = regData.email;
-        updates[`pendingRegistrations/${registrationId}/status`] = "approved";
-        updates[`pendingRegistrations/${registrationId}/approvedBy`] = adminUid;
-        updates[`pendingRegistrations/${registrationId}/approvedAt`] = Date.now();
+        });
 
-        await adminDb.ref().update(updates);
+        const loginIdRef = adminFirestore.collection("loginIdEmails").doc(loginId);
+        batch.set(loginIdRef, { email: regData.email });
+
+        const pendingRef = adminFirestore.collection("pendingRegistrations").doc(registrationId);
+        batch.update(pendingRef, {
+            status: "approved",
+            approvedBy: adminUid,
+            approvedAt: Date.now(),
+        });
+
+        await batch.commit();
 
         // Sync to Google Sheet server-side to avoid CORS issues
         try {

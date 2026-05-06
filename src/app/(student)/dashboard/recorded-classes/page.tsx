@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createMediaToken, extractYouTubeId } from "@/lib/media";
-import { ref, onValue, query, orderByChild, get, update } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query as fsQuery, orderBy, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { RecordedClass } from "@/lib/types";
 import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, Maximize2, Minimize2, FileText, Loader2, X, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,21 @@ const SUBJECTS = [
 ];
 
 
+
+// Shared quality label mapping — used in all quality selectors
+const QUALITY_LABEL: Record<string, string> = {
+    highres: "4320p",
+    hd2160: "4K",
+    hd1440: "1440p",
+    hd1080: "1080p",
+    hd720: "720p",
+    large: "480p",
+    medium: "360p",
+    small: "240p",
+    tiny: "144p",
+    auto: "Auto",
+};
+const qualityLabel = (q: string) => QUALITY_LABEL[q] ?? q;
 
 
 function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass | null, open: boolean, onOpenChange: (open: boolean) => void }) {
@@ -99,7 +114,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
     useEffect(() => {
         const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement));
         const handleMessage = (e: MessageEvent) => {
-            const d = e.data as { type?: string; duration?: number; rates?: number[]; qualities?: string[]; current?: number; state?: number } | null;
+            const d = e.data as { type?: string; duration?: number; rates?: number[]; qualities?: string[]; current?: number; state?: number; quality?: string; currentQuality?: string } | null;
             if (!d || typeof d !== "object" || !d.type?.startsWith("yt:")) return;
             if (d.type === "yt:ready") {
                 onReady();
@@ -110,8 +125,28 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 }
                 if (Array.isArray(d.rates) && d.rates.length) setRates(d.rates);
                 if (Array.isArray(d.qualities) && d.qualities.length) {
-                    const qs = Array.from(new Set<string>(d.qualities as string[]));
-                    setQualities([...qs, "auto"]);
+                    // YouTube returns quality levels like ["hd1080","hd720","large","medium","small","tiny","auto","default"]
+                    // Filter out YouTube's internal "default" and "auto" since we add our own "auto" option
+                    const QUALITY_ORDER = ["highres", "hd2160", "hd1440", "hd1080", "hd720", "large", "medium", "small", "tiny"];
+                    const raw = Array.from(new Set<string>(d.qualities as string[]))
+                        .filter(q => q !== "default" && q !== "auto")
+                        .sort((a, b) => {
+                            const ia = QUALITY_ORDER.indexOf(a);
+                            const ib = QUALITY_ORDER.indexOf(b);
+                            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                        });
+                    setQualities(["auto", ...raw]);
+                }
+                // Reflect the actual quality YouTube chose
+                if (typeof d.currentQuality === "string" && d.currentQuality) {
+                    const mappedQ = d.currentQuality === "default" ? "auto" : d.currentQuality;
+                    setQuality(mappedQ);
+                }
+            } else if (d.type === "yt:qualitychange") {
+                // YouTube changed quality (either from our request or adaptive switching)
+                if (typeof d.quality === "string" && d.quality) {
+                    const mappedQ = d.quality === "default" ? "auto" : d.quality;
+                    setQuality(mappedQ);
                 }
             } else if (d.type === "yt:time") {
                 if (typeof d.current === "number" && Number.isFinite(d.current)) {
@@ -124,10 +159,15 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     durationRef.current = nextDuration;
                     setDuration(nextDuration);
                 }
+                // Track real-time quality changes from periodic polling
+                if (typeof d.currentQuality === "string" && d.currentQuality) {
+                    const mappedQ = d.currentQuality === "default" ? "auto" : d.currentQuality;
+                    setQuality(prev => prev !== mappedQ ? mappedQ : prev);
+                }
             } else if (d.type === "yt:state") {
                 const st = d.state;
                 setIsPaused(st === 2);
-                setCoverVisible(st === 0 || st === 2 || st === 5);
+                setCoverVisible(st === -1 || st === 0 || st === 2 || st === 5);
                 if (st === 1) {
                     setHudMask(true);
                     if (hudTimerRef.current) { window.clearTimeout(hudTimerRef.current); hudTimerRef.current = null; }
@@ -150,7 +190,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             if (hudTimerRef.current) { window.clearTimeout(hudTimerRef.current); hudTimerRef.current = null; }
             if (fsOverlayTimerRef.current) { window.clearTimeout(fsOverlayTimerRef.current); fsOverlayTimerRef.current = null; }
         };
-    }, [duration]);
+    }, []);  // No deps — message handler uses refs internally
     
     // Anti-Piracy: Block common DevTools and Save/Print shortcuts
     useEffect(() => {
@@ -192,8 +232,8 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         const loadProgress = async () => {
             if (!open || !video || !userData?.uid) return;
             try {
-                const snap = await get(ref(db, `users/${userData.uid}/video_progress/${video.id}`));
-                const val = snap.val() as { timestamp?: number; duration?: number } | null;
+                const snap = await getDoc(doc(firestore, `users/${userData.uid}/video_progress`, video.id));
+                const val = snap.exists() ? snap.data() as { timestamp?: number; duration?: number } : null;
                 if (active && val?.timestamp && Number.isFinite(val.timestamp) && val.timestamp > 0) {
                     // Validate timestamp doesn't exceed the saved duration first, then the live duration.
                     const referenceDuration = Number.isFinite(val.duration || NaN) && (val.duration || 0) > 0 ? (val.duration || 0) : durationRef.current || duration || 0;
@@ -216,35 +256,35 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
 
     const applyRate = (r: number) => {
         setRate(r);
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "rate", rate: r }, "*"); } catch { }
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "rate", rate: r }, window.location.origin); } catch { }
     };
 
     const applyQuality = (q: string) => {
         setQuality(q);
-        if (q === "auto") return;
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "quality", quality: q }, "*"); } catch { }
+        // Always send quality to the YT proxy — "auto" gets mapped to YouTube's "default" there
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "quality", quality: q }, window.location.origin); } catch { }
     };
 
     const seekBy = (delta: number) => {
         const ct = currentTime ?? 0;
         const nt = Math.max(0, Math.min((duration || 0), ct + delta));
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, "*"); } catch { }
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, window.location.origin); } catch { }
         setCurrentTime(nt);
     };
 
     const seekTo = (t: number) => {
-        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: t }, "*"); } catch { }
+        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: t }, window.location.origin); } catch { }
         setCurrentTime(t);
     };
 
     const togglePlay = () => {
         if (isPaused) {
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, "*"); } catch { }
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, "*"); } catch { }
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, window.location.origin); } catch { }
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, window.location.origin); } catch { }
             setIsPaused(false);
             setCoverVisible(false);
         } else {
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, "*"); } catch { }
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, window.location.origin); } catch { }
             setIsPaused(true);
             setCoverVisible(true);
         }
@@ -315,13 +355,14 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 const t = currentTimeRef.current || currentTime || 0;
                 const completed = d > 0 ? t / d >= 0.9 : false;
                 const progressPercent = d > 0 ? Math.min(100, Math.max(0, Math.round((t / d) * 100))) : 0;
-                await update(ref(db, `users/${userData.uid}/video_progress/${video.id}`), {
+                const progressDocRef = doc(firestore, `users/${userData.uid}/video_progress`, video.id);
+                await setDoc(progressDocRef, {
                     timestamp: Math.floor(t),
                     duration: Math.floor(d || 0),
                     progressPercent,
                     completed: !!completed,
                     updatedAt: now
-                });
+                }, { merge: true });
             } catch {
                 /* ignore */
             }
@@ -344,12 +385,12 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 case 'k':
                     e.preventDefault();
                     if (isPaused) {
-                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, "*"); } catch { }
-                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, "*"); } catch { }
+                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, window.location.origin); } catch { }
+                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, window.location.origin); } catch { }
                         setIsPaused(false);
                         setCoverVisible(false);
                     } else {
-                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, "*"); } catch { }
+                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "pause" }, window.location.origin); } catch { }
                         setIsPaused(true);
                         setCoverVisible(true);
                     }
@@ -360,7 +401,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     {
                         const ct = currentTimeRef.current ?? 0;
                         const nt = Math.max(0, Math.min((durationRef.current || 0), ct - 10));
-                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, "*"); } catch { }
+                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, window.location.origin); } catch { }
                         setCurrentTime(nt);
                     }
                     break;
@@ -370,7 +411,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     {
                         const ct = currentTimeRef.current ?? 0;
                         const nt = Math.max(0, Math.min((durationRef.current || 0), ct + 10));
-                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, "*"); } catch { }
+                        try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "seek", time: nt }, window.location.origin); } catch { }
                         setCurrentTime(nt);
                     }
                     break;
@@ -447,12 +488,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                     >
                                         {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                             <option key={q} value={q}>
-                                                {q === "hd1080" ? "1080p" :
-                                                    q === "hd720" ? "720p" :
-                                                        q === "large" ? "480p" :
-                                                            q === "medium" ? "360p" :
-                                                                q === "small" ? "240p" :
-                                                                    q === "auto" ? "Auto" : q}
+                                                {qualityLabel(q)}
                                             </option>
                                         ))}
                                     </select>
@@ -524,7 +560,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                 >
                                     {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                         <option key={q} value={q}>
-                                            {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                            {qualityLabel(q)}
                                         </option>
                                     ))}
                                 </select>
@@ -611,7 +647,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                         >
                                             {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                                 <option key={q} value={q}>
-                                                    {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                                    {qualityLabel(q)}
                                                 </option>
                                             ))}
                                         </select>
@@ -697,11 +733,11 @@ export default function RecordedClassesPage() {
     };
 
     useEffect(() => {
-        const recRef = query(ref(db, "recordedClasses"), orderByChild("createdAt"));
-        const unsub = onValue(recRef, (snapshot) => {
+        const recRef = fsQuery(collection(firestore, "recordedClasses"), orderBy("createdAt"));
+        const unsub = onSnapshot(recRef, (snapshot) => {
             const list: RecordedClass[] = [];
             snapshot.forEach((child) => {
-                list.push({ ...child.val(), id: child.key! });
+                list.push({ ...child.data(), id: child.id } as RecordedClass);
             });
             list.sort((a, b) => a.id.localeCompare(b.id));
             setClasses(list);
@@ -726,10 +762,10 @@ export default function RecordedClassesPage() {
 
     useEffect(() => {
         if (!userData?.uid) return;
-        const progRef = ref(db, `users/${userData.uid}/video_progress`);
-        const unsub = onValue(progRef, (snap) => {
+        const progRef = collection(firestore, `users/${userData.uid}/video_progress`);
+        const unsub = onSnapshot(progRef, (snap) => {
             const map: Record<string, { timestamp?: number; duration?: number; progressPercent?: number; completed?: boolean }> = {};
-            snap.forEach((c) => { map[c.key as string] = c.val(); });
+            snap.forEach((c) => { map[c.id] = c.data() as any; });
             setVideoProgressMap(map);
         });
         return () => unsub();

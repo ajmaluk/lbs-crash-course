@@ -1,7 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getDatabase, type Database } from "firebase/database";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getDatabase, type Database } from "firebase/database";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 type ModuleState = {
@@ -16,7 +16,6 @@ export type FirebaseStartupHealth = {
     config: {
         hasApiKey: boolean;
         hasAuthDomain: boolean;
-        hasDatabaseURL: boolean;
         hasProjectId: boolean;
         hasAppId: boolean;
         hasMeasurementId: boolean;
@@ -24,8 +23,8 @@ export type FirebaseStartupHealth = {
     modules: {
         app: ModuleState;
         auth: ModuleState;
-        database: ModuleState;
         firestore: ModuleState;
+        database: ModuleState;
         analytics: ModuleState;
     };
 };
@@ -33,7 +32,6 @@ export type FirebaseStartupHealth = {
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
@@ -44,7 +42,6 @@ const firebaseConfig = {
 const hasRequiredCoreConfig = Boolean(
     firebaseConfig.apiKey &&
     firebaseConfig.authDomain &&
-    firebaseConfig.databaseURL &&
     firebaseConfig.projectId &&
     firebaseConfig.appId &&
     firebaseConfig.apiKey !== "your_api_key"
@@ -76,7 +73,6 @@ let firebaseStartupHealth: FirebaseStartupHealth = {
     config: {
         hasApiKey: Boolean(firebaseConfig.apiKey),
         hasAuthDomain: Boolean(firebaseConfig.authDomain),
-        hasDatabaseURL: Boolean(firebaseConfig.databaseURL),
         hasProjectId: Boolean(firebaseConfig.projectId),
         hasAppId: Boolean(firebaseConfig.appId),
         hasMeasurementId: Boolean(firebaseConfig.measurementId),
@@ -84,8 +80,8 @@ let firebaseStartupHealth: FirebaseStartupHealth = {
     modules: {
         app: { enabled: false, reason: "Not initialized" },
         auth: { enabled: false, reason: "Not initialized" },
-        database: { enabled: false, reason: "Not initialized" },
         firestore: { enabled: false, reason: "Not initialized" },
+        database: { enabled: false, reason: "Not initialized" },
         analytics: { enabled: false, reason: "Not initialized" },
     },
 };
@@ -109,8 +105,8 @@ export const onFirebaseStartupHealthChange = (listener: (health: FirebaseStartup
 
 let app: FirebaseApp;
 let auth: Auth;
-let db: Database;
 let firestore: Firestore;
+let db: Database;
 let analytics: Analytics | null = null;
 
 // Initialize placeholder services to avoid crashes during static builds or misconfigured environments.
@@ -233,15 +229,15 @@ if (hasRequiredCoreConfig) {
     suppressInstallationsErrors(app);
 
     auth = getAuth(app);
-    db = getDatabase(app);
     firestore = getFirestore(app);
+    db = getDatabase(app);
     firebaseStartupHealth = {
         ...firebaseStartupHealth,
         modules: {
             app: { enabled: true, reason: "Initialized successfully" },
             auth: { enabled: true, reason: "Initialized successfully" },
-            database: { enabled: true, reason: "Initialized successfully" },
             firestore: { enabled: true, reason: "Initialized successfully" },
+            database: { enabled: true, reason: "Initialized successfully" },
             analytics: firebaseStartupHealth.modules.analytics,
         },
     };
@@ -339,16 +335,16 @@ if (hasRequiredCoreConfig) {
     console.warn("Firebase is not configured. Proxied placeholders will be used.");
     app = createPlaceholderProxy("App");
     auth = createPlaceholderProxy("Auth");
-    db = createPlaceholderProxy("Database");
     firestore = createPlaceholderProxy("Firestore");
+    db = createPlaceholderProxy("Database");
     
     firebaseStartupHealth = {
         ...firebaseStartupHealth,
         modules: {
             app: { enabled: false, reason: "Disabled: missing required core Firebase config" },
             auth: { enabled: false, reason: "Disabled: app initialization failed" },
-            database: { enabled: false, reason: "Disabled: app initialization failed" },
             firestore: { enabled: false, reason: "Disabled: app initialization failed" },
+            database: { enabled: false, reason: "Disabled: app initialization failed" },
             analytics: { enabled: false, reason: "Disabled: app initialization failed" },
         },
     };
@@ -359,4 +355,4 @@ if (hasRequiredCoreConfig) {
 
 const hasValidConfig = hasRequiredCoreConfig;
 
-export { app, auth, db, firestore, analytics, hasValidConfig };
+export { app, auth, firestore, db, analytics, hasValidConfig };

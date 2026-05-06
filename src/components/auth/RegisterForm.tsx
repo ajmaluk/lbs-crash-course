@@ -24,8 +24,8 @@ import {
     ArrowRight,
     Loader2,
 } from "lucide-react";
-import { ref, push, set } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import Image from "next/image";
 import { toast } from "sonner";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
@@ -185,8 +185,8 @@ export function RegisterForm() {
                 console.error("Sheet Sync Error:", sheetErr);
             }
 
-            const pendingRef = push(ref(db, "pendingRegistrations"));
-            await set(pendingRef, {
+            const pendingColRef = collection(firestore, "pendingRegistrations");
+            await addDoc(pendingColRef, {
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,

@@ -26,7 +26,7 @@ import {
     DialogFooter 
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
-import { chatWithAI, getUserContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
+import { chatWithAI, getUserContext, preWarmContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
 import { cn } from "@/lib/utils";
 import { FormattedMessage } from "@/components/ai/FormattedMessage";
 import HistoryOverlay from "@/components/ai/HistoryOverlay";
@@ -163,6 +163,12 @@ export default function DashboardAIChatPage() {
         return () => clearTimeout(safetyTimer);
     }, []);
 
+    // Pre-warm AI context on mount so first message is instant
+    useEffect(() => {
+        const uid = userData?.uid || user?.uid;
+        if (uid) preWarmContext(uid);
+    }, [userData?.uid, user?.uid]);
+
     // Auto-scroll logic
     const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
         if (scrollRef.current) {
@@ -173,10 +179,17 @@ export default function DashboardAIChatPage() {
         }
     }, []);
 
+    const activeSession = useMemo(() => 
+        sessions.find(s => s.id === activeSessionId) || null
+    , [sessions, activeSessionId]);
+
+    const currentMessages = activeSession?.messages || [];
+
     useEffect(() => {
-        const timer = setTimeout(() => scrollToBottom("auto"), 100);
-        return () => clearTimeout(timer);
-    }, [activeSessionId, scrollToBottom]);
+        if (currentMessages.length > 0) {
+            scrollToBottom("auto");
+        }
+    }, [currentMessages.length, currentMessages[currentMessages.length - 1]?.content.length, scrollToBottom]);
 
     const handleScroll = () => {
         if (!scrollRef.current) return;
@@ -186,9 +199,6 @@ export default function DashboardAIChatPage() {
     };
 
     // Session Management
-    const activeSession = useMemo(() => 
-        sessions.find(s => s.id === activeSessionId) || null
-    , [sessions, activeSessionId]);
 
     const handleNewChat = useCallback(() => {
         const newSession = createNewSession();
@@ -230,10 +240,12 @@ export default function DashboardAIChatPage() {
     }, [deleteTarget, sessions, activeSessionId, handleNewChat]);
 
     const handleRenameSession = useCallback((id: string, newTitle: string) => {
-        const updated = sessions.map(s => s.id === id ? { ...s, title: newTitle } : s);
-        setSessions(updated);
-        saveSessions(updated);
-    }, [sessions]);
+        setSessions(prev => {
+            const updated = prev.map(s => s.id === id ? { ...s, title: newTitle } : s);
+            saveSessions(updated);
+            return updated;
+        });
+    }, []);
 
     const handleClearAll = useCallback(() => {
         const newSession = createNewSession();
@@ -406,6 +418,7 @@ export default function DashboardAIChatPage() {
         }
 
         try {
+            // Get context fast — uses cache-first, refreshes in background
             const context = await getUserContext(userData?.uid || user?.uid || "");
             const token = await user?.getIdToken();
             
@@ -464,6 +477,25 @@ export default function DashboardAIChatPage() {
             } else {
                 console.error("Chat error:", error);
                 toast.error("Failed to get AI response");
+                
+                // Set fallback message on error
+                setSessions(prev => {
+                    const updated = prev.map(s => {
+                        if (s.id === currentSessionId) {
+                            const msgs = [...s.messages];
+                            if (msgs.length > 0 && msgs[msgs.length - 1].role === "assistant") {
+                                msgs[msgs.length - 1] = { 
+                                    role: "assistant", 
+                                    content: "Sorry, I encountered a connection error. Please try again." 
+                                };
+                            }
+                            return { ...s, messages: msgs, updatedAt: Date.now() };
+                        }
+                        return s;
+                    });
+                    saveSessions(updated);
+                    return updated;
+                });
             }
         } finally {
             setIsLoading(false);

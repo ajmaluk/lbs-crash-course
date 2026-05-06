@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ref, onValue, push, set, update, remove, get } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query, orderBy, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, where } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
 import { BookOpen, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
@@ -38,13 +38,20 @@ export default function AdminQuizzesPage() {
     const [viewingRanking, setViewingRanking] = useState<RankData | null>(null);
 
     useEffect(() => {
-        const qRef = ref(db, "quizzes");
-        const unsub = onValue(qRef, (snapshot) => {
-            const list: Quiz[] = [];
-            snapshot.forEach((child) => { list.push({ ...child.val(), id: child.key! }); });
-            list.sort((a, b) => b.createdAt - a.createdAt);
-            setQuizzes(list);
-        });
+        const unsub = onSnapshot(
+            query(collection(firestore, "quizzes"), orderBy("createdAt", "desc")),
+            (snapshot) => {
+                const list: Quiz[] = [];
+                snapshot.forEach((docSnap) => {
+                    list.push({ ...(docSnap.data() as Omit<Quiz, "id">), id: docSnap.id });
+                });
+                setQuizzes(list);
+            },
+            (error) => {
+                console.error("Error fetching quizzes:", error);
+                toast.error("Failed to load quizzes");
+            }
+        );
         return () => unsub();
     }, []);
 
@@ -113,20 +120,17 @@ export default function AdminQuizzesPage() {
                 ...(form.status === "closed" && !editing?.closedAt ? { closedAt: Date.now() } : {}),
             };
 
-            const quizId = editing ? editing.id : push(ref(db, "quizzes")).key!;
+            const quizId = editing ? editing.id : doc(collection(firestore, "quizzes")).id;
 
             // If closing the quiz, generate rankings snapshot
             if (form.status === "closed") {
-                const attemptsSnap = await get(ref(db, "quizAttempts"));
+                const attemptsSnap = await getDocs(
+                    query(collection(firestore, "quizAttempts"), where("quizId", "==", quizId))
+                );
                 const attempts: Array<{ userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number; quizId: string }> = [];
-                if (attemptsSnap.exists()) {
-                    attemptsSnap.forEach((child) => {
-                        const val = child.val();
-                        if (val.quizId === quizId) {
-                            attempts.push(val);
-                        }
-                    });
-                }
+                attemptsSnap.forEach((docSnap) => {
+                    attempts.push(docSnap.data() as any);
+                });
 
                 const bestByUser: Record<string, typeof attempts[0]> = {};
                 attempts.forEach((a) => {
@@ -151,7 +155,7 @@ export default function AdminQuizzesPage() {
                     submittedAt: entry.submittedAt
                 }));
 
-                await set(ref(db, `rankings/${quizId}`), {
+                await setDoc(doc(firestore, "rankings", quizId), {
                     quizId,
                     quizTitle: form.title,
                     generatedAt: Date.now(),
@@ -166,10 +170,10 @@ export default function AdminQuizzesPage() {
             }
 
             if (editing) {
-                await update(ref(db, `quizzes/${editing.id}`), data);
+                await updateDoc(doc(firestore, "quizzes", editing.id), data);
                 toast.success(removed > 0 ? `Quiz updated. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Quiz updated");
             } else {
-                await set(ref(db, `quizzes/${quizId}`), data);
+                await setDoc(doc(firestore, "quizzes", quizId), data);
                 toast.success(removed > 0 ? `Quiz created. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Quiz created");
             }
             setShowForm(false);
@@ -183,7 +187,13 @@ export default function AdminQuizzesPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this quiz?")) return;
-        try { await remove(ref(db, `quizzes/${id}`)); toast.success("Deleted"); } catch { toast.error("Failed"); }
+        try {
+            await deleteDoc(doc(firestore, "quizzes", id));
+            toast.success("Deleted");
+        } catch (error) {
+            console.error("Error deleting quiz:", error);
+            toast.error("Failed");
+        }
     };
 
     return (
@@ -222,9 +232,14 @@ export default function AdminQuizzesPage() {
                                             size="sm"
                                             className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                                             onClick={async () => {
-                                                const snap = await get(ref(db, `rankings/${quiz.id}`));
-                                                if (snap.exists()) setViewingRanking(snap.val());
-                                                else toast.error("No ranking found");
+                                                try {
+                                                    const snap = await getDoc(doc(firestore, "rankings", quiz.id));
+                                                    if (snap.exists()) setViewingRanking(snap.data() as RankData);
+                                                    else toast.error("No ranking found");
+                                                } catch (error) {
+                                                    console.error("Error fetching rankings:", error);
+                                                    toast.error("Failed to load rankings");
+                                                }
                                             }}
                                         >
                                             <Trophy className="h-3.5 w-3.5" />

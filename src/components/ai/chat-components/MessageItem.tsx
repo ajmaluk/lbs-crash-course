@@ -112,7 +112,7 @@ export const MessageItem = React.memo(({
                         >
                             {isBookmarked ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
                         </Button>
-                        <div className="mx-1 h-3 w-[1px] bg-border/60" />
+                        <div className="mx-1 h-3 w-px bg-border/60" />
                         <Button
                             variant="ghost"
                             size="icon"

@@ -5,18 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { ref, onValue, query, orderByChild, push, set, equalTo } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query as fsQuery, orderBy, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { FileText, Clock, CheckCircle, Trophy, Timer, AlertCircle, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+interface QuizSession {
+    mockTestId: string;
+    answers: number[];
+    markedQuestions: number[];
+    startTime: number;
+}
 
 export default function MockTestsPage() {
     const { userData } = useAuth();
     const [mockTests, setMockTests] = useState<Quiz[]>([]);
     const [myAttempts, setMyAttempts] = useState<Record<string, QuizAttempt>>({});
+    const [mySessions, setMySessions] = useState<Record<string, QuizSession>>({});
     const [activeTest, setActiveTest] = useState<Quiz | null>(null);
     const [answers, setAnswers] = useState<number[]>([]);
     const [currentQ, setCurrentQ] = useState(0);
@@ -28,32 +35,43 @@ export default function MockTestsPage() {
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
     const [reviewMode, setReviewMode] = useState(false);
     const [markedQuestions, setMarkedQuestions] = useState<number[]>([]);
+    const [sessionStartTime, setSessionStartTime] = useState<number>(0);
 
 
     useEffect(() => {
-        const mtRef = query(ref(db, "mockTests"), orderByChild("createdAt"));
-        const unsub = onValue(mtRef, (snapshot) => {
+        const mtRef = fsQuery(collection(firestore, "mockTests"), orderBy("createdAt"));
+        const unsub = onSnapshot(mtRef, (snapshot) => {
             const list: Quiz[] = [];
             snapshot.forEach((child) => {
-                const data = child.val();
+                const data = child.data();
                 if (data.status === "published" || data.status === "closed") {
-                    list.push({ ...data, id: child.key! });
+                    list.push({ ...data, id: child.id } as Quiz);
                 }
             });
             setMockTests(list.reverse());
         });
 
         if (userData?.uid) {
-            const attRef = query(ref(db, "mockAttempts"), orderByChild("userId"), equalTo(userData.uid));
-            const unsubAtt = onValue(attRef, (snapshot) => {
+            const attRef = fsQuery(collection(firestore, "mockAttempts"), where("userId", "==", userData.uid));
+            const unsubAtt = onSnapshot(attRef, (snapshot) => {
                 const attempts: Record<string, QuizAttempt> = {};
                 snapshot.forEach((child) => {
-                    const data = child.val();
-                    attempts[data.mockTestId || data.quizId] = { ...data, id: child.key! };
+                    const data = child.data();
+                    attempts[data.mockTestId || data.quizId] = { ...data, id: child.id } as QuizAttempt;
                 });
                 setMyAttempts(attempts);
             });
-            return () => { unsub(); unsubAtt(); };
+
+            const sessionRef = collection(firestore, `mockSessions/${userData.uid}/sessions`);
+            const unsubSession = onSnapshot(sessionRef, (snapshot) => {
+                const sessions: Record<string, QuizSession> = {};
+                snapshot.forEach((child) => {
+                    sessions[child.id] = child.data() as QuizSession;
+                });
+                setMySessions(sessions);
+            });
+
+            return () => { unsub(); unsubAtt(); unsubSession(); };
         }
 
         return () => unsub();
@@ -69,19 +87,52 @@ export default function MockTestsPage() {
 
     const proceedWithTestStart = (test: Quiz) => {
         setActiveTest(test);
-        setAnswers(new Array(test.questions.length).fill(-1));
+        const existingSession = mySessions[test.id];
+
+        if (existingSession) {
+            setAnswers(existingSession.answers || new Array(test.questions.length).fill(-1));
+            setMarkedQuestions(existingSession.markedQuestions || []);
+            setSessionStartTime(existingSession.startTime);
+            const elapsed = Math.floor((Date.now() - existingSession.startTime) / 1000);
+            const duration = (test.duration || 60) * 60;
+            const remaining = duration - elapsed;
+            setTimeLeft(Math.max(0, remaining));
+        } else {
+            const startTime = Date.now();
+            setAnswers(new Array(test.questions.length).fill(-1));
+            setMarkedQuestions([]);
+            setSessionStartTime(startTime);
+            setTimeLeft((test.duration || 60) * 60);
+            
+            if (userData?.uid) {
+                setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, test.id), {
+                    mockTestId: test.id,
+                    answers: new Array(test.questions.length).fill(-1),
+                    markedQuestions: [],
+                    startTime
+                });
+            }
+        }
+
         setCurrentQ(0);
         setResult(null);
         setReviewMode(false);
-        setMarkedQuestions([]);
-        setTimeLeft((test.duration || 60) * 60);
         setShowStartScreen(false);
     };
 
     const toggleMarked = (idx: number) => {
-        setMarkedQuestions(prev => 
-            prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-        );
+        setMarkedQuestions(prev => {
+            const newMarked = prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx];
+            if (activeTest && userData?.uid && !reviewMode) {
+                setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id), {
+                    mockTestId: activeTest.id,
+                    answers,
+                    markedQuestions: newMarked,
+                    startTime: sessionStartTime
+                });
+            }
+            return newMarked;
+        });
     };
 
     const handleStartTestClick = () => {
@@ -103,6 +154,15 @@ export default function MockTestsPage() {
         const newAnswers = [...answers];
         newAnswers[currentQ] = optIndex;
         setAnswers(newAnswers);
+
+        if (activeTest && userData?.uid && !reviewMode) {
+            setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id), {
+                mockTestId: activeTest.id,
+                answers: newAnswers,
+                markedQuestions,
+                startTime: sessionStartTime
+            });
+        }
     };
 
     const submitTest = useCallback(async () => {
@@ -114,8 +174,7 @@ export default function MockTestsPage() {
                 if (answers[i] === q.correctAnswer) score++;
             });
 
-            const attemptRef = push(ref(db, "mockAttempts"));
-            await set(attemptRef, {
+            await addDoc(collection(firestore, "mockAttempts"), {
                 userId: userData.uid,
                 userName: userData.name,
                 mockTestId: activeTest.id,
@@ -126,6 +185,9 @@ export default function MockTestsPage() {
                 totalQuestions: activeTest.questions.length,
                 submittedAt: Date.now(),
             });
+
+            // Remove session
+            await deleteDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id));
 
             setResult({ score, total: activeTest.questions.length });
             setShowConfirmSubmit(false);

@@ -13,7 +13,6 @@ if (!admin.apps.length) {
     try {
       admin.initializeApp({
         credential: admin.credential.cert(firebaseAdminConfig),
-        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
       });
       isInitialized = true;
     } catch (error) {
@@ -27,6 +26,5 @@ if (!admin.apps.length) {
 }
 
 export const adminAuth = isInitialized ? admin.auth() : null;
-export const adminDb = isInitialized ? admin.database() : null;
 export const adminFirestore = isInitialized ? admin.firestore() : null;
 export { admin, isInitialized };

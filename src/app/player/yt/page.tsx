@@ -19,12 +19,14 @@ function YTProxyInner() {
     getCurrentTime?: () => number;
     getAvailablePlaybackRates?: () => number[];
     getAvailableQualityLevels?: () => string[];
+    getPlaybackQuality?: () => string;
     destroy?: () => void;
     setPlaybackRate?: (r: number) => void;
     setPlaybackQuality?: (q: string) => void;
     setVolume?: (v: number) => void;
   };
   const playerRef = useRef<Player | null>(null);
+  const innerCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!vid || vid.length < 11) return;
@@ -84,16 +86,26 @@ function YTProxyInner() {
             try { rates = p.getAvailablePlaybackRates?.() ?? rates; } catch {}
             try { qualities = p.getAvailableQualityLevels?.() ?? qualities; } catch {}
 
-            window.parent?.postMessage({ type: "yt:ready", duration, rates, qualities }, "*");
+            let currentQuality = "";
+            try { currentQuality = p.getPlaybackQuality?.() ?? ""; } catch {}
+
+            window.parent?.postMessage({ type: "yt:ready", duration, rates, qualities, currentQuality }, "*");
           },
           onStateChange: (e: { data: number }) => {
             window.parent?.postMessage({ type: "yt:state", state: e?.data }, "*");
           },
+          onPlaybackQualityChange: (e: { data: string }) => {
+            window.parent?.postMessage({ type: "yt:qualitychange", quality: e?.data ?? "" }, "*");
+          },
           onError: (e: { data: number; target: unknown }) => {
             // Unwedge parent if YouTube rejects the video (invalid ID, embed disabled, etc.)
-            let duration = 0; const rates = [1]; const qualities: string[] = [];
-            try { const p = e.target as Player; duration = p.getDuration?.() ?? 0; } catch {}
-            window.parent?.postMessage({ type: "yt:ready", duration, rates, qualities }, "*");
+            let duration = 0; const rates = [1]; let qualities: string[] = [];
+            try {
+              const p = e.target as Player;
+              duration = p.getDuration?.() ?? 0;
+              qualities = p.getAvailableQualityLevels?.() ?? [];
+            } catch {}
+            window.parent?.postMessage({ type: "yt:ready", duration, rates, qualities, currentQuality: "" }, "*");
           },
         },
       })) as Player;
@@ -103,7 +115,9 @@ function YTProxyInner() {
           const p = playerRef.current as Player;
           const current = p?.getCurrentTime?.() ?? 0;
           const duration = p?.getDuration?.() ?? 0;
-          window.parent?.postMessage({ type: "yt:time", current, duration }, "*");
+          let currentQuality = "";
+          try { currentQuality = p?.getPlaybackQuality?.() ?? ""; } catch {}
+          window.parent?.postMessage({ type: "yt:time", current, duration, currentQuality }, "*");
         } catch {}
       }, 700);
 
@@ -125,19 +139,26 @@ function YTProxyInner() {
           } else if (d.name === "rate") {
             p?.setPlaybackRate?.(Number(d.rate || 1));
           } else if (d.name === "quality" && d.quality) {
-            p?.setPlaybackQuality?.(d.quality === "auto" ? "default" : String(d.quality));
+            // YouTube API uses "default" for auto quality; map user-facing "auto" to it
+            const ytQuality = d.quality === "auto" ? "default" : String(d.quality);
+            p?.setPlaybackQuality?.(ytQuality);
           }
         } catch {}
       };
       window.addEventListener("message", onMsg);
 
-      return () => {
+      innerCleanupRef.current = () => {
         window.clearInterval(iv);
         window.removeEventListener("message", onMsg);
       };
     });
     return () => {
       mounted = false;
+      // Clean up interval + listener from the inner .then() scope
+      if (innerCleanupRef.current) {
+        innerCleanupRef.current();
+        innerCleanupRef.current = null;
+      }
       try {
         const p = playerRef.current as Player | null;
         p?.destroy?.();

@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from "@/lib/firebase";
+import { firestore } from "@/lib/firebase";
 import type { Quiz } from "@/lib/types";
-import { get, push, ref, set } from "firebase/database";
+import { collection, getDocs, addDoc, doc, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { Brain, CalendarDays, ChevronLeft, ChevronRight, Gauge, RefreshCcw, Sparkles, Target, Trophy } from "lucide-react";
 
@@ -166,7 +166,7 @@ export default function StudyLabPanel({
 
     if (userId) {
       try {
-        await set(ref(db, `users/${userId}/aiPracticeTracking/${sessionId}`), nextStats);
+        await setDoc(doc(firestore, `users/${userId}/aiPracticeTracking`, sessionId), nextStats);
       } catch {
         // User tracking sync is best effort only.
       }
@@ -230,16 +230,16 @@ export default function StudyLabPanel({
 
     try {
       const [quizSnap, mockSnap] = await Promise.all([
-        get(ref(db, "quizzes")),
-        get(ref(db, "mockTests")),
+        getDocs(collection(firestore, "quizzes")),
+        getDocs(collection(firestore, "mockTests")),
       ]);
 
       const pool: TestQuestion[] = [];
 
-      const appendFromCollection = (snap: Awaited<ReturnType<typeof get>>, sourceType: "quiz" | "mock") => {
-        if (!snap.exists()) return;
+      const appendFromCollection = (snap: Awaited<ReturnType<typeof getDocs>>, sourceType: "quiz" | "mock") => {
+        if (snap.empty) return;
         snap.forEach((child) => {
-          const val = child.val() as Quiz;
+          const val = child.data() as Quiz;
           if (!val || !Array.isArray(val.questions)) return;
           if (val.status !== "published" && val.status !== "closed") return;
 
@@ -247,8 +247,8 @@ export default function StudyLabPanel({
             if (!q || !Array.isArray(q.options) || q.options.length < 2) return;
             if (typeof q.correctAnswer !== "number") return;
             pool.push({
-              id: `${sourceType}-${child.key}-${q.id || idx}`,
-              sourceId: child.key as string,
+              id: `${sourceType}-${child.id}-${q.id || idx}`,
+              sourceId: child.id,
               sourceType,
               sourceTitle: val.title || "Untitled",
               subject: val.subject || "General",
@@ -324,8 +324,7 @@ export default function StudyLabPanel({
     await saveStats(statsPayload);
 
     try {
-      const attemptRef = push(ref(db, "mockAttempts"));
-      await set(attemptRef, {
+      const attemptDocRef = await addDoc(collection(firestore, "mockAttempts"), {
         userId,
         userName: userName || "Student",
         mockTestId: leaderboardId,
@@ -339,12 +338,12 @@ export default function StudyLabPanel({
         submittedAt: Date.now(),
       });
 
-      const allAttemptSnap = await get(ref(db, "mockAttempts"));
+      const allAttemptSnap = await getDocs(collection(firestore, "mockAttempts"));
       const bestByUser: Record<string, { userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number }> = {};
 
-      if (allAttemptSnap.exists()) {
+      if (!allAttemptSnap.empty) {
         allAttemptSnap.forEach((child) => {
-          const val = child.val() as {
+          const val = child.data() as {
             userId?: string;
             userName?: string;
             score?: number;
@@ -384,7 +383,7 @@ export default function StudyLabPanel({
           submittedAt: entry.submittedAt,
         }));
 
-      await set(ref(db, `mockRankings/${leaderboardId}`), {
+      await setDoc(doc(firestore, "mockRankings", leaderboardId), {
         mockTestId: leaderboardId,
         quizTitle: "AI Practice Test Leaderboard",
         generatedAt: Date.now(),

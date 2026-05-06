@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
-import { ref, onValue, query, orderByChild, limitToLast } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy, limit, doc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { LiveClass, Announcement, RankData } from "@/lib/types";
 import {
     Video,
@@ -43,23 +43,27 @@ function LeaderboardSummary() {
 
     useEffect(() => {
         const unsubs = [
-            onValue(ref(db, "rankings"), (s) => {
-                setData(prev => ({ ...prev, rankings: s.val() || {} }));
+            onSnapshot(collection(firestore, "rankings"), (snap) => {
+                const obj: Record<string, RankData> = {};
+                snap.docs.forEach(d => { obj[d.id] = d.data() as RankData; });
+                setData(prev => ({ ...prev, rankings: obj }));
                 setLoadedSources(prev => ({ ...prev, rankings: true }));
             }),
-            onValue(ref(db, "mockRankings"), (s) => {
-                setData(prev => ({ ...prev, mockRankings: s.val() || {} }));
+            onSnapshot(collection(firestore, "mockRankings"), (snap) => {
+                const obj: Record<string, RankData> = {};
+                snap.docs.forEach(d => { obj[d.id] = d.data() as RankData; });
+                setData(prev => ({ ...prev, mockRankings: obj }));
                 setLoadedSources(prev => ({ ...prev, mockRankings: true }));
             }),
-            onValue(ref(db, "quizzes"), (s) => {
+            onSnapshot(collection(firestore, "quizzes"), (snap) => {
                 const ids = new Set<string>();
-                s.forEach(c => { ids.add(c.key!); });
+                snap.docs.forEach(d => { ids.add(d.id); });
                 setData(prev => ({ ...prev, quizIds: ids }));
                 setLoadedSources(prev => ({ ...prev, quizzes: true }));
             }),
-            onValue(ref(db, "mockTests"), (s) => {
+            onSnapshot(collection(firestore, "mockTests"), (snap) => {
                 const ids = new Set<string>();
-                s.forEach(c => { ids.add(c.key!); });
+                snap.docs.forEach(d => { ids.add(d.id); });
                 setData(prev => ({ ...prev, mockTestIds: ids }));
                 setLoadedSources(prev => ({ ...prev, mockTests: true }));
             }),
@@ -178,46 +182,44 @@ export default function StudentDashboard() {
     const [progressMap, setProgressMap] = useState<Record<string, { completed?: boolean; timestamp?: number; duration?: number; updatedAt?: number }>>({});
 
     useEffect(() => {
-        const liveRef = query(ref(db, "liveClasses"), orderByChild("scheduledAt"), limitToLast(3));
-        const unsubLive = onValue(liveRef, (snapshot) => {
+        const liveQ = query(collection(firestore, "liveClasses"), orderBy("scheduledAt", "desc"), limit(3));
+        const unsubLive = onSnapshot(liveQ, (snapshot) => {
             const classes: LiveClass[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
+            snapshot.docs.forEach((d) => {
+                const data = d.data();
                 if (data.status !== "completed") {
-                    classes.push({ ...data, id: child.key! });
+                    classes.push({ ...data, id: d.id } as LiveClass);
                 }
             });
-            setUpcomingClasses(classes.reverse());
+            setUpcomingClasses(classes);
         });
 
-        const annRef = query(ref(db, "announcements"), orderByChild("createdAt"), limitToLast(3));
-        const unsubAnn = onValue(annRef, (snapshot) => {
-            const anns: Announcement[] = [];
-            snapshot.forEach((child) => {
-                anns.push({ ...child.val(), id: child.key! });
-            });
-            setAnnouncements(anns.reverse());
+        const annQ = query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(3));
+        const unsubAnn = onSnapshot(annQ, (snapshot) => {
+            const anns: Announcement[] = snapshot.docs.map((d) => ({
+                ...d.data(), id: d.id,
+            } as Announcement));
+            setAnnouncements(anns);
         });
 
         return () => { unsubLive(); unsubAnn(); };
     }, []);
 
     useEffect(() => {
-        const recRef = query(ref(db, "recordedClasses"), orderByChild("createdAt"), limitToLast(10000));
-        const unsubRec = onValue(recRef, (snapshot) => {
-            const list: Array<{ id: string; subject: string; title: string }> = [];
-            snapshot.forEach((c) => {
-                const v = c.val() as { subject?: string; title?: string };
-                list.push({ id: c.key as string, subject: v.subject || "General", title: v.title || "" });
+        const recQ = query(collection(firestore, "recordedClasses"), orderBy("createdAt", "desc"));
+        const unsubRec = onSnapshot(recQ, (snapshot) => {
+            const list: Array<{ id: string; subject: string; title: string }> = snapshot.docs.map((d) => {
+                const v = d.data() as { subject?: string; title?: string };
+                return { id: d.id, subject: v.subject || "General", title: v.title || "" };
             });
-            setRecorded(list.reverse());
+            setRecorded(list);
         });
         let unsubProg: (() => void) | null = null;
         if (userData?.uid) {
-            const pRef = ref(db, `users/${userData.uid}/video_progress`);
-            unsubProg = onValue(pRef, (snap) => {
+            const progRef = collection(firestore, `users/${userData.uid}/video_progress`);
+            unsubProg = onSnapshot(progRef, (snap) => {
                 const map: Record<string, { completed?: boolean; timestamp?: number; duration?: number; updatedAt?: number }> = {};
-                snap.forEach((c) => { map[c.key as string] = c.val(); });
+                snap.docs.forEach((d) => { map[d.id] = d.data() as typeof map[string]; });
                 setProgressMap(map);
             });
         }

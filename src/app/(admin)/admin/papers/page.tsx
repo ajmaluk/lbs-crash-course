@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { createMediaToken } from "@/lib/media";
 import { useAuth } from "@/contexts/auth-context";
 import { FileText, Plus, Edit, Trash2 } from "lucide-react";
@@ -37,12 +37,10 @@ export default function AdminPapersPage() {
   });
 
   useEffect(() => {
-    const q = ref(db, "previousPapers");
-    const unsub = onValue(q, (snap) => {
+    const unsub = onSnapshot(collection(firestore, "previousPapers"), (snapshot) => {
       const list: Paper[] = [];
-      snap.forEach((child) => {
-        list.push({ id: child.key!, ...(child.val() as Omit<Paper, "id">) });
-        return false;
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as Omit<Paper, "id">) });
       });
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setPapers(list);
@@ -100,10 +98,10 @@ export default function AdminPapersPage() {
       };
 
       if (editing) {
-        await update(ref(db, `previousPapers/${editing.id}`), data);
+        await updateDoc(doc(firestore, "previousPapers", editing.id), data);
         toast.success("Updated successfully");
       } else {
-        await set(push(ref(db, "previousPapers")), data);
+        await addDoc(collection(firestore, "previousPapers"), data);
         toast.success("Created successfully");
       }
 
@@ -119,7 +117,7 @@ export default function AdminPapersPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this paper? This cannot be undone.")) return;
     try {
-      await remove(ref(db, `previousPapers/${id}`));
+      await deleteDoc(doc(firestore, "previousPapers", id));
       toast.success("Deleted");
     } catch {
       toast.error("Failed to delete");

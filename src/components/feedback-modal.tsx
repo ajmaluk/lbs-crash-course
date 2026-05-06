@@ -7,8 +7,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ref, get } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 
 export function FeedbackModal() {
     const { user, userData } = useAuth();
@@ -27,8 +27,9 @@ export function FeedbackModal() {
                 // Check video progress before showing
                 void (async () => {
                     try {
-                        const progSnap = await get(ref(db, `users/${userData.uid}/video_progress`));
-                        const progressMap = progSnap.val();
+                        const progSnap = await getDocs(collection(firestore, `users/${userData.uid}/video_progress`));
+                        const progressMap: Record<string, any> = {};
+                        progSnap.forEach((d) => { progressMap[d.id] = d.data(); });
                         
                         let hasWatchedEnough = false;
                         if (progressMap) {
@@ -121,7 +122,7 @@ export function FeedbackModal() {
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -185,7 +186,7 @@ export function FeedbackModal() {
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         placeholder="Tell us what you like or what we can improve..."
-                                        className="w-full min-h-[120px] p-4 rounded-2xl bg-muted/50 border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none text-sm"
+                                        className="w-full min-h-30 p-4 rounded-2xl bg-muted/50 border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none text-sm"
                                     />
                                 </div>
 

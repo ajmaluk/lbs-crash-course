@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { createMediaToken } from "@/lib/media";
 import { useAuth } from "@/contexts/auth-context";
 import type { LiveClass, LiveClassStatus } from "@/lib/types";
@@ -94,25 +94,11 @@ export default function AdminLiveClassesPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const liveRef = ref(db, "liveClasses");
-        const unsub = onValue(liveRef, (snapshot) => {
+        const unsub = onSnapshot(collection(firestore, "liveClasses"), (snapshot) => {
             const list: LiveClass[] = [];
-            const updates: Promise<unknown>[] = [];
-            snapshot.forEach((child) => { list.push({ ...child.val(), id: child.key! }); });
-            snapshot.forEach((child) => {
-                const value = child.val() as Partial<LiveClass>;
-                const normalizedRecordingUrl = normalizeStoredRecordingUrl(value.recordingUrl || "");
-                if (normalizedRecordingUrl && normalizedRecordingUrl !== (value.recordingUrl || "").trim()) {
-                    updates.push(update(ref(db, `liveClasses/${child.key!}`), { recordingUrl: normalizedRecordingUrl }));
-                }
-            });
+            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as LiveClass); });
             list.sort((a, b) => b.scheduledAt - a.scheduledAt);
             setClasses(list);
-            if (updates.length > 0) {
-                void Promise.all(updates).catch(() => {
-                    // Ignore migration write failures; the UI still works with existing values.
-                });
-            }
         });
         return () => unsub();
     }, []);
@@ -167,10 +153,10 @@ export default function AdminLiveClassesPage() {
             };
 
             if (editing) {
-                await update(ref(db, `liveClasses/${editing.id}`), data);
+                await updateDoc(doc(firestore, "liveClasses", editing.id), data);
                 toast.success("Live class updated");
             } else {
-                await set(push(ref(db, "liveClasses")), data);
+                await addDoc(collection(firestore, "liveClasses"), data);
                 toast.success("Live class created");
             }
             setShowForm(false);
@@ -184,7 +170,7 @@ export default function AdminLiveClassesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this live class? This cannot be undone.")) return;
         try {
-            await remove(ref(db, `liveClasses/${id}`));
+            await deleteDoc(doc(firestore, "liveClasses", id));
             toast.success("Live class deleted successfully");
         } catch {
             toast.error("Failed to delete live class");

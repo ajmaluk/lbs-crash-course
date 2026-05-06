@@ -75,7 +75,6 @@ export default function FirebaseHealthPanel() {
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
               <p>apiKey: {String(health.config.hasApiKey)}</p>
               <p>authDomain: {String(health.config.hasAuthDomain)}</p>
-              <p>databaseURL: {String(health.config.hasDatabaseURL)}</p>
               <p>projectId: {String(health.config.hasProjectId)}</p>
               <p>appId: {String(health.config.hasAppId)}</p>
               <p>measurementId: {String(health.config.hasMeasurementId)}</p>

@@ -1,5 +1,5 @@
-import { ref, get, query, orderByChild, equalTo, DataSnapshot } from "firebase/database";
-import { db } from "./firebase";
+import { doc, getDoc, getDocs, collection, query as fsQuery, where, QuerySnapshot } from "firebase/firestore";
+import { firestore } from "./firebase";
 import { 
     UserData, 
     Quiz, 
@@ -12,7 +12,8 @@ import {
 } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_AI_API_URL || "/api/ai/chat";
-const DEVELOPER = "Ajmal U K";
+const AI_DEVELOPER = "Ajmal U K";
+const WEBSITE_DEVELOPERS = "Ajmal U K and Abhijith";
 const TOOLPIX_URL = "https://toolpix.pythonanywhere.com/";
 
 import { cacheDB } from "./db-service";
@@ -32,17 +33,21 @@ const STORAGE_KEYS = {
 };
 
 const TTL = {
-    USER_CONTEXT: 1000 * 60 * 10, // 10 minutes
-    INTELLIGENCE_METRICS: 1000 * 60 * 15,
-    GLOBAL_METADATA: 1000 * 60 * 60 * 12, // 12 hours
-    STATIC_DATA: 1000 * 60 * 60 * 4, // 4 hours
-    ATTEMPTS: 1000 * 60 * 5, // 5 minutes (user data changes often)
-    RANKINGS: 1000 * 60 * 20 // 20 minutes
+    USER_CONTEXT: 1000 * 60 * 30, // 30 minutes (stale-while-revalidate handles freshness)
+    INTELLIGENCE_METRICS: 1000 * 60 * 30,
+    GLOBAL_METADATA: 1000 * 60 * 60 * 24, // 24 hours
+    STATIC_DATA: 1000 * 60 * 60 * 8, // 8 hours
+    ATTEMPTS: 1000 * 60 * 15, // 15 minutes
+    RANKINGS: 1000 * 60 * 30, // 30 minutes
+    STALE_MAX: 1000 * 60 * 60 * 2 // 2 hours: max age before we reject stale data entirely
 };
 
 // Memory cache for active session
 let globalMetadataCache: Record<string, { subject: string; title: string; questionCount: number }> | null = null;
 const userContextCache = new Map<string, { report: string; timestamp: number }>();
+
+// Track in-flight background refreshes to avoid duplicate fetches
+const backgroundRefreshInFlight = new Set<string>();
 
 export interface ChatMessage {
     role: "user" | "assistant" | "system";
@@ -159,8 +164,8 @@ export function getPredefinedResponse(messages: ChatMessage[]): string | null {
         return "Hello! I'm your ToolPix AI Study Mentor. I've analyzed your recent performance data and I'm ready to help you optimize your preparation. What's on your mind today?";
     }
     
-    if (q.includes("who are you") || q.includes("who made you") || q.includes("developer")) {
-        return "I am the **ToolPix AI Study Mentor**, specialized in the Kerala LBS MCA entrance. I was developed by **Abhijith** and the ToolPix team to provide you with data-driven insights and personalized study plans. How can I assist you today?";
+    if (q.includes("who are you") || q.includes("who made you") || q.includes("developer") || q.includes("creator")) {
+        return `I am the **ToolPix AI Study Mentor**, specialized in the Kerala LBS MCA entrance. I was created and developed by **${AI_DEVELOPER}** to provide you with data-driven insights and personalized study plans. This platform was co-developed by **${WEBSITE_DEVELOPERS}**. How can I assist you today?`;
     }
 
     if (q === "help") {
@@ -174,6 +179,54 @@ export function getPredefinedResponse(messages: ChatMessage[]): string | null {
  * Fetches and processes student data into a high-performance intelligence graph
  * Optimized for speed and deep analytical insight.
  */
+/**
+ * Returns cached context instantly via stale-while-revalidate.
+ * Call this to pre-warm the cache on component mount.
+ */
+export function preWarmContext(uid: string): void {
+    if (!uid) return;
+    // Fire-and-forget: silently refresh context in background
+    getUserContext(uid).catch(() => {});
+}
+
+/**
+ * Gets any cached report (even stale) without waiting for network.
+ * Returns null only if nothing has ever been cached.
+ */
+async function getStaleReport(uid: string): Promise<string | null> {
+    const reportKey = `${STORAGE_KEYS.USER_CONTEXT}_${uid}`;
+    
+    // L1: Memory
+    const memCached = userContextCache.get(uid);
+    if (memCached && (Date.now() - memCached.timestamp < TTL.STALE_MAX)) {
+        return memCached.report;
+    }
+    
+    // L2: IndexedDB (ignore TTL, just check max staleness)
+    const storedReport = await cacheDB.get<string>(reportKey);
+    if (storedReport) {
+        userContextCache.set(uid, { report: storedReport, timestamp: Date.now() - TTL.USER_CONTEXT }); // mark as needing refresh
+        return storedReport;
+    }
+    
+    return null;
+}
+
+/**
+ * Triggers a background refresh of the context without blocking.
+ * Deduplicates concurrent refreshes for the same uid.
+ */
+function triggerBackgroundRefresh(uid: string): void {
+    if (backgroundRefreshInFlight.has(uid)) return;
+    backgroundRefreshInFlight.add(uid);
+    
+    getUserContext(uid, true).catch(e => {
+        console.warn("[AI_SYNC] Background refresh failed:", e);
+    }).finally(() => {
+        backgroundRefreshInFlight.delete(uid);
+    });
+}
+
 export async function getUserContext(uid: string, forceRefresh = false, isDeepScan = false): Promise<string> {
     const reportKey = `${STORAGE_KEYS.USER_CONTEXT}_${uid}`;
     const dataKey = `${STORAGE_KEYS.INTELLIGENCE_DATA}_${uid}`;
@@ -219,22 +272,22 @@ export async function getUserContext(uid: string, forceRefresh = false, isDeepSc
 
         if (needsRemoteFetch) {
             console.log(`[AI_SYNC] Fetching fresh data for ${uid}`);
-            const fetchPromises: Promise<any>[] = [get(ref(db, `users/${uid}`))];
+            const fetchPromises: Promise<any>[] = [getDoc(doc(firestore, "users", uid))];
             
             // Only fetch if force or if cache is missing/stale
-            fetchPromises.push(get(query(ref(db, "quizAttempts"), orderByChild("userId"), equalTo(uid))));
-            fetchPromises.push(get(query(ref(db, "mockAttempts"), orderByChild("userId"), equalTo(uid))));
-            fetchPromises.push(get(ref(db, "announcements")));
-            fetchPromises.push(get(ref(db, "syllabus")));
+            fetchPromises.push(getDocs(fsQuery(collection(firestore, "quizAttempts"), where("userId", "==", uid))));
+            fetchPromises.push(getDocs(fsQuery(collection(firestore, "mockAttempts"), where("userId", "==", uid))));
+            fetchPromises.push(getDocs(collection(firestore, "announcements")));
+            fetchPromises.push(getDocs(collection(firestore, "syllabus")));
 
             const snaps = await Promise.all(fetchPromises);
-            userData = snaps[0].val() as UserData | null;
+            userData = snaps[0].exists() ? snaps[0].data() as UserData : null;
             if (!userData) return "ERROR: Access Denied. Intelligence graph unavailable.";
 
-            freshQuizAttempts = (snaps[1].exists() ? (snaps[1].val() instanceof Array ? snaps[1].val() : Object.values(snaps[1].val() || {})) : []) as QuizAttempt[];
-            freshMockAttempts = (snaps[2].exists() ? (snaps[2].val() instanceof Array ? snaps[2].val() : Object.values(snaps[2].val() || {})) : []) as MockAttempt[];
-            freshAnnouncements = snaps[3].exists() ? Object.values(snaps[3].val() || {}).sort((a: any, b: any) => b.createdAt - a.createdAt) as Announcement[] : [];
-            freshSyllabus = snaps[4].exists() ? Object.values(snaps[4].val() || {}) as SyllabusItem[] : [];
+            freshQuizAttempts = (!snaps[1].empty ? snaps[1].docs.map((d: any) => ({ ...d.data(), id: d.id })) : []) as QuizAttempt[];
+            freshMockAttempts = (!snaps[2].empty ? snaps[2].docs.map((d: any) => ({ ...d.data(), id: d.id })) : []) as MockAttempt[];
+            freshAnnouncements = !snaps[3].empty ? snaps[3].docs.map((d: any) => ({ ...d.data(), id: d.id })).sort((a: any, b: any) => b.createdAt - a.createdAt) as Announcement[] : [];
+            freshSyllabus = !snaps[4].empty ? snaps[4].docs.map((d: any) => ({ ...d.data(), id: d.id })) as SyllabusItem[] : [];
 
             // Update IDB caches
             await Promise.all([
@@ -245,8 +298,8 @@ export async function getUserContext(uid: string, forceRefresh = false, isDeepSc
                 cacheDB.set(`${STORAGE_KEYS.LAST_SYNC_TS}_${uid}`, Date.now())
             ]);
         } else {
-            const userSnap = await get(ref(db, `users/${uid}`));
-            userData = userSnap.val() as UserData | null;
+            const userSnap = await getDoc(doc(firestore, "users", uid));
+            userData = userSnap.exists() ? userSnap.data() as UserData : null;
             if (!userData) return "ERROR: User session expired.";
         }
 
@@ -278,19 +331,19 @@ export async function getUserContext(uid: string, forceRefresh = false, isDeepSc
             globalMetadataCache = await cacheDB.getWithTTL(STORAGE_KEYS.GLOBAL_METADATA, TTL.GLOBAL_METADATA);
             if (!globalMetadataCache || forceRefresh) {
                 globalMetadataCache = {};
-                const [qSnap, mSnap] = await Promise.all([get(ref(db, "quizzes")), get(ref(db, "mockTests"))]);
-                const processMeta = (snap: DataSnapshot) => {
+                const [qSnap, mSnap] = await Promise.all([getDocs(collection(firestore, "quizzes")), getDocs(collection(firestore, "mockTests"))]);
+                const processMeta = (snap: QuerySnapshot) => {
                     snap.forEach(child => {
-                        const d = child.val();
-                        globalMetadataCache![child.key!] = {
+                        const d = child.data();
+                        globalMetadataCache![child.id] = {
                             subject: d.subject || "General",
                             title: d.title || "Untitled",
                             questionCount: d.questions?.length || d.totalQuestions || 0
                         };
                     });
                 };
-                if (qSnap.exists()) processMeta(qSnap);
-                if (mSnap.exists()) processMeta(mSnap);
+                if (!qSnap.empty) processMeta(qSnap);
+                if (!mSnap.empty) processMeta(mSnap);
                 await cacheDB.set(STORAGE_KEYS.GLOBAL_METADATA, globalMetadataCache);
             }
         }
@@ -307,10 +360,10 @@ export async function getUserContext(uid: string, forceRefresh = false, isDeepSc
                 rankings[id] = cached;
             } else {
                 const [rankSnap, mockRankSnap] = await Promise.all([
-                    get(ref(db, `rankings/${id}`)),
-                    get(ref(db, `mockRankings/${id}`))
+                    getDoc(doc(firestore, "rankings", id)),
+                    getDoc(doc(firestore, "mockRankings", id))
                 ]);
-                const data = (rankSnap.exists() ? rankSnap.val() : mockRankSnap.val()) as RankData;
+                const data = (rankSnap.exists() ? rankSnap.data() : mockRankSnap.exists() ? mockRankSnap.data() : null) as RankData;
                 if (data) {
                     rankings[id] = data;
                     await cacheDB.set(`${STORAGE_KEYS.RANKINGS_PREFIX}${id}`, data);
@@ -486,6 +539,7 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
                 try {
                     const data = JSON.parse(buffer);
                     if (data.text) {
+                        fullText = data.text;
                         yield stripAssistantNamePrefixes(enforceDomainTerminology(data.text));
                         return;
                     }
@@ -508,6 +562,7 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
                         const chunk = data.choices?.[0]?.delta?.content || 
                                      data.choices?.[0]?.text || 
                                      data.content || 
+                                     data.text ||
                                      data.candidates?.[0]?.content?.parts?.[0]?.text || 
                                      "";
                         
@@ -523,19 +578,39 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
         }
 
         // Final check for missed content in buffer
-        if (!fullText.trim() && buffer.trim()) {
-            try {
-                const data = JSON.parse(buffer);
-                const finalContent = data.text || data.response || "";
-                if (finalContent) yield stripAssistantNamePrefixes(enforceDomainTerminology(finalContent));
-            } catch { /* Final buffer not JSON */ }
+        if (buffer.trim()) {
+            if (buffer.trim().startsWith("data: ")) {
+                try {
+                    const jsonStr = buffer.trim().slice(6);
+                    const data = JSON.parse(jsonStr);
+                    const chunk = data.choices?.[0]?.delta?.content || 
+                                 data.choices?.[0]?.text || 
+                                 data.content || 
+                                 data.text ||
+                                 data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                                 "";
+                    if (chunk) {
+                        fullText += chunk;
+                        yield stripAssistantNamePrefixes(enforceDomainTerminology(fullText));
+                    }
+                } catch { /* Suppress */ }
+            } else if (!fullText.trim()) {
+                try {
+                    const data = JSON.parse(buffer);
+                    const finalContent = data.text || data.response || "";
+                    if (finalContent) yield stripAssistantNamePrefixes(enforceDomainTerminology(finalContent));
+                } catch { /* Final buffer not JSON */ }
+            }
         }
 
         if (!fullText.trim()) {
             yield buildFallbackResponse(messages);
         }
 
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === "AbortError") {
+            throw error;
+        }
         console.error("[AI_SERVICE] Critical connection failure:", error);
         yield buildFallbackResponse(messages);
     }
@@ -552,10 +627,10 @@ CORE RESPONSIBILITIES:
 5. Keep responses concise but deep. Avoid generic filler.
 
 TONE: Premium, empathetic, data-driven, and authoritative.
-DEVELOPER: Developed by Abhijith for the ToolPix platform.
+DEVELOPER INFO: You (this AI assistant) were created and developed solely by ${AI_DEVELOPER}. The surrounding website/platform was co-developed by ${WEBSITE_DEVELOPERS}. Do not claim Abhijith as your creator; he co-developed the website.
 `;
 
-export const GUEST_SYSTEM_PROMPT = `You are ToolPix AI, the expert guide for the LBS MCA Entrance Platform, developed by ${DEVELOPER} (Founder of ToolPix: ${TOOLPIX_URL}).
+export const GUEST_SYSTEM_PROMPT = `You are ToolPix AI, the expert guide for the LBS MCA Entrance Platform. You (the AI) were created by ${AI_DEVELOPER}, and the platform was developed by ${WEBSITE_DEVELOPERS} (Founder of ToolPix: ${TOOLPIX_URL}).
 
 ### 🎯 CONVERSATIONAL DIRECTIVES:
 - **Adaptive Conciseness (CRITICAL)**: If the user says "hello", "hi", or similar, respond with a single, friendly sentence welcoming them. 
@@ -572,7 +647,7 @@ export const GUEST_SYSTEM_PROMPT = `You are ToolPix AI, the expert guide for the
 - Authoritative yet encouraging tone.
 - **NO LABELS**: Start your message directly. Do NOT include "ASSISTANT:" or any other labels.`;
 
-export const OVERLAY_SYSTEM_PROMPT = `You are ToolPix AI, the expert guide for the LBS MCA Entrance Platform, developed by ${DEVELOPER}.
+export const OVERLAY_SYSTEM_PROMPT = `You are ToolPix AI, the expert guide for the LBS MCA Entrance Platform. You (the AI) were created by ${AI_DEVELOPER}, and the platform was developed by ${WEBSITE_DEVELOPERS}.
 
 ### 🎯 CONVERSATIONAL DIRECTIVES:
 - **Adaptive Conciseness (CRITICAL)**: If the user says "hello", "hi", or similar, respond with a single, friendly sentence welcoming them. 

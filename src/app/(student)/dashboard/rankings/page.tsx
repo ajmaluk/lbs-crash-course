@@ -5,8 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ref, onValue } from "firebase/database";
-import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import { 
     Trophy, Medal, Crown, Award, Loader2, Timer, 
@@ -253,7 +251,7 @@ export default function RankingsPage() {
                                 <div className="h-20 w-20 sm:h-32 sm:w-32 rounded-full bg-linear-to-br from-yellow-300 via-yellow-500 to-yellow-600 border-4 border-yellow-200 shadow-[0_0_40px_rgba(234,179,8,0.3)] flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-500 ring-4 sm:ring-8 ring-yellow-500/10">
                                     <span className="text-3xl sm:text-5xl font-black text-white drop-shadow-md">{top3[0].userName.charAt(0)}</span>
                                 </div>
-                                <Crown className="absolute -top-6 sm:-top-8 left-1/2 -translate-x-1/2 h-8 w-8 sm:h-10 sm:w-10 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] animate-bounce duration-[2000ms]" />
+                                <Crown className="absolute -top-6 sm:-top-8 left-1/2 -translate-x-1/2 h-8 w-8 sm:h-10 sm:w-10 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] animate-bounce duration-2000" />
                                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-white text-[10px] sm:text-sm font-black px-3 sm:px-4 py-1 rounded-full shadow-xl border-2 border-white dark:border-yellow-950">#1</div>
                             </div>
                             <div className="text-center mb-4 w-full px-1">
@@ -372,7 +370,7 @@ export default function RankingsPage() {
                         <TabsTrigger value="mockTests" className="flex-1 rounded-lg py-1.5 sm:py-2 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">Mock Tests</TabsTrigger>
                     </TabsList>
 
-                    <div className="flex p-1 bg-muted/50 border rounded-xl w-full max-w-[240px] sm:max-w-xs">
+                    <div className="flex p-1 bg-muted/50 border rounded-xl w-full max-w-60 sm:max-w-xs">
                         <button 
                             onClick={() => setViewMode("global")}
                             className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-lg transition-all", 
@@ -410,7 +408,7 @@ export default function RankingsPage() {
                                     <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border animate-in fade-in duration-700">
                                         <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20 text-primary" />
                                         <h3 className="text-lg font-semibold">{fetchError ? "Access Restricted" : "Leaderboard Empty"}</h3>
-                                        <p className="text-sm text-muted-foreground mt-1 max-w-[250px] mx-auto">
+                                        <p className="text-sm text-muted-foreground mt-1 max-w-62.5 mx-auto">
                                             {fetchError 
                                                 ? "We couldn't fetch the global scores. Please check if your account has permission to view the rankings."
                                                 : `No ${tab === "quizzes" ? "quizzes" : "mock tests"} have been completed yet. Scores will appear here as soon as students finish their tests!`}

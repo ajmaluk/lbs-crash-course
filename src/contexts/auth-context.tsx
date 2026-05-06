@@ -12,13 +12,12 @@ import {
     sendPasswordResetEmail,
 } from "firebase/auth";
 import {
-    ref,
-    get,
-    set,
-    onValue,
-    update,
-} from "firebase/database";
-import { auth, db, hasValidConfig } from "@/lib/firebase";
+    doc,
+    getDoc,
+    updateDoc,
+    onSnapshot,
+} from "firebase/firestore";
+import { auth, firestore, hasValidConfig } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
 
 interface AuthContextType {
@@ -182,10 +181,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
 
                     try {
-                        const userRef = ref(db, `users/${firebaseUser.uid}`);
-                        const snapshot = await get(userRef);
-                        if (snapshot.exists()) {
-                            const data = snapshot.val() as Partial<UserData>;
+                        const userDocRef = doc(firestore, "users", firebaseUser.uid);
+                        const userDocSnap = await getDoc(userDocRef);
+                        if (userDocSnap.exists()) {
+                            const data = userDocSnap.data() as Partial<UserData>;
                             const role = data.role || "student";
                             try {
                                 const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
@@ -194,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             setUserData({ ...data, uid: firebaseUser.uid, activeSessionId: data.activeSessionId ?? "" } as UserData);
                         }
                     } catch (dbErr) {
-                        console.warn("[AUTH] Failed to fetch user data from RTDB:", dbErr);
+                        console.warn("[AUTH] Failed to fetch user data from Firestore:", dbErr);
                     }
                 } else {
                     setUserData(null);
@@ -220,11 +219,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (!user || !hasValidConfig) return;
 
-        const userRef = ref(db, `users/${user.uid}`);
-        const unsubscribe = onValue(userRef, (snapshot) => {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (suppressSessionCheckRef.current) return;
-            const data = snapshot.val() as Partial<UserData> | null;
-            if (!data) return;
+            if (!docSnap.exists()) return;
+            const data = docSnap.data() as Partial<UserData>;
 
             setUserData((prev) => ({ ...(prev ?? {}), ...data, uid: user.uid, activeSessionId: data.activeSessionId ?? "" } as UserData));
 
@@ -241,6 +240,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (activeSessionId && currentSessionId !== activeSessionId) {
                 void forceLogoutWithReason("session_expired");
             }
+        }, (dbErr) => {
+            console.warn("[AUTH] Firestore subscription error:", dbErr);
         });
 
         return () => unsubscribe();
@@ -283,15 +284,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         suppressSessionCheckRef.current = true;
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
-            const userRef = ref(db, `users/${result.user.uid}`);
-            const snapshot = await get(userRef);
-            const data = snapshot.exists() ? (snapshot.val() as Partial<UserData>) : null;
+            const userDocRef = doc(firestore, "users", result.user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const data = userDocSnap.exists() ? (userDocSnap.data() as Partial<UserData>) : null;
 
             let nextSessionId = data?.activeSessionId ?? "";
 
             if (data?.role === "admin") {
                 clearStoredSessionId();
-                await set(ref(db, `users/${result.user.uid}/activeSessionId`), null);
+                await updateDoc(userDocRef, {
+                    activeSessionId: ""
+                });
                 nextSessionId = "";
             } else {
                 const oneSignalId = await getOneSignalId();
@@ -300,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     : generateSessionId();
                 persistSessionId(sessionId);
 
-                await update(ref(db, `users/${result.user.uid}`), {
+                await updateDoc(userDocRef, {
                     activeSessionId: sessionId,
                 });
                 nextSessionId = sessionId;
@@ -321,7 +324,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         clearStoredSessionId();
         if (user) {
-            await set(ref(db, `users/${user.uid}/activeSessionId`), null);
+            const userDocRef = doc(firestore, "users", user.uid);
+            await updateDoc(userDocRef, {
+                activeSessionId: ""
+            });
         }
         await signOut(auth);
         setUserData(null);
@@ -333,7 +339,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await reauthenticateWithCredential(user, credential);
         await updatePassword(user, newPassword);
         if (userData?.firstLogin) {
-            await update(ref(db, `users/${user.uid}`), { firstLogin: false });
+            const userDocRef = doc(firestore, "users", user.uid);
+            await updateDoc(userDocRef, { firstLogin: false });
             setUserData((prev) => prev ? { ...prev, firstLogin: false } : null);
         }
     }, [user, userData]);

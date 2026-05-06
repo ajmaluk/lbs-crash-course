@@ -52,7 +52,7 @@ export const ChatHeader = React.memo(({
                 >
                     <Clock className="h-4.5 w-4.5 text-muted-foreground" />
                 </Button>
-                <div className="h-4 w-[1px] bg-border" />
+                <div className="h-4 w-px bg-border" />
                 <div className="flex flex-col">
                     <h1 className="text-base font-bold tracking-tight text-foreground sm:text-lg">Study AI</h1>
                     <div className="flex items-center gap-1.5">
@@ -92,7 +92,7 @@ export const ChatHeader = React.memo(({
                     </Button>
                 </div>
 
-                <div className="h-4 w-[1px] bg-border lg:mx-1" />
+                <div className="h-4 w-px bg-border lg:mx-1" />
 
                 <div className="flex items-center gap-1">
                     <Button
@@ -113,14 +113,14 @@ export const ChatHeader = React.memo(({
                         <BookOpen className="mr-2 h-3.5 w-3.5" />
                         Notes
                         {studyNotesCount > 0 && (
-                            <Badge className="absolute -right-1 -top-1 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary p-0 text-[10px] font-bold text-primary-foreground border-2 border-background">
+                            <Badge className="absolute -right-1 -top-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary p-0 text-[10px] font-bold text-primary-foreground border-2 border-background">
                                 {studyNotesCount}
                             </Badge>
                         )}
                     </Button>
                 </div>
 
-                <div className="h-4 w-[1px] bg-border mx-1" />
+                <div className="h-4 w-px bg-border mx-1" />
 
                 <div className="flex items-center gap-1">
                     <Button

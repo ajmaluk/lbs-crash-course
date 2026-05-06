@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ref, onValue, query, orderByChild } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +18,13 @@ export default function SyllabusPage() {
   const [open, setOpen] = useState<SyllabusItem | null>(null);
 
   useEffect(() => {
-    const sref = query(ref(db, "syllabus"), orderByChild("createdAt"));
-    const unsub = onValue(sref, (snap) => {
-      const list: SyllabusItem[] = [];
-      snap.forEach((c) => { const v = c.val() as Partial<SyllabusItem>; list.push({ id: c.key!, title: v.title || "", url: v.url || "", createdAt: v.createdAt || Date.now() }); });
-      setItems(list.reverse());
+    const q = query(collection(firestore, "syllabus"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list: SyllabusItem[] = snapshot.docs.map((doc) => {
+        const v = doc.data();
+        return { id: doc.id, title: v.title || "", url: v.url || "", createdAt: v.createdAt || Date.now() };
+      });
+      setItems(list);
     });
     return () => unsub();
   }, []);

@@ -24,8 +24,8 @@ import {
     Sparkles,
     Code,
 } from "lucide-react";
-import { db } from "@/lib/firebase";
-import { ref, onValue, query, orderByChild, limitToLast } from "firebase/database";
+import { firestore } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { FeedbackModal } from "@/components/feedback-modal";
 
 const navItems = [
@@ -77,10 +77,10 @@ export default function StudentDashboardLayout({
         };
 
         const unsubs = [
-            onValue(query(ref(db, "quizzes"), orderByChild("createdAt"), limitToLast(5)), (snap) => {
+            onSnapshot(query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"), limit(5)), (snap) => {
                 let latest = 0;
-                snap.forEach(c => { 
-                    const data = c.val();
+                snap.forEach(doc => { 
+                    const data = doc.data();
                     if (data.status === "published") {
                         latest = Math.max(latest, data.createdAt || 0);
                     }
@@ -88,10 +88,10 @@ export default function StudentDashboardLayout({
                 const stored = getStored();
                 setUnread(prev => ({ ...prev, quizzes: latest > (stored.quizzes || 0) && pathname !== "/dashboard/quizzes" }));
             }),
-            onValue(query(ref(db, "mockTests"), orderByChild("createdAt"), limitToLast(5)), (snap) => {
+            onSnapshot(query(collection(firestore, "mockTests"), orderBy("createdAt", "desc"), limit(5)), (snap) => {
                 let latest = 0;
-                snap.forEach(c => { 
-                    const data = c.val();
+                snap.forEach(doc => { 
+                    const data = doc.data();
                     if (data.status === "published") {
                         latest = Math.max(latest, data.createdAt || 0);
                     }
@@ -99,9 +99,9 @@ export default function StudentDashboardLayout({
                 const stored = getStored();
                 setUnread(prev => ({ ...prev, mockTests: latest > (stored.mockTests || 0) && pathname !== "/dashboard/mock-tests" }));
             }),
-            onValue(query(ref(db, "announcements"), orderByChild("createdAt"), limitToLast(1)), (snap) => {
+            onSnapshot(query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(1)), (snap) => {
                 let latest = 0;
-                snap.forEach(c => { latest = c.val().createdAt || 0; });
+                snap.forEach(doc => { latest = Math.max(latest, doc.data().createdAt || 0); });
                 const stored = getStored();
                 setUnread(prev => ({ ...prev, announcements: latest > (stored.announcements || 0) && pathname !== "/dashboard/announcements" }));
             }),
@@ -272,7 +272,7 @@ export default function StudentDashboardLayout({
                         </button>
                         <div className="flex items-center gap-2 overflow-hidden">
                             <span className="font-bold text-sm text-primary shrink-0">LBS MCA</span>
-                            <div className="h-4 w-[1px] bg-border shrink-0" />
+                            <div className="h-4 w-px bg-border shrink-0" />
                             <span className="font-semibold text-sm truncate uppercase tracking-wider text-muted-foreground">
                                 {navItems.find(n => n.href === pathname)?.label || "Dashboard"}
                             </span>

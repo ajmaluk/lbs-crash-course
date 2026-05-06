@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ref, onValue, set, push, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,12 @@ export default function AdminSyllabusPage() {
   const [form, setForm] = useState<{ title: string; file: File | null }>({ title: "", file: null });
 
   useEffect(() => {
-    const sref = ref(db, "syllabus");
-    const unsub = onValue(sref, (snap) => {
+    const unsub = onSnapshot(collection(firestore, "syllabus"), (snapshot) => {
       const list: SyllabusItem[] = [];
-      snap.forEach((c) => { const v = c.val() as Partial<SyllabusItem>; list.push({ id: c.key!, title: v.title || "", url: v.url || "", createdAt: v.createdAt || Date.now() }); });
+      snapshot.forEach((docSnap) => {
+        const v = docSnap.data() as Partial<SyllabusItem>;
+        list.push({ id: docSnap.id, title: v.title || "", url: v.url || "", createdAt: v.createdAt || Date.now() });
+      });
       setItems(list.reverse());
     });
     return () => unsub();
@@ -49,8 +51,7 @@ export default function AdminSyllabusPage() {
       });
       if (!up.ok) throw new Error("upload failed");
       const { secure_url } = await up.json();
-      const r = push(ref(db, "syllabus"));
-      await set(r, { title: form.title, url: secure_url, createdAt: Date.now() });
+      await addDoc(collection(firestore, "syllabus"), { title: form.title, url: secure_url, createdAt: Date.now() });
       setShowForm(false);
       setForm({ title: "", file: null });
     } catch {
@@ -61,7 +62,7 @@ export default function AdminSyllabusPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await remove(ref(db, `syllabus/${id}`));
+    await deleteDoc(doc(firestore, "syllabus", id));
   };
 
   return (

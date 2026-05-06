@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
-import { ref, push, set } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { User, Lock, Upload, Loader2, Package, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -100,8 +100,7 @@ export default function ProfilePage() {
             }
 
             // STEP 3: Create pending upgrade request in Firebase
-            const upgradeRef = push(ref(db, "upgradeRequests"));
-            await set(upgradeRef, {
+            await addDoc(collection(firestore, "upgradeRequests"), {
                 userId: userData.uid,
                 userName: userData.name,
                 userEmail: userData.email,

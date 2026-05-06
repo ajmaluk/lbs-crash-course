@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from "./firebase-admin";
+import { adminAuth, adminFirestore } from "./firebase-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -68,12 +68,11 @@ export async function verifyAdmin(source?: NextRequest | string) {
         decodedToken = await verifyActionSession();
     }
 
-    if (!decodedToken || !adminDb) return null;
+    if (!decodedToken || !adminFirestore) return null;
 
     try {
-        const userRef = adminDb.ref(`users/${decodedToken.uid}`);
-        const snapshot = await userRef.get();
-        const userData = snapshot.val();
+        const userDoc = await adminFirestore.collection("users").doc(decodedToken.uid).get();
+        const userData = userDoc.data();
 
         if (userData?.role === "admin") {
             return { ...decodedToken, ...userData, role: "admin" as const };

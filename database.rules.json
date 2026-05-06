@@ -75,6 +75,13 @@
             ".read": "auth != null",
             ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
         },
+        "mockSessions": {
+            ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+            "$userId": {
+                ".read": "auth != null && auth.uid === $userId",
+                ".write": "auth != null && auth.uid === $userId"
+            }
+        },
         "mockAttempts": {
             ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild == 'userId' && query.equalTo == auth.uid))",
             ".indexOn": [

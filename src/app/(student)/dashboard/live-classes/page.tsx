@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
-import { ref, onValue, query, orderByChild } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query as fsQuery, orderBy, onSnapshot } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { LiveClass } from "@/lib/types";
 import { createMediaToken, extractYouTubeId } from "@/lib/media";
 import { Video, Calendar, Clock, ExternalLink, Play, AlertCircle, MonitorPlay, X, SkipBack, SkipForward, FileText, Pause, Maximize2, Minimize2, ArrowLeft, Loader2 } from "lucide-react";
@@ -117,8 +117,17 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                 if (typeof d.duration === "number" && Number.isFinite(d.duration)) setDuration(Number(d.duration));
                 if (Array.isArray(d.rates) && d.rates.length) setRates(d.rates);
                 if (Array.isArray(d.qualities) && d.qualities.length) {
-                    const qs = Array.from(new Set<string>(d.qualities as string[]));
-                    setQualities([...qs, "auto"]);
+                    // YouTube returns quality levels like ["hd1080","hd720","large","medium","small","tiny","auto","default"]
+                    // Filter out YouTube's internal "default" and "auto" since we add our own "auto" option
+                    const QUALITY_ORDER = ["highres", "hd2160", "hd1440", "hd1080", "hd720", "large", "medium", "small", "tiny"];
+                    const raw = Array.from(new Set<string>(d.qualities as string[]))
+                        .filter(q => q !== "default" && q !== "auto")
+                        .sort((a, b) => {
+                            const ia = QUALITY_ORDER.indexOf(a);
+                            const ib = QUALITY_ORDER.indexOf(b);
+                            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                        });
+                    setQualities(["auto", ...raw]);
                 }
             } else if (d.type === "yt:time") {
                 if (typeof d.current === "number" && Number.isFinite(d.current)) setCurrentTime(Number(d.current));
@@ -198,7 +207,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
 
     const applyQuality = (q: string) => {
         setQuality(q);
-        if (q === "auto") return;
+        // Always send quality to the YT proxy — "auto" gets mapped to YouTube's "default" there
         try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "quality", quality: q }, window.location.origin); } catch { }
     };
 
@@ -216,8 +225,8 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
 
     const togglePlay = () => {
         if (isPaused) {
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, "*"); } catch { }
-            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, "*"); } catch { }
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "unmute" }, window.location.origin); } catch { }
+            try { containerRef.current?.contentWindow?.postMessage({ type: "cmd", name: "play" }, window.location.origin); } catch { }
             setIsPaused(false);
             setCoverVisible(false);
         } else {
@@ -334,12 +343,16 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                                 >
                                     {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                         <option key={q} value={q}>
-                                            {q === "hd1080" ? "1080p" :
-                                                q === "hd720" ? "720p" :
-                                                    q === "large" ? "480p" :
-                                                        q === "medium" ? "360p" :
-                                                            q === "small" ? "240p" :
-                                                                q === "auto" ? "Auto" : q}
+                                            {q === "highres" ? "4320p" :
+                                                q === "hd2160" ? "4K" :
+                                                    q === "hd1440" ? "1440p" :
+                                                        q === "hd1080" ? "1080p" :
+                                                            q === "hd720" ? "720p" :
+                                                                q === "large" ? "480p" :
+                                                                    q === "medium" ? "360p" :
+                                                                        q === "small" ? "240p" :
+                                                                            q === "tiny" ? "144p" :
+                                                                                q === "auto" ? "Auto" : q}
                                         </option>
                                     ))}
                                 </select>
@@ -466,12 +479,16 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                                             >
                                                 {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                                     <option key={q} value={q}>
-                                                        {q === "hd1080" ? "1080p" :
-                                                            q === "hd720" ? "720p" :
-                                                                q === "large" ? "480p" :
-                                                                    q === "medium" ? "360p" :
-                                                                        q === "small" ? "240p" :
-                                                                            q === "auto" ? "Auto" : q}
+                                                        {q === "highres" ? "4320p" :
+                                                            q === "hd2160" ? "4K" :
+                                                                q === "hd1440" ? "1440p" :
+                                                                    q === "hd1080" ? "1080p" :
+                                                                        q === "hd720" ? "720p" :
+                                                                            q === "large" ? "480p" :
+                                                                                q === "medium" ? "360p" :
+                                                                                    q === "small" ? "240p" :
+                                                                                        q === "tiny" ? "144p" :
+                                                                                            q === "auto" ? "Auto" : q}
                                                     </option>
                                                 ))}
                                             </select>
@@ -534,7 +551,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                                 >
                                     {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                         <option key={q} value={q}>
-                                            {q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "auto" ? "Auto" : q}
+                                            {q === "highres" ? "4320p" : q === "hd2160" ? "4K" : q === "hd1440" ? "1440p" : q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "tiny" ? "144p" : q === "auto" ? "Auto" : q}
                                         </option>
                                     ))}
                                 </select>
@@ -580,11 +597,11 @@ export default function LiveClassesPage() {
     const [openingNoteId, setOpeningNoteId] = useState<string | null>(null);
 
     useEffect(() => {
-        const liveRef = query(ref(db, "liveClasses"), orderByChild("scheduledAt"));
-        const unsub = onValue(liveRef, (snapshot) => {
+        const liveRef = fsQuery(collection(firestore, "liveClasses"), orderBy("scheduledAt"));
+        const unsub = onSnapshot(liveRef, (snapshot) => {
             const list: LiveClass[] = [];
             snapshot.forEach((child) => {
-                list.push({ ...child.val(), id: child.key! });
+                list.push({ ...child.data(), id: child.id } as LiveClass);
             });
             setClasses(list);
         });

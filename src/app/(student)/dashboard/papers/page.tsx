@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { db } from "@/lib/firebase";
-import { ref, onValue, query, orderByChild } from "firebase/database";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { FileText, CalendarDays, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,11 +29,13 @@ export default function PreviousPapersPage() {
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(ref(db, "previousPapers"), orderByChild("createdAt"));
-    const unsub = onValue(q, (snap) => {
-      const list: Paper[] = [];
-      snap.forEach((child) => { list.push({ id: child.key!, ...(child.val() as Omit<Paper, "id">) }); });
-      setPapers(list.reverse());
+    const q = query(collection(firestore, "previousPapers"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list: Paper[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Paper, "id">),
+      }));
+      setPapers(list);
     });
     return () => unsub();
   }, []);

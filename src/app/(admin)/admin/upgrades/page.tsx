@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, update } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { UpgradeRequest } from "@/lib/types";
 import { ArrowUpCircle, Check, X, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
@@ -21,11 +21,10 @@ export default function AdminUpgradesPage() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        const upgRef = ref(db, "upgradeRequests");
-        const unsub = onValue(upgRef, (snapshot) => {
+        const unsub = onSnapshot(collection(firestore, "upgradeRequests"), (snapshot) => {
             const list: UpgradeRequest[] = [];
-            snapshot.forEach((child) => {
-                list.push({ ...child.val(), id: child.key! });
+            snapshot.forEach((docSnap) => {
+                list.push({ ...docSnap.data(), id: docSnap.id } as UpgradeRequest);
             });
             list.sort((a, b) => b.submittedAt - a.submittedAt);
             setRequests(list);
@@ -37,12 +36,12 @@ export default function AdminUpgradesPage() {
         setProcessing(true);
         try {
             // Update user's feature flags to both
-            await update(ref(db, `users/${req.userId}`), {
+            await updateDoc(doc(firestore, "users", req.userId), {
                 is_live: true,
                 is_record_class: true,
             });
             // Update request status
-            await update(ref(db, `upgradeRequests/${req.id}`), {
+            await updateDoc(doc(firestore, "upgradeRequests", req.id), {
                 status: "approved",
             });
             toast.success(`Upgrade approved for ${req.userName}`);
@@ -57,7 +56,7 @@ export default function AdminUpgradesPage() {
         if (!selected) return;
         setProcessing(true);
         try {
-            await update(ref(db, `upgradeRequests/${selected.id}`), {
+            await updateDoc(doc(firestore, "upgradeRequests", selected.id), {
                 status: "rejected",
                 rejectionReason,
             });

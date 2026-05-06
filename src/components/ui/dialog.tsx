@@ -4,6 +4,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
+// Context to pass dialog state to children (DialogContent renders the close btn)
+const DialogContext = React.createContext<{ onOpenChange: (open: boolean) => void; hideClose?: boolean }>({
+    onOpenChange: () => {},
+});
+
 interface DialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -38,35 +43,40 @@ function Dialog({ open, onOpenChange, children, className, hideClose }: DialogPr
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-200 overflow-y-auto" role="dialog" aria-modal="true" style={{ WebkitOverflowScrolling: 'touch' }}>
-            {/* Backdrop */}
-            <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
-                onClick={() => onOpenChange(false)}
-                aria-hidden="true"
-            />
-            {/* Content Container */}
-            <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ minHeight: '-webkit-fill-available' }}>
-                <div className={cn("relative w-full max-w-lg", className)}>
-                    {!hideClose && (
-                        <button
-                            onClick={() => onOpenChange(false)}
-                            className="absolute right-4 top-4 z-50 rounded-full p-1.5 hover:bg-zinc-100 transition-colors cursor-pointer bg-white/50 backdrop-blur-sm"
-                            aria-label="Close dialog"
-                        >
-                            <X className="h-4 w-4 text-zinc-500" />
-                        </button>
-                    )}
-                    {children}
+        <DialogContext.Provider value={{ onOpenChange, hideClose }}>
+            <div className="fixed inset-0 z-200 overflow-y-auto" role="dialog" aria-modal="true" style={{ WebkitOverflowScrolling: 'touch' }}>
+                {/* Backdrop */}
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+                    onClick={() => onOpenChange(false)}
+                    aria-hidden="true"
+                />
+                {/* Content Container — centers the card */}
+                <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ minHeight: '-webkit-fill-available' }}>
+                    <div className={cn("relative w-full max-w-lg", className)}>
+                        {children}
+                    </div>
                 </div>
             </div>
-        </div>
+        </DialogContext.Provider>
     );
 }
 
 function DialogContent({ children, className }: { children: React.ReactNode; className?: string }) {
+    const { onOpenChange, hideClose } = React.useContext(DialogContext);
+
     return (
         <div className={cn("animate-scale-in relative w-full overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl", className)}>
+            {/* Close button — inside the card, top-right corner */}
+            {!hideClose && (
+                <button
+                    onClick={() => onOpenChange(false)}
+                    className="absolute right-3 top-3 z-50 rounded-full p-1.5 hover:bg-white/20 transition-colors cursor-pointer bg-white/10 backdrop-blur-sm"
+                    aria-label="Close dialog"
+                >
+                    <X className="h-4 w-4 text-zinc-400" />
+                </button>
+            )}
             {children}
         </div>
     );

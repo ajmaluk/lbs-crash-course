@@ -6,8 +6,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ref, onValue } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { UserData, QuizAttempt, MockAttempt } from "@/lib/types";
 import {
     ArrowLeft,
@@ -37,37 +37,32 @@ export default function UserDetailPage() {
         if (!uid) return;
 
         // Fetch user data
-        const userRef = ref(db, `users/${uid}`);
-        const unsubUser = onValue(userRef, (snapshot) => {
+        const unsubUser = onSnapshot(doc(firestore, "users", uid), (snapshot) => {
             if (snapshot.exists()) {
-                setUserData({ ...snapshot.val(), uid: snapshot.key! });
+                setUserData({ ...(snapshot.data() as UserData), uid: snapshot.id });
             }
             setLoading(false);
         });
 
         // Fetch quiz attempts
-        const quizAttemptsRef = ref(db, "quizAttempts");
-        const unsubQuiz = onValue(quizAttemptsRef, (snapshot) => {
+        const quizQuery = query(collection(firestore, "quizAttempts"), where("userId", "==", uid));
+        const unsubQuiz = onSnapshot(quizQuery, (snapshot) => {
             const attempts: (QuizAttempt & { quizTitle?: string })[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
-                if (data.userId === uid) {
-                    attempts.push({ ...data, id: child.key! });
-                }
+            snapshot.forEach((childDoc) => {
+                const data = childDoc.data() as QuizAttempt;
+                attempts.push({ ...data, id: childDoc.id });
             });
             attempts.sort((a, b) => b.submittedAt - a.submittedAt);
             setQuizAttempts(attempts);
         });
 
         // Fetch mock attempts
-        const mockAttemptsRef = ref(db, "mockAttempts");
-        const unsubMock = onValue(mockAttemptsRef, (snapshot) => {
+        const mockQuery = query(collection(firestore, "mockAttempts"), where("userId", "==", uid));
+        const unsubMock = onSnapshot(mockQuery, (snapshot) => {
             const attempts: (MockAttempt & { mockTitle?: string })[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
-                if (data.userId === uid) {
-                    attempts.push({ ...data, id: child.key! });
-                }
+            snapshot.forEach((childDoc) => {
+                const data = childDoc.data() as MockAttempt;
+                attempts.push({ ...data, id: childDoc.id });
             });
             attempts.sort((a, b) => b.submittedAt - a.submittedAt);
             setMockAttempts(attempts);

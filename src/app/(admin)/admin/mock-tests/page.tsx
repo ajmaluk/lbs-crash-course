@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove, get } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs, getDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
 import { FileText, Plus, Edit, Trash2, CheckCircle, Trophy, Clock } from "lucide-react";
@@ -38,10 +38,9 @@ export default function AdminMockTestsPage() {
     const [viewingRanking, setViewingRanking] = useState<RankData | null>(null);
 
     useEffect(() => {
-        const mtRef = ref(db, "mockTests");
-        const unsub = onValue(mtRef, (snapshot) => {
+        const unsub = onSnapshot(collection(firestore, "mockTests"), (snapshot) => {
             const list: Quiz[] = [];
-            snapshot.forEach((child) => { list.push({ ...child.val(), id: child.key! }); });
+            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Quiz); });
             list.sort((a, b) => b.createdAt - a.createdAt);
             setMockTests(list);
         });
@@ -76,20 +75,18 @@ export default function AdminMockTestsPage() {
                 ...(form.status === "closed" && !editing?.closedAt ? { closedAt: Date.now() } : {}),
             };
 
-            const testId = editing ? editing.id : push(ref(db, "mockTests")).key!;
+            const testId = editing ? editing.id : doc(collection(firestore, "mockTests")).id;
 
             // If closing the test, generate rankings snapshot
             if (form.status === "closed") {
-                const attemptsSnap = await get(ref(db, "mockAttempts"));
+                const attemptsSnap = await getDocs(collection(firestore, "mockAttempts"));
                 const attempts: Array<{ userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number; mockTestId?: string; quizId?: string }> = [];
-                if (attemptsSnap.exists()) {
-                    attemptsSnap.forEach((child) => {
-                        const val = child.val();
-                        if (val.mockTestId === testId || val.quizId === testId) {
-                            attempts.push(val);
-                        }
-                    });
-                }
+                attemptsSnap.forEach((docSnap) => {
+                    const val = docSnap.data();
+                    if (val.mockTestId === testId || val.quizId === testId) {
+                        attempts.push(val as typeof attempts[0]);
+                    }
+                });
 
                 const bestByUser: Record<string, typeof attempts[0]> = {};
                 attempts.forEach((a) => {
@@ -114,7 +111,7 @@ export default function AdminMockTestsPage() {
                     submittedAt: entry.submittedAt
                 }));
 
-                await set(ref(db, `mockRankings/${testId}`), {
+                await setDoc(doc(firestore, "mockRankings", testId), {
                     mockTestId: testId,
                     quizTitle: form.title,
                     generatedAt: Date.now(),
@@ -129,10 +126,10 @@ export default function AdminMockTestsPage() {
             }
 
             if (editing) {
-                await update(ref(db, `mockTests/${editing.id}`), data);
+                await updateDoc(doc(firestore, "mockTests", editing.id), data);
                 toast.success(removed > 0 ? `Updated. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Updated");
             } else {
-                await set(ref(db, `mockTests/${testId}`), data);
+                await setDoc(doc(firestore, "mockTests", testId), data);
                 toast.success(removed > 0 ? `Created. Removed ${removed} duplicate question${removed === 1 ? "" : "s"}.` : "Created");
             }
             setShowForm(false);
@@ -146,7 +143,7 @@ export default function AdminMockTestsPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this mock test?")) return;
-        try { await remove(ref(db, `mockTests/${id}`)); toast.success("Deleted"); } catch { toast.error("Failed"); }
+        try { await deleteDoc(doc(firestore, "mockTests", id)); toast.success("Deleted"); } catch { toast.error("Failed"); }
     };
 
     return (
@@ -160,7 +157,7 @@ export default function AdminMockTestsPage() {
                 <Card><CardContent className="py-12 text-center text-muted-foreground"><FileText className="h-10 w-10 mx-auto mb-2" /><p>No mock tests</p></CardContent></Card>
             ) : (
                 <div className="space-y-3">{mockTests.map((test) => (
-                    <Card key={test.id} className="hover:border-(--primary)/20 transition-all">
+                    <Card key={test.id} className="hover:border-primary/20 transition-all">
                         <CardContent className="p-4 flex items-center justify-between gap-3">
                             <div>
                                 <div className="flex items-center gap-2"><p className="font-semibold">{test.title}</p><Badge variant={test.status === "published" ? "success" : "secondary"}>{test.status}</Badge></div>
@@ -178,8 +175,8 @@ export default function AdminMockTestsPage() {
                                         size="sm"
                                         className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                                         onClick={async () => {
-                                            const snap = await get(ref(db, `mockRankings/${test.id}`));
-                                            if (snap.exists()) setViewingRanking(snap.val());
+                                            const snap = await getDoc(doc(firestore, "mockRankings", test.id));
+                                            if (snap.exists()) setViewingRanking(snap.data() as RankData);
                                             else toast.error("No ranking found");
                                         }}
                                     >

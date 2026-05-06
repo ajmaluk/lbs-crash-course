@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ref, onValue, update, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
 import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Copy, MessageCircle, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -29,13 +29,13 @@ export default function AdminUsersPage() {
     const [processing, setProcessing] = useState<string | null>(null);
 
     useEffect(() => {
-        const usersRef = ref(db, "users");
-        const unsub = onValue(usersRef, (snapshot) => {
+        const usersQuery = query(collection(firestore, "users"));
+        const unsub = onSnapshot(usersQuery, (snapshot) => {
             const list: UserData[] = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
+            snapshot.forEach((childDoc) => {
+                const data = childDoc.data() as UserData;
                 if (data.role !== "admin") {
-                    list.push({ ...data, uid: child.key! });
+                    list.push({ ...data, uid: childDoc.id });
                 }
             });
             setUsers(list);
@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
 
         setProcessing(uid);
         try {
-            await update(ref(db, `users/${uid}`), {
+            await updateDoc(doc(firestore, "users", uid), {
                 banned: !currentStatus
             });
             toast.success(`User ${action}ned successfully`);
@@ -65,7 +65,7 @@ export default function AdminUsersPage() {
 
         setProcessing(uid);
         try {
-            await remove(ref(db, `users/${uid}`));
+            await deleteDoc(doc(firestore, "users", uid));
             toast.success("User record deleted");
         } catch {
             toast.error("Failed to delete user");

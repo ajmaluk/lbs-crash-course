@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { createMediaToken } from "@/lib/media";
 import { useAuth } from "@/contexts/auth-context";
 import type { RecordedClass } from "@/lib/types";
@@ -74,10 +74,9 @@ export default function AdminRecordedClassesPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const recRef = ref(db, "recordedClasses");
-        const unsub = onValue(recRef, (snapshot) => {
+        const unsub = onSnapshot(collection(firestore, "recordedClasses"), (snapshot) => {
             const list: RecordedClass[] = [];
-            snapshot.forEach((child) => { list.push({ ...child.val(), id: child.key! }); });
+            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as RecordedClass); });
             list.sort((a, b) => b.createdAt - a.createdAt);
             setClasses(list);
         });
@@ -136,10 +135,10 @@ export default function AdminRecordedClassesPage() {
             };
 
             if (editing) {
-                await update(ref(db, `recordedClasses/${editing.id}`), data);
+                await updateDoc(doc(firestore, "recordedClasses", editing.id), data);
                 toast.success("Updated successfully");
             } else {
-                await set(push(ref(db, "recordedClasses")), data);
+                await addDoc(collection(firestore, "recordedClasses"), data);
                 toast.success("Created successfully");
             }
 
@@ -154,7 +153,7 @@ export default function AdminRecordedClassesPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this class? This cannot be undone.")) return;
-        try { await remove(ref(db, `recordedClasses/${id}`)); toast.success("Deleted successfully"); } catch { toast.error("Failed to delete"); }
+        try { await deleteDoc(doc(firestore, "recordedClasses", id)); toast.success("Deleted successfully"); } catch { toast.error("Failed to delete"); }
     };
 
     return (

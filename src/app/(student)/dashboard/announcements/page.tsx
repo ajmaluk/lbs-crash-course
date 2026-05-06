@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ref, onValue, query, orderByChild } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import type { Announcement } from "@/lib/types";
 import { Megaphone } from "lucide-react";
 import { format } from "date-fns";
@@ -12,13 +12,13 @@ export default function AnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
     useEffect(() => {
-        const annRef = query(ref(db, "announcements"), orderByChild("createdAt"));
-        const unsub = onValue(annRef, (snapshot) => {
-            const list: Announcement[] = [];
-            snapshot.forEach((child) => {
-                list.push({ ...child.val(), id: child.key! });
-            });
-            setAnnouncements(list.reverse());
+        const q = query(collection(firestore, "announcements"), orderBy("createdAt", "desc"));
+        const unsub = onSnapshot(q, (snapshot) => {
+            const list: Announcement[] = snapshot.docs.map((doc) => ({
+                ...doc.data(),
+                id: doc.id,
+            })) as Announcement[];
+            setAnnouncements(list);
         });
         return () => unsub();
     }, []);
@@ -41,7 +41,7 @@ export default function AnnouncementsPage() {
             ) : (
                 <div className="space-y-4">
                     {announcements.map((ann, index) => (
-                        <Card key={ann.id} className="hover:border-(--primary)/30 transition-all" style={{ animationDelay: `${index * 0.05}s` }}>
+                        <Card key={ann.id} className="hover:border-primary/30 transition-all" style={{ animationDelay: `${index * 0.05}s` }}>
                             <CardContent className="p-5">
                                 <div className="flex items-start gap-4">
                                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-500/10">

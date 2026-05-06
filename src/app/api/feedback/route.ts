@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb, adminFirestore, admin } from "@/lib/firebase-admin";
+import { adminFirestore, admin } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
-    if (!adminFirestore || !adminDb) {
+    if (!adminFirestore) {
         return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
     }
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Missing required fields (rating, userId, and message)" }, { status: 400 });
         }
 
-        // 1. Save to Firestore (Server-side bypass)
+        // 1. Save to Firestore feedbacks collection
         const feedbackRef = adminFirestore.collection("feedbacks").doc();
         await feedbackRef.set({
             rating,
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // 2. Update User flag in RTDB (Server-side bypass)
-        await adminDb.ref(`users/${userId}`).update({
+        // 2. Update User flag in Firestore users collection
+        await adminFirestore.collection("users").doc(userId).update({
             hasSubmittedFeedback: true
         });
 

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ref, onValue } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { BarChart3, Users, UserPlus, Video, BookOpen, FileText, TrendingUp, Activity, Zap, Target } from "lucide-react";
 
 export default function AdminAnalyticsPage() {
@@ -24,16 +24,16 @@ export default function AdminAnalyticsPage() {
         const listeners: (() => void)[] = [];
 
         const countAll = (path: string, key: string) => {
-            const unsub = onValue(ref(db, path), (snapshot) => {
+            const unsub = onSnapshot(collection(firestore, path), (snapshot) => {
                 setData((prev) => ({ ...prev, [key]: snapshot.size }));
             });
             listeners.push(unsub);
         };
 
         const countFilter = (path: string, key: string, filter: (v: Record<string, unknown>) => boolean) => {
-            const unsub = onValue(ref(db, path), (snapshot) => {
+            const unsub = onSnapshot(collection(firestore, path), (snapshot) => {
                 let count = 0;
-                snapshot.forEach((child) => { if (filter(child.val())) count++; });
+                snapshot.forEach((doc) => { if (filter(doc.data())) count++; });
                 setData((prev) => ({ ...prev, [key]: count }));
             });
             listeners.push(unsub);

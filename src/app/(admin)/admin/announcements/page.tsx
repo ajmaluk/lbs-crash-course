@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Announcement } from "@/lib/types";
 import { Megaphone, Plus, Edit, Trash2 } from "lucide-react";
@@ -24,10 +24,9 @@ export default function AdminAnnouncementsPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const annRef = ref(db, "announcements");
-        const unsub = onValue(annRef, (snapshot) => {
+        const unsub = onSnapshot(collection(firestore, "announcements"), (snapshot) => {
             const list: Announcement[] = [];
-            snapshot.forEach((child) => { list.push({ ...child.val(), id: child.key! }); });
+            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Announcement); });
             list.sort((a, b) => b.createdAt - a.createdAt);
             setAnnouncements(list);
         });
@@ -42,15 +41,15 @@ export default function AdminAnnouncementsPage() {
         setSaving(true);
         try {
             const data = { title: form.title, content: form.content, createdBy: userData?.uid || "", ...(editing ? {} : { createdAt: Date.now() }) };
-            if (editing) { await update(ref(db, `announcements/${editing.id}`), data); toast.success("Updated"); }
-            else { await set(push(ref(db, "announcements")), data); toast.success("Announcement published"); }
+            if (editing) { await updateDoc(doc(firestore, "announcements", editing.id), data); toast.success("Updated"); }
+            else { await addDoc(collection(firestore, "announcements"), data); toast.success("Announcement published"); }
             setShowForm(false);
         } catch { toast.error("Failed"); } finally { setSaving(false); }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this announcement?")) return;
-        try { await remove(ref(db, `announcements/${id}`)); toast.success("Deleted"); } catch { toast.error("Failed"); }
+        try { await deleteDoc(doc(firestore, "announcements", id)); toast.success("Deleted"); } catch { toast.error("Failed"); }
     };
 
     return (
@@ -64,7 +63,7 @@ export default function AdminAnnouncementsPage() {
                 <Card><CardContent className="py-12 text-center text-muted-foreground"><Megaphone className="h-10 w-10 mx-auto mb-2" /><p>No announcements</p></CardContent></Card>
             ) : (
                 <div className="space-y-3">{announcements.map((ann) => (
-                    <Card key={ann.id} className="hover:border-(--primary)/20 transition-all">
+                    <Card key={ann.id} className="hover:border-primary/20 transition-all">
                         <CardContent className="p-5">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1">
