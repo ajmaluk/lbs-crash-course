@@ -23,7 +23,6 @@ export default function MockTestsPage() {
     const { userData } = useAuth();
     const [mockTests, setMockTests] = useState<Quiz[]>([]);
     const [myAttempts, setMyAttempts] = useState<Record<string, QuizAttempt>>({});
-    const [mySessions, setMySessions] = useState<Record<string, QuizSession>>({});
     const [activeTest, setActiveTest] = useState<Quiz | null>(null);
     const [answers, setAnswers] = useState<number[]>([]);
     const [currentQ, setCurrentQ] = useState(0);
@@ -37,6 +36,35 @@ export default function MockTestsPage() {
     const [markedQuestions, setMarkedQuestions] = useState<number[]>([]);
     const [sessionStartTime, setSessionStartTime] = useState<number>(0);
 
+    const getLocalSessionKey = useCallback((testId: string) => {
+        return `mock_session_${userData?.uid || "guest"}_${testId}`;
+    }, [userData?.uid]);
+
+    const saveSessionLocally = useCallback((testId: string, sessionData: QuizSession) => {
+        try {
+            localStorage.setItem(getLocalSessionKey(testId), JSON.stringify(sessionData));
+        } catch (e) {
+            console.warn("Failed to save session to localStorage", e);
+        }
+    }, [getLocalSessionKey]);
+
+    const getLocalSession = useCallback((testId: string): QuizSession | null => {
+        try {
+            const saved = localStorage.getItem(getLocalSessionKey(testId));
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.warn("Failed to load session from localStorage", e);
+            return null;
+        }
+    }, [getLocalSessionKey]);
+
+    const clearLocalSession = useCallback((testId: string) => {
+        try {
+            localStorage.removeItem(getLocalSessionKey(testId));
+        } catch (e) {
+            console.warn("Failed to clear session from localStorage", e);
+        }
+    }, [getLocalSessionKey]);
 
     useEffect(() => {
         const mtRef = fsQuery(collection(firestore, "mockTests"), orderBy("createdAt"));
@@ -62,17 +90,9 @@ export default function MockTestsPage() {
                 setMyAttempts(attempts);
             });
 
-            const sessionRef = collection(firestore, `mockSessions/${userData.uid}/sessions`);
-            const unsubSession = onSnapshot(sessionRef, (snapshot) => {
-                const sessions: Record<string, QuizSession> = {};
-                snapshot.forEach((child) => {
-                    sessions[child.id] = child.data() as QuizSession;
-                });
-                setMySessions(sessions);
-            });
-
-            return () => { unsub(); unsubAtt(); unsubSession(); };
+            return () => { unsub(); unsubAtt(); };
         }
+
 
         return () => unsub();
     }, [userData?.uid]);
@@ -87,7 +107,7 @@ export default function MockTestsPage() {
 
     const proceedWithTestStart = (test: Quiz) => {
         setActiveTest(test);
-        const existingSession = mySessions[test.id];
+        const existingSession = getLocalSession(test.id);
 
         if (existingSession) {
             setAnswers(existingSession.answers || new Array(test.questions.length).fill(-1));
@@ -105,7 +125,7 @@ export default function MockTestsPage() {
             setTimeLeft((test.duration || 60) * 60);
             
             if (userData?.uid) {
-                setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, test.id), {
+                saveSessionLocally(test.id, {
                     mockTestId: test.id,
                     answers: new Array(test.questions.length).fill(-1),
                     markedQuestions: [],
@@ -113,6 +133,7 @@ export default function MockTestsPage() {
                 });
             }
         }
+
 
         setCurrentQ(0);
         setResult(null);
@@ -124,7 +145,7 @@ export default function MockTestsPage() {
         setMarkedQuestions(prev => {
             const newMarked = prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx];
             if (activeTest && userData?.uid && !reviewMode) {
-                setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id), {
+                saveSessionLocally(activeTest.id, {
                     mockTestId: activeTest.id,
                     answers,
                     markedQuestions: newMarked,
@@ -156,7 +177,7 @@ export default function MockTestsPage() {
         setAnswers(newAnswers);
 
         if (activeTest && userData?.uid && !reviewMode) {
-            setDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id), {
+            saveSessionLocally(activeTest.id, {
                 mockTestId: activeTest.id,
                 answers: newAnswers,
                 markedQuestions,
@@ -187,7 +208,7 @@ export default function MockTestsPage() {
             });
 
             // Remove session
-            await deleteDoc(doc(firestore, `mockSessions/${userData.uid}/sessions`, activeTest.id));
+            clearLocalSession(activeTest.id);
 
             setResult({ score, total: activeTest.questions.length });
             setShowConfirmSubmit(false);

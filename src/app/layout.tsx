@@ -195,6 +195,17 @@ export default function RootLayout({
                     notifyButton: { enable: false },
                     allowLocalhostAsSecureOrigin: true
                   });
+                  
+                  // Force refresh zombie clients running old code
+                  const CURRENT_DEPLOYMENT = "2026-05-07-v1";
+                  const storedVersion = localStorage.getItem("app_version");
+                  if (storedVersion !== CURRENT_DEPLOYMENT) {
+                    localStorage.setItem("app_version", CURRENT_DEPLOYMENT);
+                    // Small delay to allow localStorage to settle
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 500);
+                  }
 
                   // Trigger permission prompt if not already granted
                   if (OneSignal.Notifications.permission !== true) {

@@ -338,7 +338,14 @@ export default function StudyLabPanel({
         submittedAt: Date.now(),
       });
 
-      const allAttemptSnap = await getDocs(collection(firestore, "mockAttempts"));
+      const allAttemptSnap = await getDocs(
+        query(
+          collection(firestore, "mockAttempts"), 
+          where("mockTestId", "==", leaderboardId),
+          where("source", "==", "ai-practice"),
+          limit(100)
+        )
+      );
       const bestByUser: Record<string, { userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number }> = {};
 
       if (!allAttemptSnap.empty) {

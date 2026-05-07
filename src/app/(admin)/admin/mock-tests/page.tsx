@@ -79,7 +79,12 @@ export default function AdminMockTestsPage() {
 
             // If closing the test, generate rankings snapshot
             if (form.status === "closed") {
-                const attemptsSnap = await getDocs(collection(firestore, "mockAttempts"));
+                const attemptsSnap = await getDocs(
+                    query(
+                        collection(firestore, "mockAttempts"), 
+                        where("mockTestId", "==", testId)
+                    )
+                );
                 const attempts: Array<{ userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number; mockTestId?: string; quizId?: string }> = [];
                 attemptsSnap.forEach((docSnap) => {
                     const val = docSnap.data();

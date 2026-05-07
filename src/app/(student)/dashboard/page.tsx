@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
-import { collection, onSnapshot, query, orderBy, limit, doc } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, query, orderBy, limit, doc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { LiveClass, Announcement, RankData } from "@/lib/types";
 import recordingsData from "@/data/recordings.json";
@@ -42,41 +42,40 @@ function LeaderboardSummary() {
         mockTests: false
     });
 
-    useEffect(() => {
-        const unsubs = [
-            onSnapshot(collection(firestore, "rankings"), (snap) => {
-                const obj: Record<string, RankData> = {};
-                snap.docs.forEach(d => { obj[d.id] = d.data() as RankData; });
-                setData(prev => ({ ...prev, rankings: obj }));
-                setLoadedSources(prev => ({ ...prev, rankings: true }));
-            }),
-            onSnapshot(collection(firestore, "mockRankings"), (snap) => {
-                const obj: Record<string, RankData> = {};
-                snap.docs.forEach(d => { obj[d.id] = d.data() as RankData; });
-                setData(prev => ({ ...prev, mockRankings: obj }));
-                setLoadedSources(prev => ({ ...prev, mockRankings: true }));
-            }),
-            onSnapshot(collection(firestore, "quizzes"), (snap) => {
-                const ids = new Set<string>();
-                snap.docs.forEach(d => { ids.add(d.id); });
-                setData(prev => ({ ...prev, quizIds: ids }));
-                setLoadedSources(prev => ({ ...prev, quizzes: true }));
-            }),
-            onSnapshot(collection(firestore, "mockTests"), (snap) => {
-                const ids = new Set<string>();
-                snap.docs.forEach(d => { ids.add(d.id); });
-                setData(prev => ({ ...prev, mockTestIds: ids }));
-                setLoadedSources(prev => ({ ...prev, mockTests: true }));
-            }),
-        ];
-        return () => unsubs.forEach(u => u());
-    }, []);
+    const fetchLeaderboard = async () => {
+        setLoading(true);
+        try {
+            const [rankSnap, mockRankSnap, quizSnap, mockTestSnap] = await Promise.all([
+                getDocs(collection(firestore, "rankings")),
+                getDocs(collection(firestore, "mockRankings")),
+                getDocs(collection(firestore, "quizzes")),
+                getDocs(collection(firestore, "mockTests"))
+            ]);
 
-    useEffect(() => {
-        if (loadedSources.rankings && loadedSources.mockRankings && loadedSources.quizzes && loadedSources.mockTests) {
+            const rankings: Record<string, RankData> = {};
+            rankSnap.forEach(d => { rankings[d.id] = d.data() as RankData; });
+
+            const mockRankings: Record<string, RankData> = {};
+            mockRankSnap.forEach(d => { mockRankings[d.id] = d.data() as RankData; });
+
+            const quizIds = new Set<string>();
+            quizSnap.forEach(d => { quizIds.add(d.id); });
+
+            const mockTestIds = new Set<string>();
+            mockTestSnap.forEach(d => { mockTestIds.add(d.id); });
+
+            setData({ rankings, mockRankings, quizIds, mockTestIds });
+            setLoadedSources({ rankings: true, mockRankings: true, quizzes: true, mockTests: true });
+        } catch (error) {
+            console.error("Failed to fetch leaderboard:", error);
+        } finally {
             setLoading(false);
         }
-    }, [loadedSources]);
+    };
+
+    useEffect(() => {
+        fetchLeaderboard();
+    }, []);
 
     const latestRanking = useMemo(() => {
         const allValidRankings: (RankData & { sourceType: 'quiz' | 'mock' })[] = [];

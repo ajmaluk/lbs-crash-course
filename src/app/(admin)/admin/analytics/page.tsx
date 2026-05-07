@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
-import { BarChart3, Users, UserPlus, Video, BookOpen, FileText, TrendingUp, Activity, Zap, Target } from "lucide-react";
+import { BarChart3, Users, UserPlus, Video, BookOpen, FileText, TrendingUp, Activity, Zap, Target, RefreshCw } from "lucide-react";
 import recordingsData from "@/data/recordings.json";
 import papersData from "@/data/prequestion_paper.json";
+import { Button } from "@/components/ui/button";
 
 export default function AdminAnalyticsPage() {
+    const [loading, setLoading] = useState(false);
     const [data, setData] = useState({
         totalUsers: 0,
         pendingRegistrations: 0,
@@ -22,37 +24,61 @@ export default function AdminAnalyticsPage() {
         announcements: 0,
     });
 
+    const fetchStats = async () => {
+        setLoading(true);
+        try {
+            const results: any = { ...data };
+            
+            const [
+                usersSnap,
+                pendingSnap,
+                liveSnap,
+                quizzesSnap,
+                mockSnap,
+                quizAttSnap,
+                mockAttSnap,
+                annSnap
+            ] = await Promise.all([
+                getDocs(collection(firestore, "users")),
+                getDocs(collection(firestore, "pendingRegistrations")),
+                getDocs(collection(firestore, "liveClasses")),
+                getDocs(collection(firestore, "quizzes")),
+                getDocs(collection(firestore, "mockTests")),
+                getDocs(collection(firestore, "quizAttempts")),
+                getDocs(collection(firestore, "mockAttempts")),
+                getDocs(collection(firestore, "announcements"))
+            ]);
+
+            let totalUsers = 0;
+            let verifiedUsers = 0;
+            usersSnap.forEach(doc => {
+                const d = doc.data();
+                if (d.role !== "admin") {
+                    totalUsers++;
+                    if (d.status === "verified") verifiedUsers++;
+                }
+            });
+
+            results.totalUsers = totalUsers;
+            results.verifiedUsers = verifiedUsers;
+            results.pendingRegistrations = pendingSnap.docs.filter(d => d.data().status === "pending").length;
+            results.liveClasses = liveSnap.size;
+            results.quizzes = quizzesSnap.size;
+            results.mockTests = mockSnap.size;
+            results.quizAttempts = quizAttSnap.size;
+            results.mockAttempts = mockAttSnap.size;
+            results.announcements = annSnap.size;
+
+            setData(results);
+        } catch (error) {
+            console.error("Failed to fetch analytics:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const listeners: (() => void)[] = [];
-
-        const countAll = (path: string, key: string) => {
-            const unsub = onSnapshot(collection(firestore, path), (snapshot) => {
-                setData((prev) => ({ ...prev, [key]: snapshot.size }));
-            });
-            listeners.push(unsub);
-        };
-
-        const countFilter = (path: string, key: string, filter: (v: Record<string, unknown>) => boolean) => {
-            const unsub = onSnapshot(collection(firestore, path), (snapshot) => {
-                let count = 0;
-                snapshot.forEach((doc) => { if (filter(doc.data())) count++; });
-                setData((prev) => ({ ...prev, [key]: count }));
-            });
-            listeners.push(unsub);
-        };
-
-        countFilter("users", "totalUsers", (v) => v.role !== "admin");
-        countFilter("users", "verifiedUsers", (v) => v.status === "verified" && v.role !== "admin");
-        countFilter("pendingRegistrations", "pendingRegistrations", (v) => v.status === "pending");
-        countAll("liveClasses", "liveClasses");
-        // recordedClasses count is static — no Firestore read needed
-        countAll("quizzes", "quizzes");
-        countAll("mockTests", "mockTests");
-        countAll("quizAttempts", "quizAttempts");
-        countAll("mockAttempts", "mockAttempts");
-        countAll("announcements", "announcements");
-
-        return () => listeners.forEach((u) => u());
+        fetchStats();
     }, []);
 
     const metrics = [
@@ -74,6 +100,7 @@ export default function AdminAnalyticsPage() {
 
     return (
         <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
             <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <BarChart3 className="h-6 w-6 text-primary" />
@@ -81,6 +108,17 @@ export default function AdminAnalyticsPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">Platform statistics and insights</p>
             </div>
+            <Button 
+                onClick={fetchStats} 
+                disabled={loading} 
+                variant="outline" 
+                size="sm"
+                className="gap-2"
+            >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                {loading ? "Refreshing..." : "Refresh Data"}
+            </Button>
+        </div>
 
             {/* Platform Health Summary */}
             <div className="grid sm:grid-cols-3 gap-4">
