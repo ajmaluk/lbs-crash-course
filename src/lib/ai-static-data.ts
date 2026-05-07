@@ -164,6 +164,116 @@ export const STATIC_PRACTICE_QUESTIONS = [
         options: ["Physical Layer", "Data Link Layer", "Network Layer", "Transport Layer"],
         correctAnswer: 2,
         explanation: "The Network Layer handles routing and logical addressing (IP)."
+    },
+    {
+        id: "static-11",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Database Management",
+        subject: "Computer Science",
+        question: "What does SQL stand for?",
+        options: ["Structured Query Language", "Sequential Query Language", "Simple Query Language", "Standard Query Language"],
+        correctAnswer: 0,
+        explanation: "SQL stands for Structured Query Language, used for managing relational databases."
+    },
+    {
+        id: "static-12",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Computer Organization",
+        subject: "Computer Science",
+        question: "Which of the following is considered the 'brain' of the computer?",
+        options: ["RAM", "Hard Disk", "CPU", "Motherboard"],
+        correctAnswer: 2,
+        explanation: "The CPU (Central Processing Unit) performs most of the processing inside the computer."
+    },
+    {
+        id: "static-13",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Mathematics",
+        subject: "Mathematics",
+        question: "What is the value of log(1) to any base?",
+        options: ["1", "0", "Infinity", "Undefined"],
+        correctAnswer: 1,
+        explanation: "The logarithm of 1 to any base is always 0."
+    },
+    {
+        id: "static-14",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Quantitative Aptitude",
+        subject: "Aptitude",
+        question: "A train 100m long passes a bridge in 10 seconds at 72 km/hr. What is the length of the bridge?",
+        options: ["100m", "150m", "200m", "250m"],
+        correctAnswer: 0,
+        explanation: "72 km/hr = 20 m/s. Total distance = Speed * Time = 20 * 10 = 200m. Bridge length = Total distance - Train length = 200 - 100 = 100m."
+    },
+    {
+        id: "static-15",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Logical Reasoning",
+        subject: "Aptitude",
+        question: "Pointing to a photograph, a man said, 'I have no brother or sister but that man's father is my father's son.' Whose photograph was it?",
+        options: ["His own", "His son's", "His father's", "His nephew's"],
+        correctAnswer: 1,
+        explanation: "Since he has no brother or sister, 'my father's son' is himself. So, the man in the photo's father is himself. Thus, the photo is of his son."
+    },
+    {
+        id: "static-16",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "English",
+        subject: "English",
+        question: "Choose the correct spelling:",
+        options: ["Accomodation", "Accommodation", "Acommodation", "Acomodation"],
+        correctAnswer: 1,
+        explanation: "The correct spelling is 'Accommodation' (double c, double m)."
+    },
+    {
+        id: "static-17",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Computer Science",
+        subject: "Computer Science",
+        question: "In Boolean Algebra, A + A' is equal to:",
+        options: ["0", "1", "A", "A'"],
+        correctAnswer: 1,
+        explanation: "According to the Law of Complementarity, A + A' = 1."
+    },
+    {
+        id: "static-18",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "General Knowledge",
+        subject: "General Knowledge",
+        question: "Who is known as the 'Father of the Indian Constitution'?",
+        options: ["Mahatma Gandhi", "Jawaharlal Nehru", "Dr. B.R. Ambedkar", "Sardar Patel"],
+        correctAnswer: 2,
+        explanation: "Dr. B.R. Ambedkar was the chairman of the drafting committee and is known as the Father of the Indian Constitution."
+    },
+    {
+        id: "static-19",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Computer Science",
+        subject: "Computer Science",
+        question: "Which of the following is NOT a high-level programming language?",
+        options: ["Python", "Java", "Assembly", "C++"],
+        correctAnswer: 2,
+        explanation: "Assembly is a low-level language, while Python, Java, and C++ are high-level languages."
+    },
+    {
+        id: "static-20",
+        sourceId: "static-pool",
+        sourceType: "quiz" as const,
+        sourceTitle: "Mathematics",
+        subject: "Mathematics",
+        question: "If a matrix has 6 elements, what are the possible orders it can have?",
+        options: ["1, 2, 3, 6", "1x6, 6x1, 2x3, 3x2", "2x3, 3x2", "1x6, 6x1"],
+        correctAnswer: 1,
+        explanation: "The possible orders are pairs of factors of 6: (1,6), (6,1), (2,3), (3,2)."
     }
 ];
 

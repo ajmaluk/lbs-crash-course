@@ -93,8 +93,6 @@ export default function DashboardAIChatPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const [feedbackBySession, setFeedbackBySession] = useState<FeedbackBySession>({});
     const [studyNotes, setStudyNotes] = useState<StudyNote[]>([]);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [isDeepScanning, setIsDeepScanning] = useState(false);
     const [copiedMessageKey, setCopiedMessageKey] = useState<string | null>(null);
     const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);

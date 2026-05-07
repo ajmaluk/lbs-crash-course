@@ -104,9 +104,6 @@ export function preWarmContext(uid: string): void {
 }
 
 export async function getUserContext(uid: string, forceRefresh = false, isDeepScan = false): Promise<string> {
-    if (forceRefresh || isDeepScan) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
     return STATIC_INTELLIGENCE_REPORT;
 }
 

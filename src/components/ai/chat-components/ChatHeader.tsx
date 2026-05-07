@@ -6,38 +6,25 @@ import {
     Clock, 
     Trash2, 
     Plus, 
-    RefreshCw, 
-    Zap, 
     BookOpen, 
     Sparkles
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 interface ChatHeaderProps {
-    isSyncing: boolean;
-    isLoading: boolean;
-    isDeepScanning: boolean;
     studyNotesCount: number;
     onOpenHistory: () => void;
     onOpenStudyLab: () => void;
     onOpenStudyNotes: () => void;
-    onSyncData: () => void;
-    onDeepScan: () => void;
     onClearAll: () => void;
     onNewChat: () => void;
 }
 
 export const ChatHeader = React.memo(({
-    isSyncing,
-    isLoading,
-    isDeepScanning,
     studyNotesCount,
     onOpenHistory,
     onOpenStudyLab,
     onOpenStudyNotes,
-    onSyncData,
-    onDeepScan,
     onClearAll,
     onNewChat
 }: ChatHeaderProps) => {
@@ -66,34 +53,6 @@ export const ChatHeader = React.memo(({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="hidden items-center gap-2 lg:flex">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onSyncData}
-                        disabled={isSyncing || isLoading}
-                        className="h-9 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                        <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isSyncing && "animate-spin")} />
-                        {isSyncing ? "Syncing..." : "Sync Notes"}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onDeepScan}
-                        disabled={isDeepScanning || isLoading}
-                        className={cn(
-                            "h-9 rounded-xl text-xs font-semibold transition-all hover:bg-zinc-900 hover:text-white",
-                            isDeepScanning ? "text-primary animate-pulse" : "text-muted-foreground"
-                        )}
-                    >
-                        <Zap className={cn("mr-2 h-3.5 w-3.5", isDeepScanning && "fill-primary")} />
-                        {isDeepScanning ? "Scanning..." : "Deep Scan"}
-                    </Button>
-                </div>
-
-                <div className="h-4 w-px bg-border lg:mx-1" />
-
                 <div className="flex items-center gap-1">
                     <Button
                         variant="ghost"

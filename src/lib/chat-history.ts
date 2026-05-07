@@ -33,8 +33,14 @@ async function migrateFromLocalStorage(): Promise<ChatSession[] | null> {
     }
 }
 
+let sessionCache: ChatSession[] | null = null;
+
 export async function loadSessions(): Promise<ChatSession[]> {
     if (typeof window === "undefined") return [];
+    
+    // Memory cache hit
+    if (sessionCache) return sessionCache;
+
     try {
         // Try to load from IndexedDB with a strict timeout (Safari safety)
         const idbPromise = cacheDB.get<any[]>(STORAGE_KEY);
@@ -50,7 +56,7 @@ export async function loadSessions(): Promise<ChatSession[]> {
 
         if (!parsed || !Array.isArray(parsed)) return [];
 
-        return parsed.filter((item): item is ChatSession => (
+        const loaded = parsed.filter((item): item is ChatSession => (
             !!item &&
             typeof item.id === "string" &&
             typeof item.title === "string" &&
@@ -64,6 +70,9 @@ export async function loadSessions(): Promise<ChatSession[]> {
                     : m
             )
         }));
+
+        sessionCache = loaded;
+        return loaded;
     } catch (e) {
         console.error("Failed to load sessions:", e);
         return [];
@@ -72,6 +81,10 @@ export async function loadSessions(): Promise<ChatSession[]> {
 
 export async function saveSessions(sessions: ChatSession[]) {
     if (typeof window === "undefined") return;
+    
+    // Update memory cache immediately
+    sessionCache = sessions;
+
     try {
         const optimized = sessions.map(session => ({
             ...session,
