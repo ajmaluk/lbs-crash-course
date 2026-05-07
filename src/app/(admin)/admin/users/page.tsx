@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { UserData } from "@/lib/types";
 import { Users, Search, Mail, Phone, Ban, ShieldCheck, UserMinus, MoreVertical, Eye, Copy, MessageCircle, Download } from "lucide-react";
@@ -29,18 +29,23 @@ export default function AdminUsersPage() {
     const [processing, setProcessing] = useState<string | null>(null);
 
     useEffect(() => {
-        const usersQuery = query(collection(firestore, "users"));
-        const unsub = onSnapshot(usersQuery, (snapshot) => {
-            const list: UserData[] = [];
-            snapshot.forEach((childDoc) => {
-                const data = childDoc.data() as UserData;
-                if (data.role !== "admin") {
-                    list.push({ ...data, uid: childDoc.id });
-                }
-            });
-            setUsers(list);
-        });
-        return () => unsub();
+        const fetchUsers = async () => {
+            try {
+                const usersQuery = query(collection(firestore, "users"));
+                const snapshot = await getDocs(usersQuery);
+                const list: UserData[] = [];
+                snapshot.forEach((childDoc) => {
+                    const data = childDoc.data() as UserData;
+                    if (data.role !== "admin") {
+                        list.push({ ...data, uid: childDoc.id });
+                    }
+                });
+                setUsers(list);
+            } catch (err) {
+                console.error("Failed to fetch users:", err);
+            }
+        };
+        fetchUsers();
     }, []);
 
     const handleBanAction = async (uid: string, currentStatus: boolean) => {

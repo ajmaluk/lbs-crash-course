@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { collection, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs, getDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, getDocs, getDoc, query, where } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
@@ -38,13 +38,18 @@ export default function AdminMockTestsPage() {
     const [viewingRanking, setViewingRanking] = useState<RankData | null>(null);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(firestore, "mockTests"), (snapshot) => {
-            const list: Quiz[] = [];
-            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Quiz); });
-            list.sort((a, b) => b.createdAt - a.createdAt);
-            setMockTests(list);
-        });
-        return () => unsub();
+        const fetchMockTests = async () => {
+            try {
+                const snapshot = await getDocs(collection(firestore, "mockTests"));
+                const list: Quiz[] = [];
+                snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Quiz); });
+                list.sort((a, b) => b.createdAt - a.createdAt);
+                setMockTests(list);
+            } catch (err) {
+                console.error("Failed to fetch mock tests:", err);
+            }
+        };
+        fetchMockTests();
     }, []);
 
     const openCreate = () => { setEditing(null); setForm({ title: "", subject: "", status: "draft", duration: "60" }); setQuestions([]); setShowForm(true); };

@@ -25,8 +25,9 @@ import {
     Code,
 } from "lucide-react";
 import { firestore } from "@/lib/firebase";
-import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { useCallback } from "react";
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -65,50 +66,47 @@ export default function StudentDashboardLayout({
         return () => window.removeEventListener("student-sidebar:open", openSidebar);
     }, []);
 
-    // Listen to updates for notification dots
-    useEffect(() => {
+    // Check for notification dots — one-time fetch instead of real-time listeners
+    const checkNotifications = useCallback(async () => {
         if (!user) return;
+        try {
+            const getStored = () => {
+                try {
+                    const raw = localStorage.getItem("lastSeenUpdates");
+                    return raw ? JSON.parse(raw) : {};
+                } catch { return {}; }
+            };
+            const stored = getStored();
 
-        const getStored = () => {
-            try {
-                const raw = localStorage.getItem("lastSeenUpdates");
-                return raw ? JSON.parse(raw) : {};
-            } catch { return {}; }
-        };
+            const [quizSnap, mockSnap, annSnap] = await Promise.all([
+                getDocs(query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"), limit(5))),
+                getDocs(query(collection(firestore, "mockTests"), orderBy("createdAt", "desc"), limit(5))),
+                getDocs(query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(1))),
+            ]);
 
-        const unsubs = [
-            onSnapshot(query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"), limit(5)), (snap) => {
-                let latest = 0;
-                snap.forEach(doc => { 
-                    const data = doc.data();
-                    if (data.status === "published") {
-                        latest = Math.max(latest, data.createdAt || 0);
-                    }
-                });
-                const stored = getStored();
-                setUnread(prev => ({ ...prev, quizzes: latest > (stored.quizzes || 0) && pathname !== "/dashboard/quizzes" }));
-            }),
-            onSnapshot(query(collection(firestore, "mockTests"), orderBy("createdAt", "desc"), limit(5)), (snap) => {
-                let latest = 0;
-                snap.forEach(doc => { 
-                    const data = doc.data();
-                    if (data.status === "published") {
-                        latest = Math.max(latest, data.createdAt || 0);
-                    }
-                });
-                const stored = getStored();
-                setUnread(prev => ({ ...prev, mockTests: latest > (stored.mockTests || 0) && pathname !== "/dashboard/mock-tests" }));
-            }),
-            onSnapshot(query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(1)), (snap) => {
-                let latest = 0;
-                snap.forEach(doc => { latest = Math.max(latest, doc.data().createdAt || 0); });
-                const stored = getStored();
-                setUnread(prev => ({ ...prev, announcements: latest > (stored.announcements || 0) && pathname !== "/dashboard/announcements" }));
-            }),
-        ];
+            let latestQuiz = 0;
+            quizSnap.forEach(d => { const data = d.data(); if (data.status === "published") latestQuiz = Math.max(latestQuiz, data.createdAt || 0); });
 
-        return () => unsubs.forEach(u => u());
+            let latestMock = 0;
+            mockSnap.forEach(d => { const data = d.data(); if (data.status === "published") latestMock = Math.max(latestMock, data.createdAt || 0); });
+
+            let latestAnn = 0;
+            annSnap.forEach(d => { latestAnn = Math.max(latestAnn, d.data().createdAt || 0); });
+
+            setUnread({
+                quizzes: latestQuiz > (stored.quizzes || 0) && pathname !== "/dashboard/quizzes",
+                mockTests: latestMock > (stored.mockTests || 0) && pathname !== "/dashboard/mock-tests",
+                announcements: latestAnn > (stored.announcements || 0) && pathname !== "/dashboard/announcements",
+            });
+        } catch (err) {
+            console.warn("[LAYOUT] Failed to check notifications:", err);
+        }
     }, [user, pathname]);
+
+    // Check notifications on mount and when pathname changes
+    useEffect(() => {
+        checkNotifications();
+    }, [checkNotifications]);
 
     // Update last seen when pathname changes
     useEffect(() => {

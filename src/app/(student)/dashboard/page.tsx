@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
-import { collection, getDocs, onSnapshot, query, orderBy, limit, doc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { LiveClass, Announcement, RankData } from "@/lib/types";
 import recordingsData from "@/data/recordings.json";
@@ -45,11 +45,9 @@ function LeaderboardSummary() {
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            const [rankSnap, mockRankSnap, quizSnap, mockTestSnap] = await Promise.all([
+            const [rankSnap, mockRankSnap] = await Promise.all([
                 getDocs(collection(firestore, "rankings")),
-                getDocs(collection(firestore, "mockRankings")),
-                getDocs(collection(firestore, "quizzes")),
-                getDocs(collection(firestore, "mockTests"))
+                getDocs(collection(firestore, "mockRankings"))
             ]);
 
             const rankings: Record<string, RankData> = {};
@@ -58,13 +56,7 @@ function LeaderboardSummary() {
             const mockRankings: Record<string, RankData> = {};
             mockRankSnap.forEach(d => { mockRankings[d.id] = d.data() as RankData; });
 
-            const quizIds = new Set<string>();
-            quizSnap.forEach(d => { quizIds.add(d.id); });
-
-            const mockTestIds = new Set<string>();
-            mockTestSnap.forEach(d => { mockTestIds.add(d.id); });
-
-            setData({ rankings, mockRankings, quizIds, mockTestIds });
+            setData({ rankings, mockRankings, quizIds: new Set(), mockTestIds: new Set() });
             setLoadedSources({ rankings: true, mockRankings: true, quizzes: true, mockTests: true });
         } catch (error) {
             console.error("Failed to fetch leaderboard:", error);
@@ -80,18 +72,14 @@ function LeaderboardSummary() {
     const latestRanking = useMemo(() => {
         const allValidRankings: (RankData & { sourceType: 'quiz' | 'mock' })[] = [];
 
-        // Add valid quiz rankings
+        // Add valid quiz rankings (assuming all present in rankings collection are valid)
         Object.entries(data.rankings).forEach(([id, val]) => {
-            if (data.quizIds.has(id)) {
-                allValidRankings.push({ ...val, quizId: id, sourceType: 'quiz' });
-            }
+            allValidRankings.push({ ...val, quizId: id, sourceType: 'quiz' });
         });
 
-        // Add valid mock test rankings
+        // Add valid mock test rankings (assuming all present are valid)
         Object.entries(data.mockRankings).forEach(([id, val]) => {
-            if (data.mockTestIds.has(id) || id.startsWith("ai-practice-")) {
-                allValidRankings.push({ ...val, mockTestId: id, sourceType: 'mock' });
-            }
+            allValidRankings.push({ ...val, mockTestId: id, sourceType: 'mock' });
         });
 
         // Sort by generation time (latest first)
@@ -182,27 +170,31 @@ export default function StudentDashboard() {
     const [progressMap, setProgressMap] = useState<Record<string, { completed?: boolean; timestamp?: number; duration?: number; updatedAt?: number }>>({});
 
     useEffect(() => {
-        const liveQ = query(collection(firestore, "liveClasses"), orderBy("scheduledAt", "desc"), limit(3));
-        const unsubLive = onSnapshot(liveQ, (snapshot) => {
-            const classes: LiveClass[] = [];
-            snapshot.docs.forEach((d) => {
-                const data = d.data();
-                if (data.status !== "completed") {
-                    classes.push({ ...data, id: d.id } as LiveClass);
-                }
-            });
-            setUpcomingClasses(classes);
-        });
+        const fetchDashboardData = async () => {
+            try {
+                const [liveSnap, annSnap] = await Promise.all([
+                    getDocs(query(collection(firestore, "liveClasses"), orderBy("scheduledAt", "desc"), limit(3))),
+                    getDocs(query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(3))),
+                ]);
 
-        const annQ = query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(3));
-        const unsubAnn = onSnapshot(annQ, (snapshot) => {
-            const anns: Announcement[] = snapshot.docs.map((d) => ({
-                ...d.data(), id: d.id,
-            } as Announcement));
-            setAnnouncements(anns);
-        });
+                const classes: LiveClass[] = [];
+                liveSnap.docs.forEach((d) => {
+                    const data = d.data();
+                    if (data.status !== "completed") {
+                        classes.push({ ...data, id: d.id } as LiveClass);
+                    }
+                });
+                setUpcomingClasses(classes);
 
-        return () => { unsubLive(); unsubAnn(); };
+                const anns: Announcement[] = annSnap.docs.map((d) => ({
+                    ...d.data(), id: d.id,
+                } as Announcement));
+                setAnnouncements(anns);
+            } catch (err) {
+                console.error("Failed to fetch dashboard data:", err);
+            }
+        };
+        fetchDashboardData();
     }, []);
 
     useEffect(() => {

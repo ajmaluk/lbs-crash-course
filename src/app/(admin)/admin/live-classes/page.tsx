@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { createMediaToken } from "@/lib/media";
 import { useAuth } from "@/contexts/auth-context";
@@ -94,13 +94,18 @@ export default function AdminLiveClassesPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(firestore, "liveClasses"), (snapshot) => {
-            const list: LiveClass[] = [];
-            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as LiveClass); });
-            list.sort((a, b) => b.scheduledAt - a.scheduledAt);
-            setClasses(list);
-        });
-        return () => unsub();
+        const fetchClasses = async () => {
+            try {
+                const snapshot = await getDocs(collection(firestore, "liveClasses"));
+                const list: LiveClass[] = [];
+                snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as LiveClass); });
+                list.sort((a, b) => b.scheduledAt - a.scheduledAt);
+                setClasses(list);
+            } catch (err) {
+                console.error("Failed to fetch live classes:", err);
+            }
+        };
+        fetchClasses();
     }, []);
 
     const openCreate = () => {

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { collection, query, orderBy, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, where, limit } from "firebase/firestore";
+import { collection, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, where, limit } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Quiz, QuizQuestion, QuizStatus, RankData, RankEntry } from "@/lib/types";
@@ -38,28 +38,25 @@ export default function AdminQuizzesPage() {
     const [viewingRanking, setViewingRanking] = useState<RankData | null>(null);
 
     useEffect(() => {
-        const q = query(
-            collection(firestore, "quizzes"), 
-            orderBy("createdAt", "desc"),
-            limit(50) // Optimization: Limit reads to the most recent 50 quizzes
-        );
-
-        const unsubscribe = onSnapshot(
-            q,
-            (snapshot) => {
+        const fetchQuizzes = async () => {
+            try {
+                const q = query(
+                    collection(firestore, "quizzes"), 
+                    orderBy("createdAt", "desc"),
+                    limit(50)
+                );
+                const snapshot = await getDocs(q);
                 const list: Quiz[] = [];
                 snapshot.forEach((docSnap) => {
                     list.push({ ...(docSnap.data() as Omit<Quiz, "id">), id: docSnap.id });
                 });
                 setQuizzes(list);
-            },
-            (error) => {
+            } catch (error) {
                 console.error("Error fetching quizzes:", error);
                 toast.error("Failed to load quizzes");
             }
-        );
-
-        return () => unsubscribe();
+        };
+        fetchQuizzes();
     }, []);
 
     const openCreate = () => {

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
-import { collection, query as fsQuery, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query as fsQuery, orderBy, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { LiveClass } from "@/lib/types";
 import { createMediaToken, extractYouTubeId } from "@/lib/media";
@@ -597,15 +597,20 @@ export default function LiveClassesPage() {
     const [openingNoteId, setOpeningNoteId] = useState<string | null>(null);
 
     useEffect(() => {
-        const liveRef = fsQuery(collection(firestore, "liveClasses"), orderBy("scheduledAt"));
-        const unsub = onSnapshot(liveRef, (snapshot) => {
-            const list: LiveClass[] = [];
-            snapshot.forEach((child) => {
-                list.push({ ...child.data(), id: child.id } as LiveClass);
-            });
-            setClasses(list);
-        });
-        return () => unsub();
+        const fetchClasses = async () => {
+            try {
+                const liveRef = fsQuery(collection(firestore, "liveClasses"), orderBy("scheduledAt"));
+                const snapshot = await getDocs(liveRef);
+                const list: LiveClass[] = [];
+                snapshot.forEach((child) => {
+                    list.push({ ...child.data(), id: child.id } as LiveClass);
+                });
+                setClasses(list);
+            } catch (err) {
+                console.error("Failed to fetch live classes:", err);
+            }
+        };
+        fetchClasses();
     }, []);
 
     if (!userData?.is_live) {

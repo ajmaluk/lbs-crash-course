@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { collection, onSnapshot, query, orderBy, where, addDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where, addDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { BookOpen, Clock, CheckCircle, Trophy, AlertCircle, Timer, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
@@ -32,33 +32,38 @@ export default function QuizzesPage() {
     const [markedQuestions, setMarkedQuestions] = useState<number[]>([]);
 
     useEffect(() => {
-        const qRef = query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"));
-        const unsub = onSnapshot(qRef, (snapshot) => {
-            const list: Quiz[] = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data() as Quiz;
-                if (data.status === "published" || data.status === "closed") {
-                    list.push({ ...data, id: doc.id });
-                }
-            });
-            setQuizzes(list);
-        });
-
-        // Fetch user's attempts
-        if (userData?.uid) {
-            const attRef = query(collection(firestore, "quizAttempts"), where("userId", "==", userData.uid));
-            const unsubAtt = onSnapshot(attRef, (snapshot) => {
-                const attempts: Record<string, QuizAttempt> = {};
+        const fetchData = async () => {
+            try {
+                const qRef = query(collection(firestore, "quizzes"), orderBy("createdAt", "desc"));
+                const snapshot = await getDocs(qRef);
+                const list: Quiz[] = [];
                 snapshot.forEach((doc) => {
-                    const data = doc.data() as QuizAttempt;
-                    attempts[data.quizId] = { ...data, id: doc.id };
+                    const data = doc.data() as Quiz;
+                    if (data.status === "published" || data.status === "closed") {
+                        list.push({ ...data, id: doc.id });
+                    }
                 });
-                setMyAttempts(attempts);
-            });
-            return () => { unsub(); unsubAtt(); };
-        }
+                setQuizzes(list);
+            } catch (err) {
+                console.error("Failed to fetch quizzes:", err);
+            }
 
-        return () => unsub();
+            if (userData?.uid) {
+                try {
+                    const attRef = query(collection(firestore, "quizAttempts"), where("userId", "==", userData.uid));
+                    const attSnap = await getDocs(attRef);
+                    const attempts: Record<string, QuizAttempt> = {};
+                    attSnap.forEach((doc) => {
+                        const data = doc.data() as QuizAttempt;
+                        attempts[data.quizId] = { ...data, id: doc.id };
+                    });
+                    setMyAttempts(attempts);
+                } catch (err) {
+                    console.error("Failed to fetch quiz attempts:", err);
+                }
+            }
+        };
+        fetchData();
     }, [userData?.uid]);
 
     const handleStartClick = (quiz: Quiz) => {

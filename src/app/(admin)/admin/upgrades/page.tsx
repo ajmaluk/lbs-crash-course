@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { UpgradeRequest } from "@/lib/types";
 import { ArrowUpCircle, Check, X, ExternalLink } from "lucide-react";
@@ -21,15 +21,20 @@ export default function AdminUpgradesPage() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(firestore, "upgradeRequests"), (snapshot) => {
-            const list: UpgradeRequest[] = [];
-            snapshot.forEach((docSnap) => {
-                list.push({ ...docSnap.data(), id: docSnap.id } as UpgradeRequest);
-            });
-            list.sort((a, b) => b.submittedAt - a.submittedAt);
-            setRequests(list);
-        });
-        return () => unsub();
+        const fetchUpgrades = async () => {
+            try {
+                const snapshot = await getDocs(collection(firestore, "upgradeRequests"));
+                const list: UpgradeRequest[] = [];
+                snapshot.forEach((docSnap) => {
+                    list.push({ ...docSnap.data(), id: docSnap.id } as UpgradeRequest);
+                });
+                list.sort((a, b) => b.submittedAt - a.submittedAt);
+                setRequests(list);
+            } catch (err) {
+                console.error("Failed to fetch upgrade requests:", err);
+            }
+        };
+        fetchUpgrades();
     }, []);
 
     const handleApprove = async (req: UpgradeRequest) => {

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { collection, query as fsQuery, orderBy, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { collection, query as fsQuery, orderBy, where, getDocs, doc, setDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { Quiz, QuizAttempt } from "@/lib/types";
 import { FileText, Clock, CheckCircle, Trophy, Timer, AlertCircle, PlayCircle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
@@ -67,34 +67,38 @@ export default function MockTestsPage() {
     }, [getLocalSessionKey]);
 
     useEffect(() => {
-        const mtRef = fsQuery(collection(firestore, "mockTests"), orderBy("createdAt"));
-        const unsub = onSnapshot(mtRef, (snapshot) => {
-            const list: Quiz[] = [];
-            snapshot.forEach((child) => {
-                const data = child.data();
-                if (data.status === "published" || data.status === "closed") {
-                    list.push({ ...data, id: child.id } as Quiz);
-                }
-            });
-            setMockTests(list.reverse());
-        });
-
-        if (userData?.uid) {
-            const attRef = fsQuery(collection(firestore, "mockAttempts"), where("userId", "==", userData.uid));
-            const unsubAtt = onSnapshot(attRef, (snapshot) => {
-                const attempts: Record<string, QuizAttempt> = {};
+        const fetchData = async () => {
+            try {
+                const mtRef = fsQuery(collection(firestore, "mockTests"), orderBy("createdAt"));
+                const snapshot = await getDocs(mtRef);
+                const list: Quiz[] = [];
                 snapshot.forEach((child) => {
                     const data = child.data();
-                    attempts[data.mockTestId || data.quizId] = { ...data, id: child.id } as QuizAttempt;
+                    if (data.status === "published" || data.status === "closed") {
+                        list.push({ ...data, id: child.id } as Quiz);
+                    }
                 });
-                setMyAttempts(attempts);
-            });
+                setMockTests(list.reverse());
+            } catch (err) {
+                console.error("Failed to fetch mock tests:", err);
+            }
 
-            return () => { unsub(); unsubAtt(); };
-        }
-
-
-        return () => unsub();
+            if (userData?.uid) {
+                try {
+                    const attRef = fsQuery(collection(firestore, "mockAttempts"), where("userId", "==", userData.uid));
+                    const attSnap = await getDocs(attRef);
+                    const attempts: Record<string, QuizAttempt> = {};
+                    attSnap.forEach((child) => {
+                        const data = child.data();
+                        attempts[data.mockTestId || data.quizId] = { ...data, id: child.id } as QuizAttempt;
+                    });
+                    setMyAttempts(attempts);
+                } catch (err) {
+                    console.error("Failed to fetch mock attempts:", err);
+                }
+            }
+        };
+        fetchData();
     }, [userData?.uid]);
 
     // Timer

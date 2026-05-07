@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { firestore } from "@/lib/firebase";
 import type { Quiz } from "@/lib/types";
-import { collection, getDocs, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, setDoc, query, where, limit } from "firebase/firestore";
 import { toast } from "sonner";
 import { Brain, CalendarDays, ChevronLeft, ChevronRight, Gauge, RefreshCcw, Sparkles, Target, Trophy } from "lucide-react";
 

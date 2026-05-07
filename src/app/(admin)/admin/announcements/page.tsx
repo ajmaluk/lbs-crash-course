@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/contexts/auth-context";
 import type { Announcement } from "@/lib/types";
@@ -24,13 +24,18 @@ export default function AdminAnnouncementsPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(firestore, "announcements"), (snapshot) => {
-            const list: Announcement[] = [];
-            snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Announcement); });
-            list.sort((a, b) => b.createdAt - a.createdAt);
-            setAnnouncements(list);
-        });
-        return () => unsub();
+        const fetchAnnouncements = async () => {
+            try {
+                const snapshot = await getDocs(collection(firestore, "announcements"));
+                const list: Announcement[] = [];
+                snapshot.forEach((docSnap) => { list.push({ ...docSnap.data(), id: docSnap.id } as Announcement); });
+                list.sort((a, b) => b.createdAt - a.createdAt);
+                setAnnouncements(list);
+            } catch (err) {
+                console.error("Failed to fetch announcements:", err);
+            }
+        };
+        fetchAnnouncements();
     }, []);
 
     const openCreate = () => { setEditing(null); setForm({ title: "", content: "" }); setShowForm(true); };

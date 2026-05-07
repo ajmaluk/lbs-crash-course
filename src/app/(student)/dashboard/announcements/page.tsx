@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { Announcement } from "@/lib/types";
 import { Megaphone } from "lucide-react";
@@ -12,15 +12,20 @@ export default function AnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
     useEffect(() => {
-        const q = query(collection(firestore, "announcements"), orderBy("createdAt", "desc"));
-        const unsub = onSnapshot(q, (snapshot) => {
-            const list: Announcement[] = snapshot.docs.map((doc) => ({
-                ...doc.data(),
-                id: doc.id,
-            })) as Announcement[];
-            setAnnouncements(list);
-        });
-        return () => unsub();
+        const fetchAnnouncements = async () => {
+            try {
+                const q = query(collection(firestore, "announcements"), orderBy("createdAt", "desc"));
+                const snapshot = await getDocs(q);
+                const list: Announcement[] = snapshot.docs.map((doc) => ({
+                    ...doc.data(),
+                    id: doc.id,
+                })) as Announcement[];
+                setAnnouncements(list);
+            } catch (err) {
+                console.error("Failed to fetch announcements:", err);
+            }
+        };
+        fetchAnnouncements();
     }, []);
 
     return (

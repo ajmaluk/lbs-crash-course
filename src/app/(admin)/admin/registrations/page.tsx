@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, where, getDocs, limit } from "firebase/firestore";
+import { collection, doc, updateDoc, query, orderBy, where, getDocs, limit } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { PendingRegistration } from "@/lib/types";
 import { toast } from "sonner";
@@ -57,26 +57,28 @@ export default function RegistrationsPage() {
     const [loadingCredentials, setLoadingCredentials] = useState(false);
 
     useEffect(() => {
-        const q = query(
-            collection(firestore, "pendingRegistrations"), 
-            orderBy("submittedAt", "desc"),
-            limit(100)
-        );
-
-        const unsub = onSnapshot(q, (snapshot) => {
-            const list: PendingRegistration[] = [];
-            snapshot.forEach((docSnap) => {
-                const data = docSnap.data() as PendingRegistration;
-                if (data.status === "pending" || data.status === "rejected" || data.status === "approved") {
-                    list.push({ ...data, id: docSnap.id });
-                }
-            });
-            setRegistrations(list);
-        }, (error) => {
-            console.error("Error fetching registrations:", error);
-            toast.error("Failed to load registrations.");
-        });
-        return () => unsub();
+        const fetchRegistrations = async () => {
+            try {
+                const q = query(
+                    collection(firestore, "pendingRegistrations"), 
+                    orderBy("submittedAt", "desc"),
+                    limit(100)
+                );
+                const snapshot = await getDocs(q);
+                const list: PendingRegistration[] = [];
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data() as PendingRegistration;
+                    if (data.status === "pending" || data.status === "rejected" || data.status === "approved") {
+                        list.push({ ...data, id: docSnap.id });
+                    }
+                });
+                setRegistrations(list);
+            } catch (error) {
+                console.error("Error fetching registrations:", error);
+                toast.error("Failed to load registrations.");
+            }
+        };
+        fetchRegistrations();
     }, []);
 
     // Fetch user credentials if already approved
