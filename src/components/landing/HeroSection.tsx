@@ -9,7 +9,7 @@ import { ArrowRight, Zap, Sparkles, Play } from "lucide-react";
 const stats = [
     { value: "50+", label: "Videos" },
     { value: "100+", label: "MCQs" },
-    { value: "50+", label: "Mocks" },
+    { value: "10+", label: "Mocks" },
     { value: "24/7", label: "Access" },
 ];
 
@@ -48,7 +48,7 @@ function MascotWithCards({ isMobile }: { isMobile: boolean }) {
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 className={`absolute ${isMobile ? "-left-4 top-1/4 p-2 rounded-xl gap-0.5" : "-left-8 top-1/2 p-4 rounded-2xl gap-1"} bg-card border border-primary/20 shadow-xl flex flex-col z-20`}
             >
-                <span className={`${isMobile ? "text-base" : "text-2xl"} font-black text-primary`}>50+</span>
+                <span className={`${isMobile ? "text-base" : "text-2xl"} font-black text-primary`}>10+</span>
                 <span className={`${isMobile ? "text-[8px]" : "text-[10px]"} font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap`}>Mock Exams</span>
             </motion.div>
 
@@ -57,8 +57,8 @@ function MascotWithCards({ isMobile }: { isMobile: boolean }) {
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                 className={`absolute ${isMobile ? "-right-2 bottom-12 p-2 rounded-xl gap-0.5" : "-right-4 bottom-20 p-4 rounded-2xl gap-1"} bg-card border border-primary/20 shadow-xl flex flex-col z-20`}
             >
-                <span className={`${isMobile ? "text-base" : "text-2xl"} font-black text-emerald-500`}>98%</span>
-                <span className={`${isMobile ? "text-[8px]" : "text-[10px]"} font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap`}>Success Rate</span>
+                <span className={`${isMobile ? "text-base" : "text-2xl"} font-black text-emerald-500`}>4.5+</span>
+                <span className={`${isMobile ? "text-[8px]" : "text-[10px]"} font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap`}>Average Rating</span>
             </motion.div>
         </motion.div>
     );
