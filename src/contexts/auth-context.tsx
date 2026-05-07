@@ -57,9 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const getStoredSessionId = useCallback(() => {
         if (typeof window === "undefined") return null;
-        const fromSession = sessionStorage.getItem(SESSION_KEY);
-        if (fromSession) return fromSession;
-        return localStorage.getItem(SESSION_KEY);
+        try {
+            const fromSession = sessionStorage.getItem(SESSION_KEY);
+            if (fromSession) return fromSession;
+            const fromLocal = localStorage.getItem(SESSION_KEY);
+            if (fromLocal) return fromLocal;
+            return null;
+        } catch (error) {
+            console.warn("[AUTH] Error reading session ID from storage:", error);
+            return null;
+        }
     }, []);
 
     const persistSessionId = useCallback((sessionId: string) => {
@@ -220,6 +227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!user || !hasValidConfig) return;
 
         const userDocRef = doc(firestore, "users", user.uid);
+        let sessionCheckTimeoutRef: NodeJS.Timeout | null = null;
+        
         const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (suppressSessionCheckRef.current) return;
             if (!docSnap.exists()) return;
@@ -234,17 +243,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (data.role === "admin") return;
 
+            // Session check: Only logout if activeSessionId explicitly changed to a different value
+            // Don't logout if activeSessionId is empty/undefined, or if it hasn't been explicitly set
             const currentSessionId = getStoredSessionId();
             const activeSessionId = data.activeSessionId;
-
-            if (activeSessionId && currentSessionId !== activeSessionId) {
-                void forceLogoutWithReason("session_expired");
+            
+            // Only enforce session expiration if:
+            // 1. activeSessionId is explicitly set (not empty/undefined)
+            // 2. There's a stored session ID to compare against
+            // 3. It's different from the current stored session
+            // Note: If currentSessionId is null/undefined, we don't logout because it could be 
+            // a storage access issue rather than a real session problem
+            const hasValidStoredSession = currentSessionId && typeof currentSessionId === "string" && currentSessionId.trim().length > 0;
+            if (activeSessionId && typeof activeSessionId === "string" && activeSessionId.trim().length > 0 && hasValidStoredSession && currentSessionId !== activeSessionId) {
+                console.warn("[AUTH] Session ID mismatch detected. Current:", currentSessionId?.substring(0, 8), "Active:", activeSessionId.substring(0, 8));
+                // Add a small delay before logging out to allow for race conditions during app startup
+                if (sessionCheckTimeoutRef) clearTimeout(sessionCheckTimeoutRef);
+                sessionCheckTimeoutRef = setTimeout(() => {
+                    void forceLogoutWithReason("session_expired");
+                }, 1000);
+            } else if (!hasValidStoredSession && activeSessionId && activeSessionId.trim().length > 0) {
+                console.log("[AUTH] No stored session ID found, but user has active session in Firestore. Preserving session.");
             }
         }, (dbErr) => {
             console.warn("[AUTH] Firestore subscription error:", dbErr);
         });
 
-        return () => unsubscribe();
+        return () => {
+            if (sessionCheckTimeoutRef) clearTimeout(sessionCheckTimeoutRef);
+            unsubscribe();
+        };
     }, [forceLogoutWithReason, getStoredSessionId, user]);
 
     const login = useCallback(async (email: string, password: string) => {
@@ -320,17 +348,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = useCallback(async () => {
         if (!hasValidConfig) {
             setUserData(null);
+            if (typeof window !== "undefined") window.location.href = "/login";
             return;
         }
+
         clearStoredSessionId();
-        if (user) {
-            const userDocRef = doc(firestore, "users", user.uid);
-            await updateDoc(userDocRef, {
-                activeSessionId: ""
-            });
+        
+        try {
+            if (user) {
+                const userDocRef = doc(firestore, "users", user.uid);
+                // Set a timeout for the firestore update so it doesn't block logout indefinitely
+                await Promise.race([
+                    updateDoc(userDocRef, { activeSessionId: "" }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore timeout")), 2000))
+                ]).catch(err => console.warn("[AUTH] Failed to clear session ID on logout:", err));
+            }
+        } catch (err) {
+            console.warn("[AUTH] Logout Firestore update error:", err);
         }
-        await signOut(auth);
+
+        try {
+            await signOut(auth);
+        } catch (err) {
+            console.error("[AUTH] Sign out error:", err);
+        }
+
         setUserData(null);
+        if (typeof window !== "undefined") {
+            window.location.href = "/login";
+        }
     }, [clearStoredSessionId, user]);
 
     const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {

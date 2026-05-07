@@ -55,7 +55,7 @@ export default function FirebaseHealthPanel() {
                 [
                   ["app", health.modules.app],
                   ["auth", health.modules.auth],
-                  ["database", health.modules.database],
+                  ["firestore", health.modules.firestore],
                   ["analytics", health.modules.analytics],
                 ] as const
               ).map(([name, state]) => (

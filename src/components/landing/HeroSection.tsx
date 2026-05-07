@@ -106,9 +106,9 @@ export default function HeroSection() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                            <Link href="/login" className="w-full sm:w-auto">
+                            <Link href="/register" className="w-full sm:w-auto">
                                 <Button size="lg" className="w-full bg-linear-to-br from-primary to-emerald-600 hover:shadow-lg hover:shadow-primary/25 rounded-xl px-8 h-12 text-base font-bold transition-all duration-300 group border-0 text-white">
-                                    Get Started Now
+                                    Register Now
                                     <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             </Link>

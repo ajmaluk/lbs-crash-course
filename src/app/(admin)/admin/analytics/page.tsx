@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { collection, onSnapshot } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { BarChart3, Users, UserPlus, Video, BookOpen, FileText, TrendingUp, Activity, Zap, Target } from "lucide-react";
+import recordingsData from "@/data/recordings.json";
+import papersData from "@/data/prequestion_paper.json";
 
 export default function AdminAnalyticsPage() {
     const [data, setData] = useState({
@@ -12,7 +14,7 @@ export default function AdminAnalyticsPage() {
         pendingRegistrations: 0,
         verifiedUsers: 0,
         liveClasses: 0,
-        recordedClasses: 0,
+        recordedClasses: recordingsData.length,
         quizzes: 0,
         mockTests: 0,
         quizAttempts: 0,
@@ -43,7 +45,7 @@ export default function AdminAnalyticsPage() {
         countFilter("users", "verifiedUsers", (v) => v.status === "verified" && v.role !== "admin");
         countFilter("pendingRegistrations", "pendingRegistrations", (v) => v.status === "pending");
         countAll("liveClasses", "liveClasses");
-        countAll("recordedClasses", "recordedClasses");
+        // recordedClasses count is static — no Firestore read needed
         countAll("quizzes", "quizzes");
         countAll("mockTests", "mockTests");
         countAll("quizAttempts", "quizAttempts");

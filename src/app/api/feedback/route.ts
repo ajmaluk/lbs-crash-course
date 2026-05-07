@@ -25,8 +25,12 @@ export async function POST(req: NextRequest) {
         });
 
         // 2. Update User flag in Firestore users collection
-        await adminFirestore.collection("users").doc(userId).update({
+        // Use set with merge to avoid errors if user doc doesn't exist
+        await adminFirestore.collection("users").doc(userId).set({
             hasSubmittedFeedback: true
+        }, { merge: true }).catch(err => {
+            // Log but don't fail - feedback is already saved
+            console.warn("[FEEDBACK] Failed to update user feedback flag:", err.message);
         });
 
         return NextResponse.json({ success: true });

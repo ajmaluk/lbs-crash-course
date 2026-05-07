@@ -90,6 +90,11 @@ export async function POST(req: NextRequest) {
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
         return await new Promise<NextResponse>((resolve) => {
+            const timeoutId = setTimeout(() => {
+                console.error("[Upload API] Cloudinary upload timed out after 15s");
+                resolve(NextResponse.json({ error: "Upload timed out. Please try a smaller file or better connection." }, { status: 504 }));
+            }, 15000);
+
             const uploadStream = cloudinary.uploader.upload_stream(
                 { 
                     upload_preset: uploadPreset,
@@ -97,6 +102,7 @@ export async function POST(req: NextRequest) {
                     resource_type: "image"
                 },
                 (error, result) => {
+                    clearTimeout(timeoutId);
                     if (error) {
                         console.error("Cloudinary upload stream error:", error);
                         resolve(NextResponse.json({ error: error.message }, { status: 500 }));

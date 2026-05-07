@@ -54,7 +54,7 @@ export default function Navbar({ user, userData, isAdmin, dashboardLink }: Navba
                         <Link href="/#contact" className="text-white/80 hover:text-white transition-colors">Contact</Link>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="hidden sm:block">
+                        <div className="hidden sm:flex items-center gap-3">
                             {user && userData ? (
                                 <Link href={dashboardLink}>
                                     <Button className="bg-white hover:bg-white/90 text-primary rounded-full px-6 py-2 h-9 text-sm font-bold shadow-[0_4px_12px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-300">
@@ -63,12 +63,19 @@ export default function Navbar({ user, userData, isAdmin, dashboardLink }: Navba
                                     </Button>
                                 </Link>
                             ) : (
-                                <Link href="/login">
-                                    <Button className="bg-white hover:bg-white/90 text-primary rounded-full px-6 py-2 h-9 text-sm font-bold shadow-[0_4px_12px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-300">
-                                        <Sparkles className="w-3.5 h-3.5 mr-2" />
-                                        Login
-                                    </Button>
-                                </Link>
+                                <>
+                                    <Link href="/register">
+                                        <Button variant="ghost" className="text-white hover:bg-white/10 rounded-full px-6 h-9 text-sm font-bold transition-all duration-300">
+                                            Register
+                                        </Button>
+                                    </Link>
+                                    <Link href="/login">
+                                        <Button className="bg-white hover:bg-white/90 text-primary rounded-full px-6 py-2 h-9 text-sm font-bold shadow-[0_4px_12px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-300">
+                                            <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                            Login
+                                        </Button>
+                                    </Link>
+                                </>
                             )}
                         </div>
 
@@ -170,12 +177,19 @@ export default function Navbar({ user, userData, isAdmin, dashboardLink }: Navba
                                             </Button>
                                         </Link>
                                     ) : (
-                                        <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                                            <Button className="w-full bg-primary text-white rounded-xl h-12 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                                                <Sparkles className="mr-2 h-4 w-4" />
-                                                Login Now
-                                            </Button>
-                                        </Link>
+                                        <div className="flex flex-col gap-3">
+                                            <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                                                <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/5 rounded-xl h-12 font-bold transition-all">
+                                                    Register Now
+                                                </Button>
+                                            </Link>
+                                            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                                                <Button className="w-full bg-primary text-white rounded-xl h-12 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                                                    <Sparkles className="mr-2 h-4 w-4" />
+                                                    Login Now
+                                                </Button>
+                                            </Link>
+                                        </div>
                                     )}
                                 </div>
                             </div>

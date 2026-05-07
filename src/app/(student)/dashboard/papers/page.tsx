@@ -4,14 +4,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
 import { FileText, CalendarDays, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createMediaToken } from "@/lib/media";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import papersData from "@/data/prequestion_paper.json";
 
 type Paper = {
   id: string;
@@ -29,15 +28,11 @@ export default function PreviousPapersPage() {
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(firestore, "previousPapers"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const list: Paper[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Paper, "id">),
-      }));
-      setPapers(list);
-    });
-    return () => unsub();
+    // Static data — no Firestore reads needed
+    const list: Paper[] = (papersData as Paper[]).slice();
+    // Sort by createdAt desc to match original behavior
+    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    setPapers(list);
   }, []);
 
   const filtered = useMemo(() => {

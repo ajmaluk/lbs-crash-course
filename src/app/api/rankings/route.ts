@@ -58,8 +58,10 @@ export async function GET(req: NextRequest) {
             });
         };
 
-        const quizAttempts = processAttempts(quizAttsSnap);
-        const mockAttempts = processAttempts(mockAttsSnap);
+        // Limit attempts to prevent memory issues with large datasets
+        const MAX_ATTEMPTS = 5000; // Hard cap to prevent memory bloat
+        const quizAttempts = processAttempts(quizAttsSnap).slice(0, MAX_ATTEMPTS);
+        const mockAttempts = processAttempts(mockAttsSnap).slice(0, MAX_ATTEMPTS);
 
         // If mode is global_top, we return a pre-aggregated list to save client CPU and bandwidth
         if (mode === "global_top") {

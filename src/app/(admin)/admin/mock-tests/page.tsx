@@ -134,8 +134,9 @@ export default function AdminMockTestsPage() {
             }
             setShowForm(false);
         } catch (error) {
-            console.error(error);
-            toast.error("Failed");
+            console.error("[MOCK_TESTS] Save error:", error);
+            const message = error instanceof Error ? error.message : "Failed to save test";
+            toast.error(message.length > 100 ? message.substring(0, 100) + "..." : message);
         } finally {
             setSaving(false);
         }

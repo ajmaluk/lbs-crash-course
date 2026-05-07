@@ -24,13 +24,11 @@ import {
     ArrowRight,
     Loader2,
 } from "lucide-react";
-import { collection, addDoc } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
 import Image from "next/image";
 import { toast } from "sonner";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { TransactionIdHelper } from "@/components/payment/TransactionIdHelper";
-import { submitRegistrationToSheetAction } from "@/app/actions/registration-actions";
+import { submitRegistrationToSheetAction, savePendingRegistrationAction } from "@/app/actions/registration-actions";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
@@ -166,50 +164,77 @@ export function RegisterForm() {
 
         setSubmitting(true);
         try {
+            // 1. Upload to Cloudinary with timeout
+            console.log("[REGISTRATION] Step 1: Uploading screenshot...");
             let cloudinaryUrl = "";
             try {
-                cloudinaryUrl = await uploadImageToCloudinary(screenshot);
+                cloudinaryUrl = await Promise.race([
+                    uploadImageToCloudinary(screenshot),
+                    new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Image upload timed out (20s)")), 20000))
+                ]);
             } catch (imageError) {
                 console.error("Cloudinary Error:", imageError);
-                toast.error("Failed to upload screenshot. Please try again.");
+                toast.error(imageError instanceof Error ? imageError.message : "Failed to upload screenshot. Please try again.");
                 setSubmitting(false);
                 return;
             }
 
+            // 2. Sync to Google Sheets (Non-blocking but we wait for it)
+            console.log("[REGISTRATION] Step 2: Syncing to Sheets...");
             try {
-                await submitRegistrationToSheetAction({
-                    ...formData,
-                    screenshotUrl: cloudinaryUrl
-                });
+                await Promise.race([
+                    submitRegistrationToSheetAction({
+                        ...formData,
+                        screenshotUrl: cloudinaryUrl
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("Sheet sync timeout")), 8000))
+                ]).catch(err => console.warn("[REGISTRATION] Sheet sync delayed or failed:", err));
             } catch (sheetErr) {
-                console.error("Sheet Sync Error:", sheetErr);
+                console.warn("Sheet Sync Error (continuing):", sheetErr);
             }
 
-            const pendingColRef = collection(firestore, "pendingRegistrations");
-            await addDoc(pendingColRef, {
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                whatsapp: formData.whatsapp,
-                graduationYear: formData.graduationYear,
-                selectedPackage: formData.selectedPackage,
-                transactionId: formData.transactionId,
-                screenshotUrl: cloudinaryUrl,
-                submittedAt: Date.now(),
-                status: "pending",
-            });
+// 3. Save to Firestore via Server Action (More reliable than client-side write)
+            console.log("[REGISTRATION] Step 3: Saving to Database...");
+            let saveResult: { success: boolean; message?: string } = { success: false, message: "Unknown error" };
+            
+            try {
+                saveResult = await Promise.race([
+                    savePendingRegistrationAction({
+                        ...formData,
+                        screenshotUrl: cloudinaryUrl,
+                    }),
+                    new Promise<{ success: boolean; message?: string }>((_, reject) => 
+                        setTimeout(() => reject(new Error("Database save timed out (30s)")), 30000)
+                    )
+                ]);
+            } catch (timeoutError) {
+                console.error("[REGISTRATION] Database timeout:", timeoutError);
+                throw new Error("Server is taking too long to respond. Please try again in a few moments.");
+            }
 
+            if (!saveResult.success) {
+                throw new Error(saveResult.message || "Failed to save registration to database");
+            }
+
+            console.log("[REGISTRATION] Success!");
             setSubmitted(true);
             toast.success("Registration submitted successfully!");
         } catch (error) {
             console.error("Registration error:", error);
-            toast.error("Registration failed. Please try again.");
+            toast.error(error instanceof Error ? error.message : "Registration failed. Please try again.");
         } finally {
             setSubmitting(false);
         }
     };
 
+    // Registration is open unless NEXT_PUBLIC_REGISTRATION_OPEN is explicitly set to "false"
     const registrationOpen = process.env.NEXT_PUBLIC_REGISTRATION_OPEN !== "false";
+    
+    // Debug log to help identify environment issues
+    useEffect(() => {
+        console.log("[REGISTRATION] Status:", registrationOpen ? "OPEN" : "CLOSED", 
+                    "| Env:", process.env.NEXT_PUBLIC_REGISTRATION_OPEN);
+    }, [registrationOpen]);
 
     if (!registrationOpen) {
         return (

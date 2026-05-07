@@ -4,14 +4,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createMediaToken, extractYouTubeId } from "@/lib/media";
-import { collection, query as fsQuery, orderBy, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
 import type { RecordedClass } from "@/lib/types";
 import { MonitorPlay, Play, Pause, AlertCircle, Search, SkipBack, SkipForward, Maximize2, Minimize2, FileText, Loader2, X, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { toast } from "sonner";
+import recordingsData from "@/data/recordings.json";
 
 import { Dialog } from "@/components/ui/dialog";
 
@@ -232,8 +231,9 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         const loadProgress = async () => {
             if (!open || !video || !userData?.uid) return;
             try {
-                const snap = await getDoc(doc(firestore, `users/${userData.uid}/video_progress`, video.id));
-                const val = snap.exists() ? snap.data() as { timestamp?: number; duration?: number } : null;
+                const raw = localStorage.getItem(`video_progress_${userData.uid}`);
+                const map = raw ? JSON.parse(raw) : {};
+                const val = map[video.id] as { timestamp?: number; duration?: number } | undefined;
                 if (active && val?.timestamp && Number.isFinite(val.timestamp) && val.timestamp > 0) {
                     // Validate timestamp doesn't exceed the saved duration first, then the live duration.
                     const referenceDuration = Number.isFinite(val.duration || NaN) && (val.duration || 0) > 0 ? (val.duration || 0) : durationRef.current || duration || 0;
@@ -355,14 +355,18 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 const t = currentTimeRef.current || currentTime || 0;
                 const completed = d > 0 ? t / d >= 0.9 : false;
                 const progressPercent = d > 0 ? Math.min(100, Math.max(0, Math.round((t / d) * 100))) : 0;
-                const progressDocRef = doc(firestore, `users/${userData.uid}/video_progress`, video.id);
-                await setDoc(progressDocRef, {
+                const key = `video_progress_${userData.uid}`;
+                const raw = localStorage.getItem(key);
+                const map = raw ? JSON.parse(raw) : {};
+                map[video.id] = {
                     timestamp: Math.floor(t),
                     duration: Math.floor(d || 0),
                     progressPercent,
                     completed: !!completed,
                     updatedAt: now
-                }, { merge: true });
+                };
+                localStorage.setItem(key, JSON.stringify(map));
+                window.dispatchEvent(new Event("video_progress_updated"));
             } catch {
                 /* ignore */
             }
@@ -733,16 +737,10 @@ export default function RecordedClassesPage() {
     };
 
     useEffect(() => {
-        const recRef = fsQuery(collection(firestore, "recordedClasses"), orderBy("createdAt"));
-        const unsub = onSnapshot(recRef, (snapshot) => {
-            const list: RecordedClass[] = [];
-            snapshot.forEach((child) => {
-                list.push({ ...child.data(), id: child.id } as RecordedClass);
-            });
-            list.sort((a, b) => a.id.localeCompare(b.id));
-            setClasses(list);
-        });
-        return () => unsub();
+        // Static data — no Firestore reads needed
+        const list: RecordedClass[] = (recordingsData as RecordedClass[]).slice();
+        list.sort((a, b) => a.id.localeCompare(b.id));
+        setClasses(list);
     }, []);
 
     const processedVideoIdRef = useRef<string | null>(null);
@@ -762,13 +760,31 @@ export default function RecordedClassesPage() {
 
     useEffect(() => {
         if (!userData?.uid) return;
-        const progRef = collection(firestore, `users/${userData.uid}/video_progress`);
-        const unsub = onSnapshot(progRef, (snap) => {
-            const map: Record<string, { timestamp?: number; duration?: number; progressPercent?: number; completed?: boolean }> = {};
-            snap.forEach((c) => { map[c.id] = c.data() as any; });
-            setVideoProgressMap(map);
-        });
-        return () => unsub();
+        const key = `video_progress_${userData.uid}`;
+        
+        const loadProgressMap = () => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) setVideoProgressMap(JSON.parse(raw));
+            } catch { /* ignore */ }
+        };
+        
+        // Initial load
+        loadProgressMap();
+        
+        // Listen to updates from VideoPlayerDialog (custom event) and cross-tab (storage event)
+        const handleCustomUpdate = () => loadProgressMap();
+        const handleStorageUpdate = (e: StorageEvent) => {
+            if (e.key === key) loadProgressMap();
+        };
+
+        window.addEventListener("video_progress_updated", handleCustomUpdate);
+        window.addEventListener("storage", handleStorageUpdate);
+
+        return () => {
+            window.removeEventListener("video_progress_updated", handleCustomUpdate);
+            window.removeEventListener("storage", handleStorageUpdate);
+        };
     }, [userData?.uid]);
 
     const fmt2 = (s: number) => {

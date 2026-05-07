@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { collection, onSnapshot, query, orderBy, limit, doc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import type { LiveClass, Announcement, RankData } from "@/lib/types";
+import recordingsData from "@/data/recordings.json";
 import {
     Video,
     MonitorPlay,
@@ -206,24 +207,40 @@ export default function StudentDashboard() {
     }, []);
 
     useEffect(() => {
-        const recQ = query(collection(firestore, "recordedClasses"), orderBy("createdAt", "desc"));
-        const unsubRec = onSnapshot(recQ, (snapshot) => {
-            const list: Array<{ id: string; subject: string; title: string }> = snapshot.docs.map((d) => {
-                const v = d.data() as { subject?: string; title?: string };
-                return { id: d.id, subject: v.subject || "General", title: v.title || "" };
-            });
-            setRecorded(list);
-        });
-        let unsubProg: (() => void) | null = null;
+        // Static data — no Firestore reads needed for recorded classes
+        const list: Array<{ id: string; subject: string; title: string }> = (recordingsData as Array<{ id: string; subject: string; title: string }>).map((v) => ({
+            id: v.id,
+            subject: v.subject || "General",
+            title: v.title || "",
+        }));
+        setRecorded(list);
+
         if (userData?.uid) {
-            const progRef = collection(firestore, `users/${userData.uid}/video_progress`);
-            unsubProg = onSnapshot(progRef, (snap) => {
-                const map: Record<string, { completed?: boolean; timestamp?: number; duration?: number; updatedAt?: number }> = {};
-                snap.docs.forEach((d) => { map[d.id] = d.data() as typeof map[string]; });
-                setProgressMap(map);
-            });
+            const key = `video_progress_${userData.uid}`;
+            
+            const loadProgressMap = () => {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (raw) setProgressMap(JSON.parse(raw));
+                } catch { /* ignore */ }
+            };
+            
+            loadProgressMap();
+            
+            const handleCustomUpdate = () => loadProgressMap();
+            const handleStorageUpdate = (e: StorageEvent) => {
+                if (e.key === key) loadProgressMap();
+            };
+
+            window.addEventListener("video_progress_updated", handleCustomUpdate);
+            window.addEventListener("storage", handleStorageUpdate);
+
+            return () => {
+                window.removeEventListener("video_progress_updated", handleCustomUpdate);
+                window.removeEventListener("storage", handleStorageUpdate);
+            };
         }
-        return () => { unsubRec(); if (unsubProg) unsubProg(); };
+        return () => {};
     }, [userData?.uid]);
 
     const progressBySubject = useMemo(() => {

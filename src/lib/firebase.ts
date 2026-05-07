@@ -1,7 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getDatabase, type Database } from "firebase/database";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 type ModuleState = {
@@ -106,7 +105,6 @@ export const onFirebaseStartupHealthChange = (listener: (health: FirebaseStartup
 let app: FirebaseApp;
 let auth: Auth;
 let firestore: Firestore;
-let db: Database;
 let analytics: Analytics | null = null;
 
 // Initialize placeholder services to avoid crashes during static builds or misconfigured environments.
@@ -229,15 +227,18 @@ if (hasRequiredCoreConfig) {
     suppressInstallationsErrors(app);
 
     auth = getAuth(app);
-    firestore = getFirestore(app);
-    db = getDatabase(app);
+    
+    // Only enable persistent caching in the browser to prevent SSR issues with IndexedDB
+    firestore = typeof window !== "undefined"
+        ? initializeFirestore(app, { localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()}) })
+        : getFirestore(app);
     firebaseStartupHealth = {
         ...firebaseStartupHealth,
         modules: {
             app: { enabled: true, reason: "Initialized successfully" },
             auth: { enabled: true, reason: "Initialized successfully" },
             firestore: { enabled: true, reason: "Initialized successfully" },
-            database: { enabled: true, reason: "Initialized successfully" },
+            database: { enabled: false, reason: "Firestore only - Realtime DB not initialized" },
             analytics: firebaseStartupHealth.modules.analytics,
         },
     };
@@ -336,7 +337,6 @@ if (hasRequiredCoreConfig) {
     app = createPlaceholderProxy("App");
     auth = createPlaceholderProxy("Auth");
     firestore = createPlaceholderProxy("Firestore");
-    db = createPlaceholderProxy("Database");
     
     firebaseStartupHealth = {
         ...firebaseStartupHealth,
@@ -355,4 +355,4 @@ if (hasRequiredCoreConfig) {
 
 const hasValidConfig = hasRequiredCoreConfig;
 
-export { app, auth, firestore, db, analytics, hasValidConfig };
+export { app, auth, firestore, analytics, hasValidConfig };

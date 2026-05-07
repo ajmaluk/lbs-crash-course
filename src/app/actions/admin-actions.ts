@@ -138,7 +138,22 @@ export async function approveRegistrationAction(
             approvedAt: Date.now(),
         });
 
-        await batch.commit();
+        // Commit with retry logic for transient failures
+        let lastError: Error | null = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                await batch.commit();
+                console.log("[ADMIN] Batch commit succeeded on attempt", attempt);
+                break;
+            } catch (err) {
+                lastError = err as Error;
+                console.warn(`[ADMIN] Batch commit attempt ${attempt} failed:`, lastError.message);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 500));
+                }
+            }
+        }
+        if (lastError) throw lastError;
 
         // Sync to Google Sheet server-side to avoid CORS issues
         try {

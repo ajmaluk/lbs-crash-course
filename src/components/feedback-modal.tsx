@@ -7,8 +7,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { collection, getDocs } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
 
 export function FeedbackModal() {
     const { user, userData } = useAuth();
@@ -25,29 +23,26 @@ export function FeedbackModal() {
             const localSubmitted = localStorage.getItem(`feedback_submitted_${userData.uid}`);
             if (!localSubmitted) {
                 // Check video progress before showing
-                void (async () => {
-                    try {
-                        const progSnap = await getDocs(collection(firestore, `users/${userData.uid}/video_progress`));
-                        const progressMap: Record<string, any> = {};
-                        progSnap.forEach((d) => { progressMap[d.id] = d.data(); });
-                        
-                        let hasWatchedEnough = false;
-                        if (progressMap) {
-                            hasWatchedEnough = Object.values(progressMap).some((p: any) => (p.progressPercent || 0) > 5);
-                        }
-
-                        if (hasWatchedEnough) {
-                            const timer = setTimeout(() => {
-                                setIsOpen(true);
-                                // Push a new state to history when modal opens to "trap" the back button
-                                window.history.pushState({ modalOpen: true }, "");
-                            }, 2000);
-                            return () => clearTimeout(timer);
-                        }
-                    } catch (err) {
-                        console.error("Error checking video progress for feedback:", err);
+                try {
+                    const raw = localStorage.getItem(`video_progress_${userData.uid}`);
+                    const progressMap = raw ? JSON.parse(raw) : {};
+                    let hasWatchedEnough = false;
+                    
+                    if (progressMap && Object.keys(progressMap).length > 0) {
+                        hasWatchedEnough = Object.values(progressMap).some((p: any) => (p.progressPercent || 0) > 5);
                     }
-                })();
+
+                    if (hasWatchedEnough) {
+                        const timer = setTimeout(() => {
+                            setIsOpen(true);
+                            // Push a new state to history when modal opens to "trap" the back button
+                            window.history.pushState({ modalOpen: true }, "");
+                        }, 2000);
+                        return () => clearTimeout(timer);
+                    }
+                } catch (err) {
+                    console.error("Error checking video progress for feedback:", err);
+                }
             }
         }
     }, [userData]);
