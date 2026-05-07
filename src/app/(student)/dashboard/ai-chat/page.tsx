@@ -26,7 +26,7 @@ import {
     DialogFooter 
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
-import { chatWithAI, getUserContext, preWarmContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
+import { chatWithAI, getUserContext, ChatMessage, SYSTEM_PROMPT } from "@/lib/ai-service";
 import { cn } from "@/lib/utils";
 import { FormattedMessage } from "@/components/ai/FormattedMessage";
 import HistoryOverlay from "@/components/ai/HistoryOverlay";
@@ -163,11 +163,7 @@ export default function DashboardAIChatPage() {
         return () => clearTimeout(safetyTimer);
     }, []);
 
-    // Pre-warm AI context on mount so first message is instant
-    useEffect(() => {
-        const uid = userData?.uid || user?.uid;
-        if (uid) preWarmContext(uid);
-    }, [userData?.uid, user?.uid]);
+    // Pre-warm AI context on mount removed as it's now static
 
     // Auto-scroll logic
     const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -312,34 +308,7 @@ export default function DashboardAIChatPage() {
         toast.success("Copied to clipboard");
     };
 
-    // Sync & Deep Scan
-    const handleSyncData = async () => {
-        if (!user?.uid) return;
-        setIsSyncing(true);
-        try {
-            await getUserContext(user.uid, true); // force refresh from backend
-            toast.success("Knowledge synchronized successfully");
-        } catch (error) {
-            console.error("Failed to sync data:", error);
-            toast.error("Failed to sync knowledge base");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    const handleDeepScan = async () => {
-        if (!user?.uid) return;
-        setIsDeepScanning(true);
-        try {
-            await getUserContext(user.uid, true, true); // deep scan forces a fresh context retrieval
-            toast.success("Deep knowledge scan completed");
-        } catch (error) {
-            console.error("Deep scan failed:", error);
-            toast.error("Deep scan failed");
-        } finally {
-            setIsDeepScanning(false);
-        }
-    };
+    // Sync & Deep Scan logic removed as it's now static
 
     const exportStudyNotes = () => {
         const sessionNotes = studyNotes.filter(n => n.sessionId === activeSessionId);
@@ -525,15 +494,10 @@ export default function DashboardAIChatPage() {
     return (
         <div className="relative flex h-[calc(100vh-(--spacing(16)))] w-full flex-col overflow-hidden bg-background">
             <ChatHeader
-                isSyncing={isSyncing}
-                isLoading={isLoading}
-                isDeepScanning={isDeepScanning}
                 studyNotesCount={sessionStudyNotes.length}
                 onOpenHistory={() => setIsHistoryOpen(true)}
                 onOpenStudyLab={() => setIsStudyLabOpen(true)}
                 onOpenStudyNotes={() => setIsStudyNotesOpen(true)}
-                onSyncData={handleSyncData}
-                onDeepScan={handleDeepScan}
                 onClearAll={() => setIsClearDialogOpen(true)}
                 onNewChat={handleNewChat}
             />

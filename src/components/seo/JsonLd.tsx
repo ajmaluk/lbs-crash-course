@@ -1,5 +1,3 @@
-import Script from "next/script";
-
 interface JsonLdProps {
     data: Record<string, unknown>;
     id: string;
@@ -11,10 +9,9 @@ interface JsonLdProps {
  */
 export default function JsonLd({ data, id }: JsonLdProps) {
     return (
-        <Script
+        <script
             id={id}
             type="application/ld+json"
-            strategy="afterInteractive"
             dangerouslySetInnerHTML={{
                 __html: JSON.stringify(data),
             }}
@@ -58,13 +55,6 @@ export const schemas = {
             "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
             "opens": "00:00",
             "closes": "23:59"
-        },
-        "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.9",
-            "reviewCount": "1280",
-            "bestRating": "5",
-            "worstRating": "1"
         }
     }),
     organization: (baseUrl: string) => ({
@@ -91,12 +81,7 @@ export const schemas = {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "LBS MCA Entrance Official Platform",
-        "url": baseUrl,
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": `${baseUrl}/search?q={search_term_string}`,
-            "query-input": "required name=search_term_string"
-        }
+        "url": baseUrl
     }),
     course: (baseUrl: string) => ({
         "@context": "https://schema.org",
@@ -162,12 +147,7 @@ export const schemas = {
         "thumbnailUrl": video.thumbnailUrl,
         "uploadDate": video.uploadDate,
         "contentUrl": video.contentUrl,
-        "embedUrl": video.embedUrl,
-        "interactionStatistic": {
-            "@type": "InteractionCounter",
-            "interactionType": { "@type": "WatchAction" },
-            "userInteractionCount": 1280
-        }
+        "embedUrl": video.embedUrl
     }),
     contactPage: (baseUrl: string) => ({
         "@context": "https://schema.org",

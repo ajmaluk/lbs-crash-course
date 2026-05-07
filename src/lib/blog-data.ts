@@ -11,6 +11,123 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
     {
+        title: "LBS MCA 2026 Application Invited: Complete Form-Filling Checklist & Common Errors",
+        slug: "lbs-mca-2026-application-checklist-common-errors",
+        date: "May 07, 2026",
+        author: "ASCA",
+        category: "Admission",
+        keywords: ["LBS MCA 2026 application", "LBS MCA registration", "MCA form filling", "Kerala MCA admission"],
+        excerpt: "The MCA 2026 application process has opened. Use this complete checklist to submit your form correctly on the first attempt and avoid rejection-causing mistakes.",
+        content: `
+            <p>The official LBS portal has invited applications for MCA 2026 admissions. This stage is high-stakes: most delays happen due to avoidable errors in profile details, document uploads, and fee confirmation. Use the checklist below to complete your application with confidence.</p>
+
+            <h3>Before You Start the Form</h3>
+            <ul>
+                <li>Keep your degree mark sheets, ID proof, and category certificates ready in clear scanned format.</li>
+                <li>Use an active email and phone number that you check daily.</li>
+                <li>Create a dedicated folder to store your application number, payment receipt, and downloaded confirmation page.</li>
+            </ul>
+
+            <h3>Form-Filling Checklist (Step-by-Step)</h3>
+            <ol>
+                <li><strong>Profile details:</strong> Match name, date of birth, and category exactly with official records.</li>
+                <li><strong>Academic details:</strong> Enter marks carefully and verify semester totals before final submit.</li>
+                <li><strong>Document upload:</strong> Ensure file size, format, and readability match portal requirements.</li>
+                <li><strong>Payment status:</strong> Wait for successful transaction confirmation and save receipt immediately.</li>
+                <li><strong>Final lock:</strong> Submit only after one full review of every field.</li>
+            </ol>
+
+            <h3>Top Mistakes That Cause Rejection or Delay</h3>
+            <ul>
+                <li>Uploading blurred or cropped documents.</li>
+                <li>Mismatch between degree certificates and entered academic data.</li>
+                <li>Using temporary email IDs that become inaccessible later.</li>
+                <li>Ignoring correction windows and deadline notices.</li>
+            </ul>
+
+            <h3>What to Do After Submission</h3>
+            <p>Track official updates daily for hall ticket date, exam schedule, and correction announcements. Start preparation immediately after submission instead of waiting for the admit card. Candidates who start early usually perform better in mock tests and final ranking.</p>
+        `
+    },
+    {
+        title: "LBS MCA Counselling & Allotment 2026: How Seat Allocation Works",
+        slug: "lbs-mca-counselling-allotment-2026-guide",
+        date: "May 05, 2026",
+        author: "ASCA",
+        category: "Counselling",
+        keywords: ["LBS MCA counselling", "LBS MCA allotment", "MCA seat allotment Kerala", "LBS rank list"],
+        excerpt: "Understand rank list, option registration, trial allotment, and final seat confirmation in one clear counselling guide for LBS MCA 2026.",
+        content: `
+            <p>Many aspirants focus only on exam preparation and lose rank advantage during counselling. A strong score is useful only when your option strategy and allotment actions are correct.</p>
+
+            <h3>Typical Counselling Flow</h3>
+            <ol>
+                <li><strong>Rank list publication:</strong> Check your rank and category details immediately.</li>
+                <li><strong>Option registration:</strong> Prioritize colleges realistically based on your expected rank band.</li>
+                <li><strong>Trial allotment:</strong> Use trial results to revise choices before final lock.</li>
+                <li><strong>Final allotment:</strong> Download allotment memo and complete reporting within deadline.</li>
+            </ol>
+
+            <h3>How to Build a Smart Option List</h3>
+            <ul>
+                <li>Divide choices into ambitious, realistic, and safe options.</li>
+                <li>Do not fill only top colleges; maintain depth to avoid missing a seat.</li>
+                <li>Check travel, hostel, fee structure, and specialization interest before locking.</li>
+            </ul>
+
+            <h3>Critical Deadline Traps</h3>
+            <ul>
+                <li>Missing fee payment timeline after allotment.</li>
+                <li>Failing to report with original certificates.</li>
+                <li>Ignoring upgrade rounds and vacancy notifications.</li>
+            </ul>
+
+            <p>If your goal is a top government seat, combine rank improvement strategy with counselling awareness from day one. The right options strategy can improve your final outcome significantly.</p>
+        `
+    },
+    {
+        title: "90-Day LBS MCA 2026 Study Plan: Daily Targets for Top Rank",
+        slug: "90-day-lbs-mca-2026-study-plan",
+        date: "May 03, 2026",
+        author: "ASCA",
+        category: "Strategy",
+        keywords: ["LBS MCA study plan", "90 day MCA preparation", "LBS MCA timetable", "MCA entrance strategy"],
+        excerpt: "A practical 90-day study plan with weekly milestones, mock-test cycles, and revision blocks to help you move from average score to top-rank performance.",
+        content: `
+            <p>A consistent 90-day structure can outperform random long-hour study. This plan is built for aspirants balancing classes, work, or repeat preparation.</p>
+
+            <h3>Phase 1 (Days 1-30): Foundation + Concept Fixing</h3>
+            <ul>
+                <li>Cover core Computer Science topics and formula-heavy Mathematics units.</li>
+                <li>Solve 40-60 topic questions daily with error notes.</li>
+                <li>Take one sectional test every 3 days.</li>
+            </ul>
+
+            <h3>Phase 2 (Days 31-60): Mixed Practice + Speed Building</h3>
+            <ul>
+                <li>Start mixed sets combining CS, Maths, Aptitude, and English.</li>
+                <li>Take two timed mock tests per week.</li>
+                <li>Track weak chapters using an error log and revision scorecard.</li>
+            </ul>
+
+            <h3>Phase 3 (Days 61-90): Full-Length Mock Simulation</h3>
+            <ul>
+                <li>Attempt 3 full mocks per week in strict exam timing.</li>
+                <li>Spend more time on post-test analysis than on test-taking itself.</li>
+                <li>Revise only high-yield chapters and frequent mistake patterns.</li>
+            </ul>
+
+            <h3>Daily Time Model (Flexible)</h3>
+            <ul>
+                <li><strong>2 hours:</strong> Concept + revision</li>
+                <li><strong>2 hours:</strong> Question practice</li>
+                <li><strong>1 hour:</strong> Error analysis + quick recap</li>
+            </ul>
+
+            <p>Top-rank progress comes from consistent feedback loops: test, analyze, correct, and repeat. Use rank tracking and question-level analytics weekly to measure whether your preparation is actually improving.</p>
+        `
+    },
+    {
         title: "Official LBS MCA 2026 Overview: Dates, Eligibility & Application Roadmap",
         slug: "lbs-mca-2026-overview-dates-eligibility",
         date: "April 20, 2026",

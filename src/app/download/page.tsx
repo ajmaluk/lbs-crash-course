@@ -1,8 +1,7 @@
 import React from "react";
 import { Metadata } from "next";
-import Link from "next/link";
+import Image from "next/image";
 import { 
-    Download, 
     Smartphone, 
     Monitor, 
     Apple, 
@@ -10,11 +9,10 @@ import {
     Share, 
     PlusSquare, 
     Info,
-    CheckCircle2,
-    GraduationCap
+    CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NavbarWrapper } from "@/components/landing/ClientWrappers";
 import Footer from "@/components/landing/Footer";
@@ -22,6 +20,23 @@ import Footer from "@/components/landing/Footer";
 export const metadata: Metadata = {
     title: "Download App | LBS MCA Entrance Learning Platform",
     description: "Install the LBS MCA Entrance Learning Platform as a desktop or mobile app for quick, offline-ready access to your preparation materials.",
+    alternates: {
+        canonical: "https://lbscourse.cetmca.in/download",
+    },
+    openGraph: {
+        title: "Download App | LBS MCA Entrance Learning Platform",
+        description: "Install the LBS MCA app on Android, iOS, and desktop for faster access to classes and mock tests.",
+        url: "https://lbscourse.cetmca.in/download",
+        type: "website",
+        images: [
+            {
+                url: "https://lbscourse.cetmca.in/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "LBS MCA App Download",
+            },
+        ],
+    },
 };
 
 export default function DownloadPage() {
@@ -50,7 +65,7 @@ export default function DownloadPage() {
                     <Card className="lg:col-span-1 border-2 border-border shadow-2xl rounded-4xl overflow-hidden sticky top-24">
                         <div className="bg-primary p-8 flex flex-col items-center text-center text-white">
                             <div className="h-24 w-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 overflow-hidden">
-                                <img src="/web-app-manifest-192x192.png" alt="App Icon" className="h-20 w-20 object-contain" />
+                                <Image src="/web-app-manifest-192x192.png" alt="App Icon" width={80} height={80} className="h-20 w-20 object-contain" />
                             </div>
                             <h2 className="text-2xl font-bold">LBS MCA</h2>
                             <p className="text-white/80 text-sm mt-2 font-medium">Vers. 2.0.26</p>

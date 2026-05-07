@@ -22,18 +22,8 @@ export default function robots(): MetadataRoute.Robots {
           "/verify-email",
         ],
       },
-      {
-        // Enable AI crawlers for GEO (Generative Engine Optimization)
-        userAgent: ["GPTBot", "ChatGPT-User", "CCBot", "Bingbot", "Googlebot-Assistant"],
-        allow: ["/", "/contact"],
-        disallow: [
-          "/admin",
-          "/dashboard",
-          "/api/",
-          "/player/",
-        ],
-      },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
+    host: "lbscourse.cetmca.in",
   };
 }

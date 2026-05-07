@@ -1,7 +1,4 @@
 import { Metadata } from "next";
-import Script from "next/script";
-import Link from "next/link";
-import { GraduationCap, Smartphone } from "lucide-react";
 
 // Landing components
 import HeroSection from "../components/landing/HeroSection";
@@ -17,6 +14,23 @@ import Footer from "../components/landing/Footer";
 export const metadata: Metadata = {
     title: "LBS MCA Entrance 2026 - Best Online Coaching for Kerala & South India",
     description: "Join the official LBS MCA Entrance 2026 Crash Course. Expert training for Kerala MCA aspirants with live classes, mock tests, and rank-boosting study materials. Serving students across Kerala and Tamil Nadu.",
+    alternates: {
+        canonical: "https://lbscourse.cetmca.in/",
+    },
+    openGraph: {
+        title: "LBS MCA Entrance 2026 - Best Online Coaching for Kerala & South India",
+        description: "Join the official LBS MCA Entrance 2026 Crash Course with live classes, mock tests, and exam-focused mentorship.",
+        url: "https://lbscourse.cetmca.in/",
+        type: "website",
+        images: [
+            {
+                url: "https://lbscourse.cetmca.in/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "LBS MCA Entrance 2026 Preparation",
+            },
+        ],
+    },
 };
 
 export default function LandingPage() {

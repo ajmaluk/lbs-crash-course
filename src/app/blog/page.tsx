@@ -1,9 +1,8 @@
 import React from "react";
 import { Metadata } from "next";
 import Link from "next/link";
-import { Calendar, User, ArrowRight, BookOpen } from "lucide-react";
+import { Calendar, ArrowRight, BookOpen } from "lucide-react";
 import { blogPosts } from "@/lib/blog-data";
-import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { NavbarWrapper } from "@/components/landing/ClientWrappers";
 import Footer from "@/components/landing/Footer";
@@ -12,6 +11,23 @@ export const metadata: Metadata = {
     title: "LBS MCA Entrance Blog | Expert Insights & Strategy",
     description: "Stay updated with the latest news, syllabus breakdown, and preparation strategies for the Kerala LBS MCA Entrance Examination 2026. Insights provided by ASCA.",
     keywords: ["LBS MCA blog", "Kerala MCA entrance updates", "MCA prep tips", "ASCA blogs"],
+    alternates: {
+        canonical: "https://lbscourse.cetmca.in/blog",
+    },
+    openGraph: {
+        title: "LBS MCA Entrance Blog | Expert Insights & Strategy",
+        description: "Latest LBS MCA updates, exam strategy guides, and syllabus-focused preparation articles.",
+        url: "https://lbscourse.cetmca.in/blog",
+        type: "website",
+        images: [
+            {
+                url: "https://lbscourse.cetmca.in/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "LBS MCA Blog",
+            },
+        ],
+    },
 };
 
 export default function BlogListingPage() {

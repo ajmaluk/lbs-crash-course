@@ -1,8 +1,6 @@
 import React from "react";
-import Link from "next/link";
 import { Metadata } from "next";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { NavbarWrapper } from "@/components/landing/ClientWrappers";
 import Footer from "@/components/landing/Footer";
@@ -10,6 +8,9 @@ import Footer from "@/components/landing/Footer";
 export const metadata: Metadata = {
     title: "Terms of Service | LBS MCA Entrance Learning Platform",
     description: "Read the Terms of Service for LBS MCA Entrance Learning Platform. Understand our policies on account registration, device usage, and content ownership for Kerala MCA coaching.",
+  alternates: {
+    canonical: "https://lbscourse.cetmca.in/terms-of-service",
+  },
 };
 
 export default function TermsOfServicePage() {

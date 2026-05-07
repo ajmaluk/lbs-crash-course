@@ -1,16 +1,12 @@
-"use client";
-
 import React, { useCallback, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { firestore } from "@/lib/firebase";
-import type { Quiz } from "@/lib/types";
-import { collection, getDocs, addDoc, doc, setDoc, query, where, limit } from "firebase/firestore";
 import { toast } from "sonner";
 import { Brain, CalendarDays, ChevronLeft, ChevronRight, Gauge, RefreshCcw, Sparkles, Target, Trophy } from "lucide-react";
+import { STATIC_PRACTICE_QUESTIONS } from "@/lib/ai-static-data";
 
 type StudyNoteLike = {
   id: string;
@@ -131,7 +127,6 @@ export default function StudyLabPanel({
   const [testStats, setTestStats] = useState<TestStats | null>(null);
 
   const sessionId = activeSessionId || "global";
-  const leaderboardId = `ai-practice-${sessionId}`;
 
   const topTopics = useMemo(() => {
     const noteText = studyNotes.map((n) => n.content).join("\n");
@@ -161,17 +156,9 @@ export default function StudyLabPanel({
       localStorage.setItem(TEST_STATS_KEY, JSON.stringify(next));
       setTestStats(nextStats);
     } catch {
-      // Ignore local storage errors; keep UI responsive.
+      // Ignore local storage errors
     }
-
-    if (userId) {
-      try {
-        await setDoc(doc(firestore, `users/${userId}/aiPracticeTracking`, sessionId), nextStats);
-      } catch {
-        // User tracking sync is best effort only.
-      }
-    }
-  }, [sessionId, userId]);
+  }, [sessionId]);
 
   const generatePlanner = useCallback(() => {
     const topics = topTopics.slice(0, 7);
@@ -220,72 +207,29 @@ export default function StudyLabPanel({
   }, [assistantMessages, sessionId, studyNotes]);
 
   const startTestNow = useCallback(async () => {
-    if (!userId) {
-      toast.error("Login required for Test Me Now");
-      return;
-    }
-
     setTestLoading(true);
     setTestSubmitted(false);
 
     try {
-      const [quizSnap, mockSnap] = await Promise.all([
-        getDocs(collection(firestore, "quizzes")),
-        getDocs(collection(firestore, "mockTests")),
-      ]);
-
-      const pool: TestQuestion[] = [];
-
-      const appendFromCollection = (snap: Awaited<ReturnType<typeof getDocs>>, sourceType: "quiz" | "mock") => {
-        if (snap.empty) return;
-        snap.forEach((child) => {
-          const val = child.data() as Quiz;
-          if (!val || !Array.isArray(val.questions)) return;
-          if (val.status !== "published" && val.status !== "closed") return;
-
-          val.questions.forEach((q, idx) => {
-            if (!q || !Array.isArray(q.options) || q.options.length < 2) return;
-            if (typeof q.correctAnswer !== "number") return;
-            pool.push({
-              id: `${sourceType}-${child.id}-${q.id || idx}`,
-              sourceId: child.id,
-              sourceType,
-              sourceTitle: val.title || "Untitled",
-              subject: val.subject || "General",
-              question: q.question,
-              options: q.options,
-              correctAnswer: q.correctAnswer,
-              explanation: q.explanation,
-            });
-          });
-        });
-      };
-
-      appendFromCollection(quizSnap, "quiz");
-      appendFromCollection(mockSnap, "mock");
-
-      if (pool.length < 5) {
-        toast.error("Not enough published questions for test mode.");
-        setTestLoading(false);
-        return;
-      }
-
-      const picked = shuffle(pool).slice(0, Math.min(15, pool.length));
+      // Using static pool of questions instead of Firestore
+      const pool: TestQuestion[] = STATIC_PRACTICE_QUESTIONS;
+      const picked = shuffle(pool).slice(0, Math.min(10, pool.length));
+      
       setTestQuestions(picked);
       setTestAnswers(new Array(picked.length).fill(-1));
       setTestIndex(0);
       setTestSubmitted(false);
       setTestScore(0);
-      toast.success(`Test ready with ${picked.length} random questions`);
+      toast.success(`Test ready with ${picked.length} practice questions`);
     } catch {
-      toast.error("Failed to prepare random test");
+      toast.error("Failed to prepare practice test");
     } finally {
       setTestLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   const submitTest = useCallback(async () => {
-    if (!userId || testQuestions.length === 0) return;
+    if (testQuestions.length === 0) return;
 
     const score = testQuestions.reduce((acc, q, idx) => acc + (testAnswers[idx] === q.correctAnswer ? 1 : 0), 0);
     setTestScore(score);
@@ -322,91 +266,12 @@ export default function StudyLabPanel({
     };
 
     await saveStats(statsPayload);
-
-    try {
-      const attemptDocRef = await addDoc(collection(firestore, "mockAttempts"), {
-        userId,
-        userName: userName || "Student",
-        mockTestId: leaderboardId,
-        quizId: leaderboardId,
-        source: "ai-practice",
-        title: "AI Practice Test",
-        sessionId,
-        score,
-        totalQuestions: testQuestions.length,
-        answers: testAnswers,
-        submittedAt: Date.now(),
-      });
-
-      const allAttemptSnap = await getDocs(
-        query(
-          collection(firestore, "mockAttempts"), 
-          where("mockTestId", "==", leaderboardId),
-          where("source", "==", "ai-practice"),
-          limit(100)
-        )
-      );
-      const bestByUser: Record<string, { userId: string; userName: string; score: number; totalQuestions: number; submittedAt: number }> = {};
-
-      if (!allAttemptSnap.empty) {
-        allAttemptSnap.forEach((child) => {
-          const val = child.data() as {
-            userId?: string;
-            userName?: string;
-            score?: number;
-            totalQuestions?: number;
-            submittedAt?: number;
-            mockTestId?: string;
-            source?: string;
-          };
-
-          if (!val || val.mockTestId !== leaderboardId || val.source !== "ai-practice" || !val.userId) {
-            return;
-          }
-
-          const row = {
-            userId: val.userId,
-            userName: val.userName || "Student",
-            score: val.score || 0,
-            totalQuestions: val.totalQuestions || 0,
-            submittedAt: val.submittedAt || 0,
-          };
-
-          const prev = bestByUser[row.userId];
-          if (!prev || row.score > prev.score || (row.score === prev.score && row.submittedAt < prev.submittedAt)) {
-            bestByUser[row.userId] = row;
-          }
-        });
-      }
-
-      const entries = Object.values(bestByUser)
-        .sort((a, b) => (b.score - a.score) || (a.submittedAt - b.submittedAt))
-        .map((entry, idx) => ({
-          userId: entry.userId,
-          userName: entry.userName,
-          score: entry.score,
-          totalQuestions: entry.totalQuestions,
-          rank: idx + 1,
-          submittedAt: entry.submittedAt,
-        }));
-
-      await setDoc(doc(firestore, "mockRankings", leaderboardId), {
-        mockTestId: leaderboardId,
-        quizTitle: "AI Practice Test Leaderboard",
-        generatedAt: Date.now(),
-        entries,
-      });
-
-      toast.success(`Test submitted: ${score}/${testQuestions.length}`);
-    } catch {
-      toast.error("Saved score locally, but leaderboard sync failed");
-    }
-  }, [leaderboardId, saveStats, sessionId, testAnswers, testQuestions, testStats, userId, userName]);
+    toast.success(`Test submitted: ${score}/${testQuestions.length}`);
+  }, [saveStats, testAnswers, testQuestions, testStats]);
 
   const recommendationPrompt = useMemo(() => {
-    if (!testStats || testStats.weakTopics.length === 0) return "Create a custom 7-day plan from my current study notes.";
-    return `Create a 7-day recovery plan focused on: ${testStats.weakTopics.join(", ")}. Include daily goals and short tests.`;
-  }, [testStats]);
+    return "Create a custom 7-day study plan based on the LBS MCA syllabus topics I've been reviewing.";
+  }, []);
 
   const unansweredCount = useMemo(() => testAnswers.filter((a) => a === -1).length, [testAnswers]);
 
@@ -428,7 +293,7 @@ export default function StudyLabPanel({
             AI Study Lab
           </DialogTitle>
           <DialogDescription>
-            Adaptive planner, spaced flashcards, and random-question testing with score tracking.
+            Adaptive planner, spaced flashcards, and random-question testing.
           </DialogDescription>
         </DialogHeader>
 
@@ -569,7 +434,7 @@ export default function StudyLabPanel({
 
               {testQuestions.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center text-sm text-muted-foreground">
-                  Pull random questions from existing published quizzes and mock tests.
+                  Practice with random questions from our expert-curated static pool.
                 </div>
               ) : (
                 <Card className="rounded-2xl">
@@ -643,14 +508,6 @@ export default function StudyLabPanel({
                             onClick={() => onUsePrompt(`My AI practice score is ${testScore}/${testQuestions.length}. Build a focused plan for weak topics: ${(testStats?.weakTopics || []).join(", ") || "general"}.`)}
                           >
                             <Brain className="mr-1 h-4 w-4" /> Coach Me
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              window.location.href = `/dashboard/rankings?tab=mockTests&aiPracticeId=${encodeURIComponent(leaderboardId)}`;
-                            }}
-                          >
-                            <Gauge className="mr-1 h-4 w-4" /> Open Leaderboard
                           </Button>
                         </div>
                       )}

@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import Script from "next/script";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, Phone, MapPin, MessageCircle } from "lucide-react";
@@ -9,6 +8,23 @@ import { ContactForm } from "@/components/contact/ContactForm";
 export const metadata: Metadata = {
     title: "Contact Us | Official LBS MCA Entrance 2026 Support",
     description: "Questions about your LBS MCA 2026 registration? Connect with the official Infronixis support team. We're here to help Kerala and South India MCA aspirants succeed.",
+  alternates: {
+    canonical: "https://lbscourse.cetmca.in/contact",
+  },
+  openGraph: {
+    title: "Contact Us | Official LBS MCA Entrance 2026 Support",
+    description: "Reach the official LBS MCA coaching support team for admission, payments, and exam preparation help.",
+    url: "https://lbscourse.cetmca.in/contact",
+    type: "website",
+    images: [
+      {
+        url: "https://lbscourse.cetmca.in/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LBS MCA Contact Support",
+      },
+    ],
+  },
 };
 
 import JsonLd, { schemas } from "@/components/seo/JsonLd";

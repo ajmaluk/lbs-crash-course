@@ -1,8 +1,6 @@
 import React from "react";
-import Link from "next/link";
 import { Metadata } from "next";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { NavbarWrapper } from "@/components/landing/ClientWrappers";
 import Footer from "@/components/landing/Footer";
@@ -10,6 +8,9 @@ import Footer from "@/components/landing/Footer";
 export const metadata: Metadata = {
     title: "Privacy Policy | LBS MCA Entrance Learning Platform",
     description: "Learn how we protect your information at LBS MCA Entrance Learning Platform. Our privacy policy details data collection, usage, and security measures for Kerala MCA aspirants.",
+  alternates: {
+    canonical: "https://lbscourse.cetmca.in/privacy-policy",
+  },
 };
 
 export default function PrivacyPolicyPage() {

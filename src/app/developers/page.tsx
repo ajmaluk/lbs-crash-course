@@ -1,7 +1,5 @@
 import { Metadata } from "next";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Github, Linkedin, Instagram } from "lucide-react";
+import { Github, Linkedin, Instagram } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { NavbarWrapper } from "@/components/landing/ClientWrappers";
 import Footer from "@/components/landing/Footer";
@@ -9,6 +7,23 @@ import Footer from "@/components/landing/Footer";
 export const metadata: Metadata = {
   title: "Developers | LBS MCA Entrance",
   description: "Meet the developers behind the LBS MCA Entrance platform.",
+  alternates: {
+    canonical: "https://lbscourse.cetmca.in/developers",
+  },
+  openGraph: {
+    title: "Developers | LBS MCA Entrance",
+    description: "Meet the team building the LBS MCA Entrance preparation platform.",
+    url: "https://lbscourse.cetmca.in/developers",
+    type: "website",
+    images: [
+      {
+        url: "https://lbscourse.cetmca.in/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LBS MCA Developers",
+      },
+    ],
+  },
 };
 
 export default function DevelopersPage() {
