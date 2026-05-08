@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, isInitialized } from "@/lib/firebase-admin";
 import { verifyAdmin } from "@/lib/auth-utils";
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
     if (!isInitialized || !adminAuth) {
         return NextResponse.json({ message: "Admin service unavailable" }, { status: 503 });

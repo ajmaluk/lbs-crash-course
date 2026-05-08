@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { verifySession } from "@/lib/auth-utils";
 
+export const runtime = 'nodejs';
+
 // Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,

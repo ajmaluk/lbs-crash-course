@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminFirestore } from "@/lib/firebase-admin";
 
+export const runtime = 'nodejs';
+
 export async function GET(req: NextRequest) {
     if (!adminFirestore) {
         return NextResponse.json({ error: "Database connection failed" }, { status: 500 });

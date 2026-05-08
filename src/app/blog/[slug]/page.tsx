@@ -1,6 +1,8 @@
 import React from "react";
 import { Metadata } from "next";
 import Link from "next/link";
+
+export const runtime = 'edge';
 import Script from "next/script";
 import { notFound } from "next/navigation";
 import { Calendar, ArrowLeft, Clock, Share2, Tag } from "lucide-react";

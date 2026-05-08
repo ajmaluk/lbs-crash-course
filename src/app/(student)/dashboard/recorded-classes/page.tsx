@@ -225,7 +225,6 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         return () => window.removeEventListener('keydown', handleKey);
     }, [open]);
 
-    // Load saved progress for this class
     useEffect(() => {
         let active = true;
         const loadProgress = async () => {
@@ -250,7 +249,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         };
         loadProgress();
         return () => { active = false; };
-    }, [open, video, userData?.uid, duration]);
+    }, [open, video?.id, userData?.uid]);
 
     // rendering handles null video below
 
@@ -351,18 +350,22 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             if (!force && now - lastPersistRef.current < 10000) return;
             lastPersistRef.current = now;
             try {
-                const d = durationRef.current || duration || 0;
-                const t = currentTimeRef.current || currentTime || 0;
+                const d = durationRef.current || 0;
+                const t = currentTimeRef.current || 0;
                 const completed = d > 0 ? t / d >= 0.9 : false;
                 const progressPercent = d > 0 ? Math.min(100, Math.max(0, Math.round((t / d) * 100))) : 0;
                 const key = `video_progress_${userData.uid}`;
                 const raw = localStorage.getItem(key);
                 const map = raw ? JSON.parse(raw) : {};
+                
+                // Keep completed status if it was already true
+                const isCompleted = completed || map[video.id]?.completed || false;
+                
                 map[video.id] = {
                     timestamp: Math.floor(t),
                     duration: Math.floor(d || 0),
                     progressPercent,
-                    completed: !!completed,
+                    completed: isCompleted,
                     updatedAt: now
                 };
                 localStorage.setItem(key, JSON.stringify(map));
@@ -372,11 +375,18 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             }
         };
         const iv = window.setInterval(() => { void persist(false); }, 5000);
-        return () => {
-            window.clearInterval(iv);
+        
+        const handleUnload = () => {
             void persist(true);
         };
-    }, [open, video, userData?.uid, currentTime, duration]);
+        window.addEventListener("beforeunload", handleUnload);
+
+        return () => {
+            window.clearInterval(iv);
+            window.removeEventListener("beforeunload", handleUnload);
+            void persist(true);
+        };
+    }, [open, video?.id, userData?.uid]);
 
     // Player Keyboard Shortcuts
     useEffect(() => {
@@ -668,7 +678,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     </div>
 
                     {coverVisible && isReady && (
-                        <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-[2px] flex items-center justify-center transition-all duration-500">
+                        <div className="absolute inset-0 z-30 bg-black/20 flex items-center justify-center transition-all duration-500">
                             <button
                                 onClick={() => { togglePlay(); setCoverVisible(false); }}
                                 className="group relative"

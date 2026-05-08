@@ -122,15 +122,23 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
             return;
         }
 
-        const packedPrompt = buildPackedPrompt(messages);
+        // Extract the last user message as the prompt
+        const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+        const prompt = lastUserMsg ? lastUserMsg.content : buildPackedPrompt(messages);
         
+        // Send both prompt and messages for the API to use proper chat format
+        const conversationHistory = messages
+            .filter(m => m.role === "user" || m.role === "assistant")
+            .slice(-10)
+            .map(m => ({ role: m.role, content: clipText(normalizePromptText(m.content), MAX_MESSAGE_CHARS) }));
+
         const response = await fetch("/api/ai/chat", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...(idToken && { "Authorization": `Bearer ${idToken}` })
             },
-            body: JSON.stringify({ prompt: packedPrompt }),
+            body: JSON.stringify({ prompt, messages: conversationHistory }),
             signal
         });
 
@@ -141,6 +149,20 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
             return;
         }
 
+        const contentType = response.headers.get("content-type") || "";
+
+        // Handle JSON response (from PicoAPI fallback)
+        if (contentType.includes("application/json")) {
+            const data = await response.json();
+            if (data.text) {
+                yield stripAssistantNamePrefixes(enforceDomainTerminology(data.text));
+            } else {
+                yield buildFallbackResponse(messages);
+            }
+            return;
+        }
+
+        // Handle plain text stream (from Gemini/Groq/NVIDIA — already parsed server-side)
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         if (!reader) {
@@ -149,77 +171,15 @@ export async function* chatWithAI(messages: ChatMessage[], idToken?: string, sig
         }
 
         let fullText = "";
-        let buffer = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
-            
-            if (buffer.trim().startsWith("{") && !buffer.includes("\n")) {
-                try {
-                    const data = JSON.parse(buffer);
-                    if (data.text) {
-                        fullText = data.text;
-                        yield stripAssistantNamePrefixes(enforceDomainTerminology(data.text));
-                        return;
-                    }
-                } catch { /* Continue reading */ }
-            }
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === "data: [DONE]") continue;
-
-                if (trimmed.startsWith("data: ")) {
-                    try {
-                        const jsonStr = trimmed.slice(6);
-                        const data = JSON.parse(jsonStr);
-                        
-                        const chunk = data.choices?.[0]?.delta?.content || 
-                                     data.choices?.[0]?.text || 
-                                     data.content || 
-                                     data.text ||
-                                     data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                                     "";
-                        
-                        if (chunk) {
-                            fullText += chunk;
-                            yield stripAssistantNamePrefixes(enforceDomainTerminology(fullText));
-                        }
-                    } catch (e) {
-                        // Suppress
-                    }
-                }
-            }
-        }
-
-        if (buffer.trim()) {
-            if (buffer.trim().startsWith("data: ")) {
-                try {
-                    const jsonStr = buffer.trim().slice(6);
-                    const data = JSON.parse(jsonStr);
-                    const chunk = data.choices?.[0]?.delta?.content || 
-                                 data.choices?.[0]?.text || 
-                                 data.content || 
-                                 data.text ||
-                                 data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                                 "";
-                    if (chunk) {
-                        fullText += chunk;
-                        yield stripAssistantNamePrefixes(enforceDomainTerminology(fullText));
-                    }
-                } catch { /* Suppress */ }
-            } else if (!fullText.trim()) {
-                try {
-                    const data = JSON.parse(buffer);
-                    const finalContent = data.text || data.response || "";
-                    if (finalContent) yield stripAssistantNamePrefixes(enforceDomainTerminology(finalContent));
-                } catch { /* Final buffer not JSON */ }
+            const chunk = decoder.decode(value, { stream: true });
+            if (chunk) {
+                fullText += chunk;
+                yield stripAssistantNamePrefixes(enforceDomainTerminology(fullText));
             }
         }
 

@@ -40,7 +40,7 @@ import {
     updateSession,
     deleteSession as removeSession
 } from "@/lib/chat-history";
-import { cacheDB } from "@/lib/db-service";
+
 
 // Modular components
 import { ChatHeader } from "@/components/ai/chat-components/ChatHeader";
@@ -119,15 +119,12 @@ export default function DashboardAIChatPage() {
                         await saveSessions([newSession]);
                     }
 
-                    // Load feedback and study notes
+                    // Load feedback and study notes from localStorage
                     try {
-                        const [storedFeedback, storedNotes] = await Promise.all([
-                            cacheDB.get<FeedbackBySession>(MESSAGE_FEEDBACK_STORAGE_KEY),
-                            cacheDB.get<StudyNote[]>(STUDY_NOTES_STORAGE_KEY)
-                        ]);
-                        
-                        if (storedFeedback) setFeedbackBySession(storedFeedback);
-                        if (storedNotes) setStudyNotes(storedNotes);
+                        const rawFeedback = localStorage.getItem(MESSAGE_FEEDBACK_STORAGE_KEY);
+                        const rawNotes = localStorage.getItem(STUDY_NOTES_STORAGE_KEY);
+                        if (rawFeedback) setFeedbackBySession(JSON.parse(rawFeedback));
+                        if (rawNotes) setStudyNotes(JSON.parse(rawNotes));
                     } catch (e) {
                         console.error("Secondary data load failed", e);
                     }
@@ -261,7 +258,7 @@ export default function DashboardAIChatPage() {
                 sessionFeedback[messageKey] = reaction;
             }
             const updated = { ...prev, [activeSessionId]: sessionFeedback };
-            cacheDB.set(MESSAGE_FEEDBACK_STORAGE_KEY, updated).catch(e => console.error("Failed to save feedback", e));
+            try { localStorage.setItem(MESSAGE_FEEDBACK_STORAGE_KEY, JSON.stringify(updated)); } catch (e) { console.error("Failed to save feedback", e); }
             return updated;
         });
     }, [activeSessionId]);
@@ -285,7 +282,7 @@ export default function DashboardAIChatPage() {
                 updated = [newNote, ...prev];
                 toast.success("Added to study notes");
             }
-            cacheDB.set(STUDY_NOTES_STORAGE_KEY, updated).catch(e => console.error("Failed to save study notes", e));
+            try { localStorage.setItem(STUDY_NOTES_STORAGE_KEY, JSON.stringify(updated)); } catch (e) { console.error("Failed to save study notes", e); }
             return updated;
         });
     }, [activeSessionId]);
@@ -293,7 +290,7 @@ export default function DashboardAIChatPage() {
     const removeStudyNote = (id: string) => {
         setStudyNotes(prev => {
             const updated = prev.filter(n => n.id !== id);
-            cacheDB.set(STUDY_NOTES_STORAGE_KEY, updated).catch(e => console.error("Failed to save study notes", e));
+            try { localStorage.setItem(STUDY_NOTES_STORAGE_KEY, JSON.stringify(updated)); } catch (e) { console.error("Failed to save study notes", e); }
             return updated;
         });
     };

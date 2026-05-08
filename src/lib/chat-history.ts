@@ -1,5 +1,4 @@
 import { ChatMessage, SYSTEM_PROMPT } from "./ai-service";
-import { cacheDB } from "./db-service";
 
 export interface ChatSession {
     id: string;
@@ -12,26 +11,45 @@ const STORAGE_KEY = "toolpix_chat_sessions";
 const SYSTEM_PROMPT_MARKER = "__SYSTEM_PROMPT_DEFAULT__";
 
 /**
- * Migrates data from localStorage to IndexedDB if it exists.
+ * One-time migration: copies data from legacy IndexedDB to localStorage.
+ * Returns null if nothing to migrate or if IndexedDB is not available.
  */
-async function migrateFromLocalStorage(): Promise<ChatSession[] | null> {
-    if (typeof window === "undefined") return null;
+async function migrateFromIndexedDB(): Promise<ChatSession[] | null> {
+    if (typeof window === "undefined" || !window.indexedDB) return null;
     try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (!stored) return null;
-        
-        const parsed = JSON.parse(stored);
-        if (!Array.isArray(parsed)) return null;
-
-        console.log("[CHAT_HISTORY] Migrating sessions from localStorage to IndexedDB...");
-        await cacheDB.set(STORAGE_KEY, parsed);
-        localStorage.removeItem(STORAGE_KEY); // Clean up
-        return parsed;
-    } catch (e) {
-        console.error("[CHAT_HISTORY] Migration failed:", e);
+        return await new Promise<ChatSession[] | null>((resolve) => {
+            const req = indexedDB.open("cacheDB", 1);
+            req.onerror = () => resolve(null);
+            req.onupgradeneeded = () => { req.result.close(); resolve(null); };
+            req.onsuccess = () => {
+                const db = req.result;
+                try {
+                    const tx = db.transaction("cache", "readonly");
+                    const store = tx.objectStore("cache");
+                    const getReq = store.get(STORAGE_KEY);
+                    getReq.onsuccess = () => {
+                        const value = getReq.result?.value;
+                        db.close();
+                        if (Array.isArray(value) && value.length > 0) {
+                            console.log("[CHAT_HISTORY] Migrating sessions from IndexedDB to localStorage...");
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+                            resolve(value);
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    getReq.onerror = () => { db.close(); resolve(null); };
+                } catch {
+                    db.close();
+                    resolve(null);
+                }
+            };
+        });
+    } catch {
         return null;
     }
 }
+
 
 let sessionCache: ChatSession[] | null = null;
 
@@ -42,15 +60,14 @@ export async function loadSessions(): Promise<ChatSession[]> {
     if (sessionCache) return sessionCache;
 
     try {
-        // Try to load from IndexedDB with a strict timeout (Safari safety)
-        const idbPromise = cacheDB.get<any[]>(STORAGE_KEY);
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
-        
-        let parsed = await Promise.race([idbPromise, timeoutPromise]);
-        
-        // Fallback/Migration from localStorage if IDB failed or timed out
-        if (!parsed) {
-            const migrated = await migrateFromLocalStorage();
+        let stored = localStorage.getItem(STORAGE_KEY);
+        let parsed: any[] | null = null;
+
+        if (stored) {
+            parsed = JSON.parse(stored);
+        } else {
+            // Try to migrate from IndexedDB if no localStorage data exists
+            const migrated = await migrateFromIndexedDB();
             if (migrated) parsed = migrated;
         }
 
@@ -94,7 +111,7 @@ export async function saveSessions(sessions: ChatSession[]) {
                     : m
             )
         }));
-        await cacheDB.set(STORAGE_KEY, optimized);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(optimized));
     } catch (e) {
         console.error("Failed to save sessions:", e);
     }
