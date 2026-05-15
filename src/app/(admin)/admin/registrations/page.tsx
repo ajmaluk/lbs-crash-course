@@ -186,6 +186,14 @@ LBS MCA Team`;
 
             toast.success(`User approved successfully!`);
 
+            // Optimistic local state update — move entry from pending to approved
+            // without requiring a page refresh
+            setRegistrations((prev) =>
+                prev.map((r) =>
+                    r.id === selectedReg.id ? { ...r, status: "approved" } : r
+                )
+            );
+
             // Show credential overlay
             setCredentials({
                 loginId: result.loginId!,
@@ -195,7 +203,7 @@ LBS MCA Team`;
             });
             setShowDetail(false);
             setShowCredentials(true);
-            // We keep selectedReg for WhatsApp since it has the number, 
+            // We keep selectedReg for WhatsApp since it has the number,
             // but we reset it in onOpenChange if needed or wait until creds closed.
         } catch (error: unknown) {
             toast.error(`Failed to create user: ${(error as Error).message}`);
@@ -221,6 +229,16 @@ LBS MCA Team`;
 
             toast.success(`Registration rejected. Opening email client...`);
             sendRejectionEmail(selectedReg.email, selectedReg.name, reason);
+
+            // Optimistic local state update — move entry from pending to rejected
+            // without requiring a page refresh
+            setRegistrations((prev) =>
+                prev.map((r) =>
+                    r.id === selectedReg.id
+                        ? { ...r, status: "rejected", rejectionReason: reason }
+                        : r
+                )
+            );
 
             setShowReject(false);
             setShowDetail(false);
