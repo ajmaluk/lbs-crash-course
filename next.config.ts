@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
+
 const nextConfig: NextConfig = {
+  output: "standalone",
   poweredByHeader: false,
+  serverExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
+  allowedDevOrigins: ["172.20.10.3", "192.168.1.7"],
   async headers() {
     return [
       {
@@ -54,6 +58,7 @@ const nextConfig: NextConfig = {
     return [];
   },
   images: {
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     dangerouslyAllowSVG: true,
     remotePatterns: [
@@ -82,3 +87,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

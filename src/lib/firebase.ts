@@ -229,9 +229,18 @@ if (hasRequiredCoreConfig) {
     auth = getAuth(app);
     
     // Only enable persistent caching in the browser to prevent SSR issues with IndexedDB
-    firestore = typeof window !== "undefined"
-        ? initializeFirestore(app, { localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()}) })
-        : getFirestore(app);
+    if (typeof window !== "undefined") {
+        try {
+            firestore = initializeFirestore(app, {
+                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+            });
+        } catch (err) {
+            console.warn("[FIREBASE] Failed to initialize persistent local cache. Falling back to default Firestore:", err);
+            firestore = getFirestore(app);
+        }
+    } else {
+        firestore = getFirestore(app);
+    }
     firebaseStartupHealth = {
         ...firebaseStartupHealth,
         modules: {

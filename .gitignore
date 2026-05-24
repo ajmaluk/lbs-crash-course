@@ -16,9 +16,14 @@
 # next.js
 /.next/
 /out/
+.open-next/
+.dev.vars
 
 # production
 /build
+
+# cloudflare
+.wrangler/
 
 # misc
 .DS_Store

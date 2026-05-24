@@ -65,7 +65,7 @@ export default function DevelopersPage() {
                   Meet Our <span className="text-primary">Developers</span>
                 </h1>
                 <p className="text-lg text-muted-foreground font-light leading-relaxed max-w-2xl mx-auto">
-                  The talented individuals who built this platform to help MCA aspirants succeed.
+                  The individuals who built this platform to help MCA aspirants succeed.
                 </p>
               </div>
             </FadeIn>

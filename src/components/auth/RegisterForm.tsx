@@ -28,7 +28,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { TransactionIdHelper } from "@/components/payment/TransactionIdHelper";
-import { submitRegistrationToSheetAction, savePendingRegistrationAction } from "@/app/actions/registration-actions";
+import { submitRegistrationToSheet, savePendingRegistration } from "@/lib/registration-utils";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
@@ -183,7 +183,7 @@ export function RegisterForm() {
             console.log("[REGISTRATION] Step 2: Syncing to Sheets...");
             try {
                 await Promise.race([
-                    submitRegistrationToSheetAction({
+                    submitRegistrationToSheet({
                         ...formData,
                         screenshotUrl: cloudinaryUrl
                     }),
@@ -193,13 +193,13 @@ export function RegisterForm() {
                 console.warn("Sheet Sync Error (continuing):", sheetErr);
             }
 
-// 3. Save to Firestore via Server Action (More reliable than client-side write)
+            // 3. Save to Firestore (Primary Record)
             console.log("[REGISTRATION] Step 3: Saving to Database...");
             let saveResult: { success: boolean; message?: string } = { success: false, message: "Unknown error" };
             
             try {
                 saveResult = await Promise.race([
-                    savePendingRegistrationAction({
+                    savePendingRegistration({
                         ...formData,
                         screenshotUrl: cloudinaryUrl,
                     }),
@@ -209,7 +209,7 @@ export function RegisterForm() {
                 ]);
             } catch (timeoutError) {
                 console.error("[REGISTRATION] Database timeout:", timeoutError);
-                throw new Error("Server is taking too long to respond. Please try again in a few moments.");
+                throw new Error("Database is taking too long to respond. Please try again in a few moments.");
             }
 
             if (!saveResult.success) {

@@ -55,6 +55,15 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
     const [resolvedId, setResolvedId] = useState<string>("");
     const [isPaused, setIsPaused] = useState<boolean>(true);
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    const [isPortrait, setIsPortrait] = useState<boolean>(false);
+    
+    useEffect(() => {
+        const check = () => setIsPortrait(window.innerHeight > window.innerWidth);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+
     const [coverVisible, setCoverVisible] = useState<boolean>(true);
     const [resumeTime, setResumeTime] = useState<number>(0);
     const lastPersistRef = useRef<number>(0);
@@ -291,21 +300,18 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
 
     const enterFull = async () => {
         const el = playerRootRef.current;
-        let nativeFs = false;
         try {
             if (el?.requestFullscreen) {
                 await el.requestFullscreen();
-                nativeFs = true;
             } else if ((el as any)?.webkitRequestFullscreen) {
                 await (el as any).webkitRequestFullscreen();
-                nativeFs = true;
             }
         } catch (e) {
             console.warn("Native fullscreen failed", e);
         }
 
-        // Always set fullscreen state — CSS handles the fallback for iOS
         setIsFullscreen(true);
+        showFsOverlay();
         
         try {
             const so = (screen as unknown as { orientation?: { lock?: (s: "landscape" | "portrait" | "any") => Promise<void>; unlock?: () => void } }).orientation;
@@ -388,6 +394,13 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
         };
     }, [open, video?.id, userData?.uid]);
 
+    // Reset fullscreen state when dialog closes
+    useEffect(() => {
+        if (!open) {
+            setIsFullscreen(false);
+        }
+    }, [open]);
+
     // Player Keyboard Shortcuts
     useEffect(() => {
         if (!open) return;
@@ -450,9 +463,12 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
             open={open}
             onOpenChange={onOpenChange}
             hideClose={true}
-            className="w-[95vw] sm:w-full max-w-5xl p-0 overflow-hidden border-none bg-zinc-950/95 backdrop-blur-2xl shadow-2xl rounded-2xl sm:rounded-3xl"
+            className={isFullscreen
+                ? "!fixed !inset-0 !z-[999999] !w-[100dvw] !h-[100dvh] !max-w-none !rounded-none !p-0 !m-0 !border-none !bg-black"
+                : "w-[95vw] sm:w-full max-w-5xl p-0 overflow-hidden border-none bg-zinc-950/95 backdrop-blur-2xl shadow-2xl rounded-2xl sm:rounded-3xl"
+            }
         >
-            <div className="flex flex-col h-full overflow-visible select-none" onContextMenu={(e) => e.preventDefault()}>
+            <div className="flex flex-col h-full overflow-hidden select-none relative" onContextMenu={(e) => e.preventDefault()}>
                 {/* Anti-Piracy Overlay */}
                 <div className="absolute inset-0 pointer-events-none z-60 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
                     <div className="grid grid-cols-3 gap-20 rotate-[-15deg] whitespace-nowrap text-white font-bold text-sm">
@@ -463,67 +479,75 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 </div>
 
                 {/* Glassmorphic Header */}
-                <div className="px-4 py-3 sm:px-6 sm:py-5 bg-linear-to-b from-zinc-900/80 to-zinc-950/40 backdrop-blur-xl border-b border-white/5 z-20 relative">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                        <div className="flex-1 min-w-0 pr-10 sm:pr-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[9px] uppercase tracking-widest px-2">Secure Stream</Badge>
-                                <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold truncate">{video?.subject || ""}</span>
+                {!isFullscreen && (
+                    <div className="px-4 py-3 sm:px-6 sm:py-5 bg-linear-to-b from-zinc-900/80 to-zinc-950/40 backdrop-blur-xl border-b border-white/5 z-20 relative shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0 pr-10 sm:pr-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="outline" className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[9px] uppercase tracking-widest px-2">Secure Stream</Badge>
+                                    <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold truncate">{video?.subject || ""}</span>
+                                </div>
+                                <h3 className="text-white font-bold text-base sm:text-xl flex items-center gap-2 sm:gap-3">
+                                    <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0">
+                                        <MonitorPlay className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-violet-400" />
+                                    </div>
+                                    <span className="truncate">{video?.title || ""}</span>
+                                </h3>
                             </div>
-                            <h3 className="text-white font-bold text-base sm:text-xl flex items-center gap-2 sm:gap-3">
-                                <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0">
-                                    <MonitorPlay className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-violet-400" />
+                            
+                            <div className="flex items-center gap-3 absolute sm:relative top-3 right-4 sm:top-auto sm:right-auto">
+                                <div className="hidden sm:flex items-center gap-4 bg-zinc-900/50 rounded-2xl border border-white/5 p-1.5 px-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-zinc-500 uppercase font-bold">Speed</span>
+                                        <select
+                                            value={rate}
+                                            onChange={(e) => applyRate(Number(e.target.value))}
+                                            className="bg-zinc-800/50 border border-white/10 rounded-lg text-xs px-2 py-1 text-white outline-none focus:ring-1 focus:ring-violet-500/50"
+                                        >
+                                            {rates.map((r) => (
+                                                <option key={r} value={r}>{r}x</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="h-4 w-px bg-white/10" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-zinc-500 uppercase font-bold">Quality</span>
+                                        <select
+                                            value={quality}
+                                            onChange={(e) => applyQuality(e.target.value)}
+                                            className="bg-zinc-800/50 border border-white/10 rounded-lg text-xs px-2 py-1 text-white outline-none focus:ring-1 focus:ring-violet-500/50"
+                                        >
+                                            {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                                <option key={q} value={q}>
+                                                    {qualityLabel(q)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
-                                <span className="truncate">{video?.title || ""}</span>
-                            </h3>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 absolute sm:relative top-3 right-4 sm:top-auto sm:right-auto">
-                            <div className="hidden sm:flex items-center gap-4 bg-zinc-900/50 rounded-2xl border border-white/5 p-1.5 px-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Speed</span>
-                                    <select
-                                        value={rate}
-                                        onChange={(e) => applyRate(Number(e.target.value))}
-                                        className="bg-zinc-800/50 border border-white/10 rounded-lg text-xs px-2 py-1 text-white outline-none focus:ring-1 focus:ring-violet-500/50"
-                                    >
-                                        {rates.map((r) => (
-                                            <option key={r} value={r}>{r}x</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="h-4 w-px bg-white/10" />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Quality</span>
-                                    <select
-                                        value={quality}
-                                        onChange={(e) => applyQuality(e.target.value)}
-                                        className="bg-zinc-800/50 border border-white/10 rounded-lg text-xs px-2 py-1 text-white outline-none focus:ring-1 focus:ring-violet-500/50"
-                                    >
-                                        {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                            <option key={q} value={q}>
-                                                {qualityLabel(q)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <button
+                                    onClick={() => onOpenChange(false)}
+                                    className="h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all active:scale-95"
+                                >
+                                    <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => onOpenChange(false)}
-                                className="h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all active:scale-95"
-                            >
-                                <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                            </button>
                         </div>
                     </div>
-                </div>
+                )}
 
                 <div 
                     ref={playerRootRef} 
                     className={`relative w-full bg-black flex items-center justify-center overflow-hidden group ${
-                        isFullscreen ? 'fixed inset-0 z-999999 aspect-auto' : 'aspect-video'
+                        isFullscreen ? (isPortrait ? 'absolute z-[999999]' : 'flex-1 aspect-auto') : 'aspect-video'
                     }`}
-                    style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
+                    style={isFullscreen && isPortrait ? {
+                        width: '100dvh',
+                        height: '100dvw',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%) rotate(90deg)',
+                    } : undefined}
                     onContextMenu={(e) => e.preventDefault()}
                 >
                     {!isReady && (
@@ -547,12 +571,17 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
 
                     {/* Fullscreen exit button - top left, shows/hides with overlay */}
                     {isFullscreen && (
-                        <div className={`absolute top-0 left-0 right-0 z-60 flex items-center justify-between p-3 transition-all duration-300 ${fsOverlayVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
-                            style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+                        <div className={`absolute top-0 left-0 right-0 z-60 flex items-center justify-between transition-all duration-300 ${fsOverlayVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}
+                            style={{
+                                paddingTop: 'max(12px, env(safe-area-inset-top))',
+                                paddingLeft: 'max(12px, env(safe-area-inset-left))',
+                                paddingRight: 'max(12px, env(safe-area-inset-right))',
+                                paddingBottom: '8px',
+                            }}
                         >
                             <button
                                 onClick={exitFull}
-                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white text-sm font-medium active:scale-95 transition-transform"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white text-sm font-medium active:scale-95 transition-transform min-h-[44px]"
                             >
                                 <ArrowLeft className="h-4 w-4" />
                                 Exit
@@ -561,7 +590,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                 <select
                                     value={rate}
                                     onChange={(e) => applyRate(Number(e.target.value))}
-                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-[10px] px-2 py-1.5 text-white outline-none"
+                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-xs px-2 py-1.5 text-white outline-none min-h-[36px]"
                                 >
                                     {rates.map((r) => (
                                         <option key={r} value={r}>{r}x</option>
@@ -570,7 +599,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                 <select
                                     value={quality}
                                     onChange={(e) => applyQuality(e.target.value)}
-                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-[10px] px-2 py-1.5 text-white outline-none"
+                                    className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg text-xs px-2 py-1.5 text-white outline-none min-h-[36px]"
                                 >
                                     {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                         <option key={q} value={q}>
@@ -586,7 +615,7 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                         <iframe
                             ref={containerRef as unknown as React.RefObject<HTMLIFrameElement>}
                             src={resolvedId ? `/player/yt?id=${encodeURIComponent(resolvedId)}&start=${Math.floor(resumeTime || 0)}&autoplay=1` : undefined}
-                            className="w-full h-full"
+                            className="w-full h-full pointer-events-none"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowFullScreen
                             frameBorder="0"
@@ -601,10 +630,15 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                     />
 
                     {/* Progress Bar & Controls Overlay (Only visible on hover or mobile touch) */}
-                    <div className={`absolute inset-x-0 bottom-0 z-50 p-3 px-4 sm:p-6 bg-linear-to-t from-black/80 via-black/40 to-transparent transition-all duration-300 ${isFullscreen ? (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0') : (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100')}`}
-                        style={isFullscreen ? { paddingBottom: 'max(12px, env(safe-area-inset-bottom))' } : undefined}
+                    <div className={`absolute inset-x-0 bottom-0 z-50 bg-linear-to-t from-black/80 via-black/40 to-transparent transition-all duration-300 ${isFullscreen ? (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none') : (fsOverlayVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100')}`}
+                        style={{
+                            paddingBottom: isFullscreen ? 'max(12px, env(safe-area-inset-bottom))' : '12px',
+                            paddingLeft: isFullscreen ? 'max(16px, env(safe-area-inset-left))' : '16px',
+                            paddingRight: isFullscreen ? 'max(16px, env(safe-area-inset-right))' : '16px',
+                            paddingTop: '24px',
+                        }}
                     >
-                        <div className="max-w-4xl mx-auto space-y-2 sm:space-y-4">
+                        <div className="max-w-4xl mx-auto space-y-2 sm:space-y-3">
                             <div className="relative group/progress">
                                 <input
                                     type="range"
@@ -620,57 +654,59 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                                 />
                             </div>
                             
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 sm:gap-4">
+                            <div className="flex items-center justify-between gap-1 sm:gap-2">
+                                <div className="flex items-center gap-1 sm:gap-3 min-w-0">
                                     <button 
                                         onClick={togglePlay} 
-                                        className="h-8 w-8 sm:h-12 sm:w-12 shrink-0 flex items-center justify-center rounded-full bg-white text-black hover:scale-105 transition-transform active:scale-95"
+                                        className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 flex items-center justify-center rounded-full bg-white text-black hover:scale-105 transition-transform active:scale-95"
                                     >
                                         {isPaused ? <Play className="h-4 w-4 sm:h-6 sm:w-6 fill-current ml-0.5" /> : <Pause className="h-4 w-4 sm:h-6 sm:w-6 fill-current" />}
                                     </button>
                                     
-                                    <div className="flex items-center gap-1 sm:gap-2">
-                                        <button onClick={() => seekBy(-10)} className="p-1 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors">
+                                    <div className="hidden min-[375px]:flex items-center gap-0.5 sm:gap-1">
+                                        <button onClick={() => seekBy(-10)} className="p-1 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center">
                                             <SkipBack className="h-4 w-4 sm:h-5 sm:w-5" />
                                         </button>
-                                        <button onClick={() => seekBy(10)} className="p-1 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors">
+                                        <button onClick={() => seekBy(10)} className="p-1 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center">
                                             <SkipForward className="h-4 w-4 sm:h-5 sm:w-5" />
                                         </button>
                                     </div>
 
-                                    <div className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-[9px] sm:text-[11px] font-mono text-zinc-300 whitespace-nowrap">
-                                        {fmt(currentTime)} <span className="text-zinc-600 mx-0.5 sm:mx-1">/</span> {fmt(duration || 0)}
+                                    <div className="px-1.5 sm:px-2 py-1 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-[9px] sm:text-[11px] font-mono text-zinc-300 whitespace-nowrap ml-1 sm:ml-0">
+                                        {fmt(currentTime)} <span className="text-zinc-600 mx-0.5">/</span> {fmt(duration || 0)}
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 sm:gap-4">
-                                    <div className="sm:hidden flex items-center gap-1">
-                                        <select
-                                            value={rate}
-                                            onChange={(e) => applyRate(Number(e.target.value))}
-                                            className="bg-black/40 border border-white/10 rounded-lg text-xs px-1.5 py-1 text-white outline-none"
-                                        >
-                                            {rates.map((r) => (
-                                                <option key={r} value={r}>{r}x</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            value={quality}
-                                            onChange={(e) => applyQuality(e.target.value)}
-                                            className="bg-black/40 border border-white/10 rounded-lg text-xs px-1.5 py-1 text-white outline-none"
-                                        >
-                                            {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                                <option key={q} value={q}>
-                                                    {qualityLabel(q)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                                    {!isFullscreen && (
+                                        <div className="flex sm:hidden items-center gap-1">
+                                            <select
+                                                value={rate}
+                                                onChange={(e) => applyRate(Number(e.target.value))}
+                                                className="bg-black/40 border border-white/10 rounded-lg text-[10px] px-1 py-1.5 text-white outline-none min-h-[36px] max-w-[46px] appearance-none text-center"
+                                            >
+                                                {rates.map((r) => (
+                                                    <option key={r} value={r}>{r}x</option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={quality}
+                                                onChange={(e) => applyQuality(e.target.value)}
+                                                className="bg-black/40 border border-white/10 rounded-lg text-[10px] px-1 py-1.5 text-white outline-none min-h-[36px] max-w-[56px] appearance-none text-center"
+                                            >
+                                                {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                                    <option key={q} value={q}>
+                                                        {qualityLabel(q)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     <button 
                                         onClick={isFullscreen ? exitFull : enterFull} 
-                                        className="p-1.5 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors"
+                                        className="p-1 sm:p-2 rounded-xl hover:bg-white/10 text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
                                     >
-                                        {isFullscreen ? <Minimize2 className="h-4 w-4 sm:h-5 sm:w-5" /> : <Maximize2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+                                        {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
                                     </button>
                                 </div>
                             </div>
@@ -693,27 +729,19 @@ function VideoPlayerDialog({ video, open, onOpenChange }: { video: RecordedClass
                 </div>
 
                 {/* Footer Info */}
-                <div className="px-4 py-3 sm:px-6 sm:py-4 bg-zinc-950/80 backdrop-blur-xl border-t border-white/5">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                        <div className="flex items-center gap-4 sm:gap-6">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Protection Status</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse" />
-                                    <span className="text-[10px] text-zinc-300 font-mono">ENCRYPTED LBS-KERALA-SECURE-V2</span>
+                {!isFullscreen && (
+                    <div className="px-4 py-3 sm:px-6 sm:py-4 bg-zinc-950/80 backdrop-blur-xl border-t border-white/5 shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center gap-4 sm:gap-6">
+                            
+                                <div className="h-8 w-px bg-white/5 hidden sm:block" />
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-zinc-300 font-mono">{userData?.email}</span>
                                 </div>
                             </div>
-                            <div className="h-8 w-px bg-white/5 hidden sm:block" />
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Viewer Email</span>
-                                <span className="text-[10px] text-zinc-300 font-mono">{userData?.email}</span>
-                            </div>
-                        </div>
-                        <div className="text-[9px] text-zinc-600 font-bold tracking-[0.2em] uppercase opacity-60">
-                            CET MCA VIRTUAL SECURE PLAYER v4.0
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </Dialog>
     );

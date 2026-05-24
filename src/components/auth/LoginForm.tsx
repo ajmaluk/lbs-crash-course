@@ -58,7 +58,10 @@ export function LoginForm() {
             if (hasValidConfig) {
                 if (!loginIdentifier.includes("@")) {
                     const lookupRef = doc(firestore, "loginIdEmails", loginIdentifier);
-                    const docSnap = await getDoc(lookupRef);
+                    const docSnap = await Promise.race([
+                        getDoc(lookupRef),
+                        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Lookup timeout")), 4500))
+                    ]);
                     if (docSnap.exists()) {
                         actualEmail = docSnap.data().email;
                     } else {

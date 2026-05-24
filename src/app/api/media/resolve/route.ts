@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-export const runtime = 'edge';
+export const runtime = "edge";
 
 type Payload = { id: string; kind: "yt" | "note"; exp: number; t: number };
 
@@ -13,15 +12,6 @@ async function getKey(secret: string): Promise<CryptoKey> {
     false,
     ["sign", "verify"]
   );
-}
-
-function base64UrlEncode(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function base64UrlDecode(str: string): Uint8Array {
@@ -38,24 +28,24 @@ async function verify(token: string, secret: string): Promise<Payload | null> {
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [b64, sig] = parts;
-  
+
   try {
     const key = await getKey(secret);
     const enc = new TextEncoder();
     const sigBytes = base64UrlDecode(sig);
-    
+
     const sigBuffer = new ArrayBuffer(sigBytes.length);
     new Uint8Array(sigBuffer).set(sigBytes);
-    
+
     const valid = await crypto.subtle.verify(
       "HMAC",
       key,
       sigBuffer,
       enc.encode(b64)
     );
-    
+
     if (!valid) return null;
-    
+
     const json = new TextDecoder().decode(base64UrlDecode(b64));
     const payload = JSON.parse(json) as Payload;
     return payload;

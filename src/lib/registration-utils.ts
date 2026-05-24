@@ -1,8 +1,7 @@
-"use server";
+import { firestore } from "./firebase";
+import { collection, addDoc } from "firebase/firestore";
 
-import { adminFirestore, isInitialized } from "@/lib/firebase-admin";
-
-export async function submitRegistrationToSheetAction(formData: {
+export async function submitRegistrationToSheet(formData: {
     name: string;
     email: string;
     phone: string;
@@ -12,9 +11,9 @@ export async function submitRegistrationToSheetAction(formData: {
     transactionId: string;
     screenshotUrl: string;
 }) {
-    const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL; // Use server-side env var
+    const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
     if (!APPS_SCRIPT_URL) {
-        console.warn("APPS_SCRIPT_URL not configured on server");
+        console.warn("NEXT_PUBLIC_APPS_SCRIPT_URL not configured");
         return { success: false, message: "Apps Script URL not configured" };
     }
 
@@ -23,7 +22,6 @@ export async function submitRegistrationToSheetAction(formData: {
         Object.entries(formData).forEach(([key, value]) => {
             payload.append(key, value);
         });
-        // Add action if needed by the script
         payload.append("action", "register");
 
         const response = await fetch(APPS_SCRIPT_URL, {
@@ -32,20 +30,18 @@ export async function submitRegistrationToSheetAction(formData: {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
+            mode: "no-cors", // Apps Script often requires no-cors for POST if not returning JSON
         });
 
-        if (!response.ok) {
-            throw new Error(`Sheet sync failed with status ${response.status}`);
-        }
-
+        // With no-cors, we can't check response.ok, but we assume it's sent
         return { success: true };
     } catch (error) {
-        console.error("Server-side registration sheet sync error:", error);
+        console.error("Client-side registration sheet sync error:", error);
         return { success: false, message: (error as Error).message };
     }
 }
 
-export async function savePendingRegistrationAction(data: {
+export async function savePendingRegistration(data: {
     name: string;
     email: string;
     phone: string;
@@ -55,11 +51,6 @@ export async function savePendingRegistrationAction(data: {
     transactionId: string;
     screenshotUrl: string;
 }) {
-    if (!isInitialized || !adminFirestore) {
-        console.error("[REGISTRATION] Firebase Admin not initialized");
-        return { success: false, message: "Server-side database service unavailable. Please try again later." };
-    }
-
     try {
         const registrationData = {
             ...data,
@@ -69,18 +60,13 @@ export async function savePendingRegistrationAction(data: {
         
         console.log("[REGISTRATION] Saving to Firestore:", data.email);
         
-        const docRef = await adminFirestore.collection("pendingRegistrations").add(registrationData);
+        const docRef = await addDoc(collection(firestore, "pendingRegistrations"), registrationData);
         console.log("[REGISTRATION] Successfully saved with ID:", docRef.id);
         
         return { success: true };
     } catch (error) {
-        console.error("Firestore save error (Server Action):", error);
+        console.error("Firestore save error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        
-        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("network") || errorMessage.includes("timeout")) {
-            return { success: false, message: "Network error. Please check your connection and try again." };
-        }
-        
         return { success: false, message: `Database error: ${errorMessage}` };
     }
 }

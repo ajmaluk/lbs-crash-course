@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
-import type { LiveClass, Announcement, RankData } from "@/lib/types";
+import type { LiveClass, Announcement } from "@/lib/types";
 import recordingsData from "@/data/recordings.json";
 import {
     Video,
@@ -28,139 +28,75 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Add this component before the main DashboardPage
 function LeaderboardSummary() {
     const { userData } = useAuth();
-    const [data, setData] = useState<{
-        rankings: Record<string, RankData>;
-        mockRankings: Record<string, RankData>;
-        quizIds: Set<string>;
-        mockTestIds: Set<string>;
-    }>({ rankings: {}, mockRankings: {}, quizIds: new Set(), mockTestIds: new Set() });
+    const [top3, setTop3] = useState<{ rank: number; userId: string; userName: string; score: number; testsTaken: number }[]>([]);
     const [loading, setLoading] = useState(true);
-    const [loadedSources, setLoadedSources] = useState({
-        rankings: false,
-        mockRankings: false,
-        quizzes: false,
-        mockTests: false
-    });
-
-    const fetchLeaderboard = async () => {
-        setLoading(true);
-        try {
-            const [rankSnap, mockRankSnap] = await Promise.all([
-                getDocs(collection(firestore, "rankings")),
-                getDocs(collection(firestore, "mockRankings"))
-            ]);
-
-            const rankings: Record<string, RankData> = {};
-            rankSnap.forEach(d => { rankings[d.id] = d.data() as RankData; });
-
-            const mockRankings: Record<string, RankData> = {};
-            mockRankSnap.forEach(d => { mockRankings[d.id] = d.data() as RankData; });
-
-            setData({ rankings, mockRankings, quizIds: new Set(), mockTestIds: new Set() });
-            setLoadedSources({ rankings: true, mockRankings: true, quizzes: true, mockTests: true });
-        } catch (error) {
-            console.error("Failed to fetch leaderboard:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     useEffect(() => {
-        fetchLeaderboard();
+        fetch("/api/leaderboard/top3")
+            .then((r) => r.json())
+            .then((d) => setTop3(d.top3 || []))
+            .catch(() => setTop3([]))
+            .finally(() => setLoading(false));
     }, []);
 
-    const latestRanking = useMemo(() => {
-        const allValidRankings: (RankData & { sourceType: 'quiz' | 'mock' })[] = [];
+    const medals = ["🥇", "🥈", "🥉"];
 
-        // Add valid quiz rankings (assuming all present in rankings collection are valid)
-        Object.entries(data.rankings).forEach(([id, val]) => {
-            allValidRankings.push({ ...val, quizId: id, sourceType: 'quiz' });
-        });
-
-        // Add valid mock test rankings (assuming all present are valid)
-        Object.entries(data.mockRankings).forEach(([id, val]) => {
-            allValidRankings.push({ ...val, mockTestId: id, sourceType: 'mock' });
-        });
-
-        // Sort by generation time (latest first)
-        return allValidRankings.sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0))[0] || null;
-    }, [data.rankings, data.mockRankings, data.quizIds, data.mockTestIds]);
-
-    if (loading) {
-        return (
-            <Card className="overflow-hidden border-0 shadow-lg bg-linear-to-br from-primary to-accent text-white">
-                <CardHeader className="pb-2">
-                    <Skeleton className="h-6 w-32 bg-white/20" />
-                    <Skeleton className="h-3 w-48 bg-white/10 mt-1" />
-                </CardHeader>
-                <CardContent>
+    return (
+        <Card className="flex flex-col border border-border bg-card">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-yellow-500" />
+                    Top Performers
+                </CardTitle>
+                <Link href="/dashboard/rankings" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+                    View all <ArrowRight className="h-3 w-3" />
+                </Link>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col justify-center">
+                {loading ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-center gap-3 bg-white/10 rounded-lg p-2">
-                                <Skeleton className="h-6 w-6 rounded-full bg-white/20" />
-                                <Skeleton className="h-4 flex-1 bg-white/10" />
-                                <Skeleton className="h-4 w-12 bg-white/20" />
+                            <div key={i} className="flex items-center gap-3">
+                                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                                <Skeleton className="h-4 flex-1" />
+                                <Skeleton className="h-4 w-14" />
                             </div>
                         ))}
                     </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (!latestRanking) return null;
-
-    const myEntry = latestRanking.entries.find((e) => e.userId === userData?.uid);
-    const top3 = latestRanking.entries.slice(0, 3);
-    const isMock = latestRanking.sourceType === 'mock';
-
-    return (
-        <Card className="overflow-hidden border-0 shadow-lg bg-linear-to-br from-primary to-accent text-white">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <Trophy className="h-5 w-5 text-yellow-400" />
-                    Top Performers
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                    <p className="text-xs text-white/70 truncate flex-1">{latestRanking.quizTitle}</p>
-                    <Badge variant="outline" className="text-[10px] bg-white/10 text-white border-white/20 px-1 py-0 h-4">
-                        {isMock ? "Mock Test" : "Quiz"}
-                    </Badge>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-3">
-                    {top3.map((entry, i: number) => (
-                        <div key={entry.userId} className="flex items-center gap-3 bg-white/10 rounded-lg p-2 border border-white/10">
-                            <div className="h-6 w-6 rounded-full bg-yellow-400 text-slate-800 flex items-center justify-center text-xs font-bold">
-                                {i + 1}
-                            </div>
-                            <span className="text-sm truncate flex-1">{entry.userName}</span>
-                            <span className="text-sm font-bold">{entry.score} pts</span>
-                        </div>
-                    ))}
-
-                    {myEntry && myEntry.rank > 3 && (
-                        <div className="flex items-center gap-3 bg-primary/30 rounded-lg p-2 border border-white/20 mt-4">
-                            <div className="h-6 w-6 rounded-full bg-white/20 text-white flex items-center justify-center text-xs font-bold">
-                                {myEntry.rank}
-                            </div>
-                            <span className="text-sm truncate flex-1">Your Rank</span>
-                            <span className="text-sm font-bold">{myEntry.score} pts</span>
-                        </div>
-                    )}
-
-                    <Link
-                        href="/dashboard/rankings"
-                        className="flex items-center justify-center w-full gap-2 mt-2 py-2 text-xs font-medium text-white/80 hover:text-white transition-colors"
-                    >
-                        View Full Leaderboard <ArrowRight className="h-3 w-3" />
-                    </Link>
-                </div>
+                ) : top3.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                        <Trophy className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                        No rankings yet
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {top3.map((entry, i) => {
+                            const isMe = entry.userId === userData?.uid;
+                            return (
+                                <div
+                                    key={entry.userId}
+                                    className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${isMe ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/40"}`}
+                                >
+                                    <span className="text-lg w-6 text-center shrink-0">{medals[i]}</span>
+                                    <span className={`text-sm flex-1 truncate ${isMe ? "font-semibold text-primary" : "font-medium"}`}>
+                                        {isMe ? "You" : entry.userName}
+                                    </span>
+                                    <span className="text-xs font-mono text-muted-foreground shrink-0">{entry.score} pts</span>
+                                </div>
+                            );
+                        })}
+                        {!top3.some((e) => e.userId === userData?.uid) && (
+                            <p className="text-center text-[11px] text-muted-foreground pt-2">
+                                Take a quiz to appear on the leaderboard!
+                            </p>
+                        )}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
 }
+
 
 export default function StudentDashboard() {
     const { userData } = useAuth();

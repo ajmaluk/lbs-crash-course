@@ -189,7 +189,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                     try {
                         const userDocRef = doc(firestore, "users", firebaseUser.uid);
-                        const userDocSnap = await getDoc(userDocRef);
+                        const userDocSnap = await Promise.race([
+                            getDoc(userDocRef),
+                            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Firestore timeout")), 4500))
+                        ]);
                         if (userDocSnap.exists()) {
                             const data = userDocSnap.data() as Partial<UserData>;
                             const role = data.role || "student";

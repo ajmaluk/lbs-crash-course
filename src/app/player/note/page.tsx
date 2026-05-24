@@ -85,15 +85,48 @@ function NoteViewerInner() {
 
         const pdfBytes = await response.arrayBuffer();
         const pdfjs = await import("pdfjs-dist");
-        if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-          pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
+        
+        // Robust CDN candidates chain for maximum speed and accessibility in India/mobile
+        const workerCandidates = [
+          `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`,
+          `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`,
+          `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`,
+          `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`
+        ];
+
+        let resolvedWorkerUrl = "";
+        for (const url of workerCandidates) {
+          try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 2000); // 2s quick verification
+            const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+            clearTimeout(id);
+            if (res.ok) {
+              resolvedWorkerUrl = url;
+              break;
+            }
+          } catch {
+            // fail-silent, check next CDN candidate
+          }
+        }
+
+        if (resolvedWorkerUrl) {
+          pdfjs.GlobalWorkerOptions.workerSrc = resolvedWorkerUrl;
+        } else {
+          console.warn("[PDFJS] All CDN worker sources failed to verify. Falling back to main-thread inline/fake worker.");
+          delete (pdfjs.GlobalWorkerOptions as any).workerSrc;
         }
 
         const loadingTask = pdfjs.getDocument({
           data: pdfBytes,
           isEvalSupported: false,
         });
-        const doc = await loadingTask.promise;
+
+        // Safety timeout to prevent parser locking the UI
+        const doc = await Promise.race([
+          loadingTask.promise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The PDF loading engine timed out. Please try refreshing or reloading.")), 12000))
+        ]);
         if (cancelled) {
           await doc.destroy();
           return;
@@ -185,7 +218,9 @@ function NoteViewerInner() {
         if (cancelled || !canvasRef.current) return;
 
         // Use a higher scale for sharper rendering on high-DPI screens, then scale down with CSS
-        const dpr = window.devicePixelRatio || 1;
+        // Clamp DPR to max 1.5 on mobile devices to prevent canvas size/memory crashes!
+        const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+        const dpr = Math.min(isMobile ? 1.5 : 2, window.devicePixelRatio || 1);
         const viewport = page.getViewport({ scale: zoom * dpr });
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
@@ -449,8 +484,7 @@ function NoteViewerInner() {
               <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                 <div className="text-center p-6 bg-card/50 rounded-3xl border border-border shadow-2xl backdrop-blur-xl">
                   <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm font-semibold text-foreground tracking-wide">Initializing Secure Note...</p>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Encrypted Environment Active</p>
+                  <p className="text-sm font-semibold text-foreground tracking-wide">Initializing Notes...</p>
                 </div>
               </div>
             )}

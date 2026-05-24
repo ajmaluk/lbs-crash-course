@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { firestore } from "@/lib/firebase";
+import { addDoc, collection, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 export function FeedbackModal() {
     const { user, userData } = useAuth();
@@ -77,20 +79,20 @@ export function FeedbackModal() {
 
         setSubmitting(true);
         try {
-            const response = await fetch("/api/feedback", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    rating,
-                    message,
-                    userId: userData?.uid,
-                    userName: userData?.name
-                })
+            // Add feedback to Firestore
+            await addDoc(collection(firestore, "feedbacks"), {
+                rating,
+                message,
+                userId: userData?.uid,
+                userName: userData?.name || "Unknown User",
+                createdAt: serverTimestamp(),
+                read: false
             });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || "Failed to submit");
+            // Update user document
+            if (userData?.uid) {
+                const userRef = doc(firestore, "users", userData.uid);
+                await updateDoc(userRef, { hasSubmittedFeedback: true });
             }
 
             // Update local state for immediate effect

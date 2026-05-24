@@ -90,6 +90,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== iOS Fullscreen Layout Lock ===== */
+/* When our CSS-simulated fullscreen is active (iOS Safari doesn't support the
+   Fullscreen API for non-<video> elements), we freeze the page behind the player
+   to prevent the body from stretching, scrolling, or tiling vertically. */
+html.ios-fs-active,
+html.ios-fs-active body {
+  overflow: hidden !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Use dynamic viewport height on iOS to account for the collapsing Safari toolbar */
+  height: 100dvh !important;
+}
+
+/* Prevent iOS rubber-band scrolling on the player during fullscreen */
+html.ios-fs-active body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+
 /* ===== Toast System ===== */
 .app-toast {
   border-radius: 14px;

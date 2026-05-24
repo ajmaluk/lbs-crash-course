@@ -15,6 +15,8 @@ import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { firestore } from "@/lib/firebase";
+import { collection, query, orderBy, limit, getDocs, startAfter, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 interface FeedbackEntry {
     id: string;
@@ -32,23 +34,46 @@ export default function AdminFeedbackPage() {
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
+    const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
     const fetchFeedbacks = async (isNextPage = false) => {
         if (!isNextPage) setLoading(true);
         else setLoadingMore(true);
 
         try {
-            let url = `/api/feedback?pageSize=${PAGE_SIZE}`;
-            if (isNextPage && feedbacks.length > 0) {
-                const lastEntry = feedbacks[feedbacks.length - 1];
-                url += `&lastCreatedAt=${lastEntry.createdAt}`;
+            let q = query(
+                collection(firestore, "feedbacks"),
+                orderBy("createdAt", "desc"),
+                limit(PAGE_SIZE)
+            );
+
+            if (isNextPage && lastDoc) {
+                q = query(
+                    collection(firestore, "feedbacks"),
+                    orderBy("createdAt", "desc"),
+                    startAfter(lastDoc),
+                    limit(PAGE_SIZE)
+                );
             }
 
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch feedback");
+            const snapshot = await getDocs(q);
+            const entries: FeedbackEntry[] = [];
             
-            const data = await res.json();
-            const entries = data.feedbacks || [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                entries.push({
+                    id: doc.id,
+                    rating: data.rating,
+                    message: data.message,
+                    userId: data.userId,
+                    userName: data.userName,
+                    createdAt: data.createdAt?.toMillis() || Date.now(),
+                });
+            });
+
+            if (snapshot.docs.length > 0) {
+                setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+            }
 
             if (isNextPage) {
                 setFeedbacks(prev => [...prev, ...entries]);

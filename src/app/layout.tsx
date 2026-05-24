@@ -7,9 +7,8 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { underMaintenance } from "@/lib/maintenance";
 import MaintenancePage from "@/app/maintenance/page";
 
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import ToolPixOverlay from "@/components/ai/ToolPixOverlay";
+
+
 import FirebaseHealthPanel from "@/components/dev/FirebaseHealthPanel";
 import { Toaster } from "sonner";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
@@ -124,6 +123,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -228,10 +228,9 @@ export default function RootLayout({
 
         <AuthProvider>
           {underMaintenance ? <MaintenancePage /> : children}
-          <ToolPixOverlay />
+
           {process.env.NODE_ENV === "development" && <FirebaseHealthPanel />}
-          <Analytics />
-          <SpeedInsights />
+
           <Toaster richColors closeButton position="top-right" />
 
         </AuthProvider>

@@ -37,6 +37,15 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
     const [resolvedId, setResolvedId] = useState<string>("");
     const [isPaused, setIsPaused] = useState<boolean>(true);
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    const [isPortrait, setIsPortrait] = useState<boolean>(false);
+    
+    useEffect(() => {
+        const check = () => setIsPortrait(window.innerHeight > window.innerWidth);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+
     const [coverVisible, setCoverVisible] = useState<boolean>(true);
     const [hudMask, setHudMask] = useState<boolean>(false);
     const hudTimerRef = useRef<number | null>(null);
@@ -238,21 +247,18 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
 
     const enterFull = async () => {
         const el = playerRootRef.current;
-        let nativeFs = false;
         try {
             if (el?.requestFullscreen) {
                 await el.requestFullscreen();
-                nativeFs = true;
             } else if ((el as any)?.webkitRequestFullscreen) {
                 await (el as any).webkitRequestFullscreen();
-                nativeFs = true;
             }
         } catch (e) {
             console.warn("Native fullscreen failed", e);
         }
 
-        // Always set fullscreen state — CSS handles the fallback for iOS
         setIsFullscreen(true);
+        showFsOverlay();
         
         try {
             const so = (screen as unknown as { orientation?: { lock?: (s: "landscape" | "portrait" | "any") => Promise<void>; unlock?: () => void } }).orientation;
@@ -289,14 +295,28 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
         return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
     };
 
+    // Cleanup iOS body lock when dialog closes or component unmounts
+    React.useEffect(() => {
+        if (!open) {
+            document.documentElement.classList.remove('ios-fs-active');
+            setIsFullscreen(false);
+        }
+        return () => {
+            document.documentElement.classList.remove('ios-fs-active');
+        };
+    }, [open]);
+
     return (
         <Dialog
             open={open}
             onOpenChange={onOpenChange}
             hideClose={true}
-            className="max-w-5xl p-0 overflow-hidden border-none bg-black shadow-2xl"
+            className={isFullscreen
+                ? "!fixed !inset-0 !z-[999999] !w-[100dvw] !h-[100dvh] !max-w-none !rounded-none !p-0 !m-0 !border-none !bg-black"
+                : "max-w-5xl p-0 overflow-hidden border-none bg-black shadow-2xl sm:rounded-3xl"
+            }
         >
-            <div className="flex flex-col h-full overflow-visible select-none" onContextMenu={(e) => e.preventDefault()}>
+            <div className="flex flex-col h-full overflow-hidden select-none relative" onContextMenu={(e) => e.preventDefault()}>
                 <div className="absolute top-3 left-3 z-50 sm:hidden">
                     {isFullscreen ? (
                         <button onClick={exitFull} className="px-3 py-1.5 rounded-md bg-black/60 text-white text-sm border border-white/10 flex items-center gap-2">
@@ -306,74 +326,82 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                     ) : null}
                 </div>
 
-                <div className="px-6 py-4 bg-zinc-900 border-b border-white/5 z-20">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex-1">
-                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                                <MonitorPlay className="h-5 w-5 text-violet-400" />
-                                <span className="wrap-break-word">{title || ""}</span>
-                            </h3>
-                            <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{subject || ""} • Live Recording</p>
-                        </div>
-                        <button
-                            onClick={() => onOpenChange(false)}
-                            className="absolute right-4 top-4 p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                            aria-label="Close"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                        <div className="flex items-center gap-3 mr-2 w-full sm:w-auto">
-                            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md text-white rounded-lg border border-white/10 px-2.5 py-1.5">
-                                <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
-                                <select
-                                    value={rate}
-                                    onChange={(e) => applyRate(Number(e.target.value))}
-                                    className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
-                                >
-                                    {rates.map((r) => (
-                                        <option key={r} value={r}>{r}x</option>
-                                    ))}
-                                </select>
-                                <div className="h-4 w-px bg-white/10" />
-                                <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
-                                <select
-                                    value={quality}
-                                    onChange={(e) => applyQuality(e.target.value)}
-                                    className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
-                                >
-                                    {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                        <option key={q} value={q}>
-                                            {q === "highres" ? "4320p" :
-                                                q === "hd2160" ? "4K" :
-                                                    q === "hd1440" ? "1440p" :
-                                                        q === "hd1080" ? "1080p" :
-                                                            q === "hd720" ? "720p" :
-                                                                q === "large" ? "480p" :
-                                                                    q === "medium" ? "360p" :
-                                                                        q === "small" ? "240p" :
-                                                                            q === "tiny" ? "144p" :
-                                                                                q === "auto" ? "Auto" : q}
-                                        </option>
-                                    ))}
-                                </select>
+                {!isFullscreen && (
+                    <div className="px-6 py-4 bg-zinc-900 border-b border-white/5 z-20 shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex-1">
+                                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                    <MonitorPlay className="h-5 w-5 text-violet-400" />
+                                    <span className="wrap-break-word">{title || ""}</span>
+                                </h3>
+                                <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">{subject || ""} • Live Recording</p>
                             </div>
                             <button
-                                aria-label="Close"
                                 onClick={() => onOpenChange(false)}
-                                className="ml-auto sm:ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition"
+                                className="absolute right-4 top-4 p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Close"
                             >
                                 <X className="h-5 w-5" />
                             </button>
+                            <div className="flex items-center gap-3 mr-2 w-full sm:w-auto">
+                                <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md text-white rounded-lg border border-white/10 px-2.5 py-1.5">
+                                    <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
+                                    <select
+                                        value={rate}
+                                        onChange={(e) => applyRate(Number(e.target.value))}
+                                        className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                    >
+                                        {rates.map((r) => (
+                                            <option key={r} value={r}>{r}x</option>
+                                        ))}
+                                    </select>
+                                    <div className="h-4 w-px bg-white/10" />
+                                    <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
+                                    <select
+                                        value={quality}
+                                        onChange={(e) => applyQuality(e.target.value)}
+                                        className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                    >
+                                        {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                            <option key={q} value={q}>
+                                                {q === "highres" ? "4320p" :
+                                                    q === "hd2160" ? "4K" :
+                                                        q === "hd1440" ? "1440p" :
+                                                            q === "hd1080" ? "1080p" :
+                                                                q === "hd720" ? "720p" :
+                                                                    q === "large" ? "480p" :
+                                                                        q === "medium" ? "360p" :
+                                                                            q === "small" ? "240p" :
+                                                                                q === "tiny" ? "144p" :
+                                                                                    q === "auto" ? "Auto" : q}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    aria-label="Close"
+                                    onClick={() => onOpenChange(false)}
+                                    className="ml-auto sm:ml-4 p-2 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 <div 
                     ref={playerRootRef} 
-                    className={`relative w-full bg-black flex items-center justify-center overflow-hidden border-b border-white/5 group ${
-                        isFullscreen ? 'fixed inset-0 z-999999 aspect-auto' : 'aspect-video'
+                    className={`relative w-full bg-black flex items-center justify-center overflow-hidden border-white/5 group ${
+                        isFullscreen ? (isPortrait ? 'absolute z-[999999]' : 'flex-1 aspect-auto border-none') : 'aspect-video border-b'
                     }`}
-                    style={isFullscreen ? { width: '100vw', height: '100vh', top: 0, left: 0 } : undefined}
+                    style={isFullscreen && isPortrait ? {
+                        width: '100dvh',
+                        height: '100dvw',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%) rotate(90deg)',
+                    } : undefined}
                     onContextMenu={(e) => e.preventDefault()}
                 >
                     <div className="absolute inset-0 pointer-events-none z-30 opacity-[0.03] select-none flex items-center justify-center overflow-hidden">
@@ -404,7 +432,7 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                         <iframe
                             ref={containerRef as unknown as React.RefObject<HTMLIFrameElement>}
                             src={resolvedId ? `/player/yt?id=${encodeURIComponent(resolvedId)}&start=0&autoplay=1` : undefined}
-                            className="w-full h-full"
+                            className="w-full h-full pointer-events-none"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowFullScreen
                             frameBorder="0"
@@ -427,16 +455,26 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                     )}
                     {isFullscreen && fsOverlayVisible && (
                         <div className="absolute inset-0 z-40 flex flex-col justify-between">
-                            <div className="flex items-start justify-between p-3"
-                                style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+                            <div className="flex items-start justify-between"
+                                style={{
+                                    paddingTop: 'max(12px, env(safe-area-inset-top))',
+                                    paddingLeft: 'max(12px, env(safe-area-inset-left))',
+                                    paddingRight: 'max(12px, env(safe-area-inset-right))',
+                                    paddingBottom: '8px',
+                                }}
                             >
-                                <button onClick={() => { exitFull(); showFsOverlay(); }} className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-sm font-medium border border-white/10 flex items-center gap-2 active:scale-95 transition-transform">
+                                <button onClick={() => { exitFull(); showFsOverlay(); }} className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-sm font-medium border border-white/10 flex items-center gap-2 active:scale-95 transition-transform min-h-[44px]">
                                     <ArrowLeft className="h-4 w-4" />
                                     Back
                                 </button>
                             </div>
-                            <div className="p-3"
-                                style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+                            <div
+                                style={{
+                                    paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+                                    paddingLeft: 'max(12px, env(safe-area-inset-left))',
+                                    paddingRight: 'max(12px, env(safe-area-inset-right))',
+                                    paddingTop: '8px',
+                                }}
                             >
                                 <div className="rounded-xl bg-black/60 border border-white/10 px-3 py-2 text-white">
                                     <input
@@ -448,34 +486,31 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                                         onChange={(e) => { seekTo(Number(e.target.value)); showFsOverlay(); }}
                                         className="w-full accent-violet-500"
                                     />
-                                    <div className="mt-2 flex items-center gap-3">
-                                        <div className="text-[10px] font-mono text-zinc-300 w-24 text-center">{fmt(currentTime)} / {fmt(duration || 0)}</div>
-                                        <button onClick={() => { togglePlay(); showFsOverlay(); }} className="p-1.5 rounded-md hover:bg-white/10">
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <div className="text-[10px] font-mono text-zinc-300 whitespace-nowrap">{fmt(currentTime)} / {fmt(duration || 0)}</div>
+                                        <button onClick={() => { togglePlay(); showFsOverlay(); }} className="p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center">
                                             {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
                                         </button>
-                                        <button onClick={() => { seekBy(-10); showFsOverlay(); }} className="p-1.5 rounded-md hover:bg-white/10">
+                                        <button onClick={() => { seekBy(-10); showFsOverlay(); }} className="p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center">
                                             <SkipBack className="h-5 w-5" />
                                         </button>
-                                        <button onClick={() => { seekBy(10); showFsOverlay(); }} className="p-1.5 rounded-md hover:bg-white/10">
+                                        <button onClick={() => { seekBy(10); showFsOverlay(); }} className="p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center">
                                             <SkipForward className="h-5 w-5" />
                                         </button>
-                                        <div className="ml-auto flex items-center gap-2">
-                                            <span className="uppercase text-[9px] tracking-widest text-zinc-300">Speed</span>
+                                        <div className="ml-auto flex items-center gap-1">
                                             <select
                                                 value={rate}
                                                 onChange={(e) => { applyRate(Number(e.target.value)); showFsOverlay(); }}
-                                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1.5 min-h-[36px]"
                                             >
                                                 {rates.map((r) => (
                                                     <option key={r} value={r}>{r}x</option>
                                                 ))}
                                             </select>
-                                            <div className="h-4 w-px bg-white/10" />
-                                            <span className="uppercase text-[9px] tracking-widest text-zinc-300">Quality</span>
                                             <select
                                                 value={quality}
                                                 onChange={(e) => { applyQuality(e.target.value); showFsOverlay(); }}
-                                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1"
+                                                className="bg-black/30 border border-white/10 rounded-md text-xs px-1.5 py-1.5 min-h-[36px]"
                                             >
                                                 {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
                                                     <option key={q} value={q}>
@@ -510,8 +545,10 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                     )}
                 </div>
 
-                <div className="px-6 py-3 bg-zinc-950 border-t border-white/5 z-30 sticky bottom-0">
-                    <div className="max-w-4xl mx-auto space-y-2">
+                {!isFullscreen && (
+                    <>
+                        <div className="px-4 py-3 bg-zinc-950 border-t border-white/5 z-30 sticky bottom-0 shrink-0">
+                            <div className="max-w-4xl mx-auto space-y-2">
                         <input
                             type="range"
                             min={0}
@@ -521,44 +558,51 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                             onChange={(e) => seekTo(Number(e.target.value))}
                             className="w-full accent-violet-500"
                         />
-                        <div className="bg-black/60 backdrop-blur-md text-white rounded-xl border border-white/10 px-3 py-2 flex items-center gap-3 overflow-x-auto no-scrollbar">
-                            <div className="text-[10px] font-mono text-zinc-300 w-24 text-center shrink-0">{fmt(currentTime)} / {fmt(duration || 0)}</div>
-                            <button onClick={togglePlay} className="p-1.5 rounded-md hover:bg-white/10">
-                                {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
-                            </button>
-                            <button onClick={() => seekBy(-10)} className="p-1.5 rounded-md hover:bg-white/10">
-                                <SkipBack className="h-5 w-5" />
-                            </button>
-                            <button onClick={() => seekBy(10)} className="p-1.5 rounded-md hover:bg-white/10">
-                                <SkipForward className="h-5 w-5" />
-                            </button>
-                            
-                            <div className="sm:hidden flex items-center gap-2">
-                                <div className="h-4 w-px bg-white/10" />
-                                <select
-                                    value={rate}
-                                    onChange={(e) => applyRate(Number(e.target.value))}
-                                    className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1.5 py-1"
-                                >
-                                    {rates.map((r) => (
-                                        <option key={r} value={r}>{r}x</option>
-                                    ))}
-                                </select>
-                                <select
-                                    value={quality}
-                                    onChange={(e) => applyQuality(e.target.value)}
-                                    className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1.5 py-1"
-                                >
-                                    {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
-                                        <option key={q} value={q}>
-                                            {q === "highres" ? "4320p" : q === "hd2160" ? "4K" : q === "hd1440" ? "1440p" : q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "tiny" ? "144p" : q === "auto" ? "Auto" : q}
-                                        </option>
-                                    ))}
-                                </select>
+                        <div className="flex items-center justify-between gap-1 sm:gap-2 bg-black/60 backdrop-blur-md text-white rounded-xl border border-white/10 px-1 sm:px-2 py-1.5 overflow-hidden">
+                            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                                <button onClick={togglePlay} className="p-1 sm:p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center shrink-0">
+                                    {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                                </button>
+                                
+                                <div className="hidden min-[375px]:flex items-center gap-0.5 sm:gap-1">
+                                    <button onClick={() => seekBy(-10)} className="p-1 sm:p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center shrink-0">
+                                        <SkipBack className="h-5 w-5" />
+                                    </button>
+                                    <button onClick={() => seekBy(10)} className="p-1 sm:p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center shrink-0">
+                                        <SkipForward className="h-5 w-5" />
+                                    </button>
+                                </div>
+                                
+                                <div className="text-[9px] sm:text-[10px] font-mono text-zinc-300 whitespace-nowrap ml-1 sm:ml-0 shrink-0">
+                                    {fmt(currentTime)} / {fmt(duration || 0)}
+                                </div>
                             </div>
+                            
+                            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                                <div className="flex sm:hidden items-center gap-0.5">
+                                    <select
+                                        value={rate}
+                                        onChange={(e) => applyRate(Number(e.target.value))}
+                                        className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1 py-1.5 min-h-[36px] max-w-[46px] appearance-none text-center"
+                                    >
+                                        {rates.map((r) => (
+                                            <option key={r} value={r}>{r}x</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={quality}
+                                        onChange={(e) => applyQuality(e.target.value)}
+                                        className="bg-black/30 border border-white/10 rounded-md text-[10px] px-1 py-1.5 min-h-[36px] max-w-[56px] appearance-none text-center"
+                                    >
+                                        {(qualities.length > 0 ? qualities : ["auto", "hd1080", "hd720", "large", "medium", "small"]).map((q) => (
+                                            <option key={q} value={q}>
+                                                {q === "highres" ? "4320p" : q === "hd2160" ? "4K" : q === "hd1440" ? "1440p" : q === "hd1080" ? "1080p" : q === "hd720" ? "720p" : q === "large" ? "480p" : q === "medium" ? "360p" : q === "small" ? "240p" : q === "tiny" ? "144p" : q === "auto" ? "Auto" : q}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div className="ml-auto">
-                                <button onClick={isFullscreen ? exitFull : enterFull} className="p-1.5 rounded-md hover:bg-white/10">
+                                <button onClick={isFullscreen ? exitFull : enterFull} className="p-1 sm:p-2 rounded-md hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0">
                                     {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
                                 </button>
                             </div>
@@ -573,15 +617,13 @@ function RecordingPlayerDialog({ open, onOpenChange, title, subject, url, userEm
                                 <div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
                                 PROGRESS: {fmt(currentTime)} / {fmt(duration || 0)}
                             </span>
-                            <span className="flex items-center gap-2 uppercase tracking-widest">
-                                Server ID: LBS-KERALA-01
-                            </span>
+                           
                         </div>
-                        <div className="text-zinc-600 font-bold tracking-[0.3em] uppercase opacity-40">
-                            PROTECTED BY CET MCA VIRTUAL SECURE PLAYER
-                        </div>
+                      
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </Dialog>
     );
